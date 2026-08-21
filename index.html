@@ -1189,20 +1189,20 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
 
       {/* いま一番の課題 */}
       {weakest && (
-        <Card className="mb-8 border-slate-300 p-5">
+        <Card className={`mb-8 p-5 ${weakest.ok ? "border-emerald-200 bg-emerald-50/50" : "border-amber-300 bg-amber-50/60"}`}>
           {weakest.ok ? (
             <div className="flex items-center gap-3">
-              <CheckCircle2 size={20} className="shrink-0 text-emerald-600" />
+              <CheckCircle2 size={22} className="shrink-0 text-emerald-600" />
               <p className="text-base font-bold text-slate-900">4項目すべて目標達成</p>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-              <span className="rounded bg-slate-800 px-2 py-1 text-xs font-bold text-white">最優先</span>
-              <span className="text-base font-bold text-slate-900">{weakest.label}</span>
-              <span className="text-2xl font-bold tracking-tight text-slate-900">{p1(weakest.rate)}</span>
-              <span className="text-sm text-slate-400">目標 {weakest.target}%</span>
+              <span className="rounded-full bg-amber-200/70 px-2.5 py-1 text-xs font-bold text-amber-900">最優先</span>
+              <span className="text-lg font-bold text-slate-900">{weakest.label}</span>
+              <span className="text-2xl font-bold text-rose-600">{p1(weakest.rate)}</span>
+              <span className="text-sm text-slate-500">目標 {weakest.target}%</span>
               {weakest.need > 0 && (
-                <span className="ml-auto text-sm font-semibold text-slate-600">
+                <span className="ml-auto rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-amber-800 ring-1 ring-amber-200">
                   {weakest.toLabel} あと {weakest.need} 件
                 </span>
               )}
@@ -1210,6 +1210,63 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
           )}
         </Card>
       )}
+
+      {/* 歩留まり */}
+      <section className="mb-10">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {stages.map((x) => {
+            const isWeak = weakest && x.key === weakest.key && !x.ok;
+            return (
+              <Card key={x.key} className={`p-5 ${isWeak ? "border-amber-300" : ""}`}>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-bold text-slate-800">{x.label}</span>
+                  {x.from > 0 && (
+                    <span className="text-xs text-slate-400">{x.rank}位 / {x.total}名</span>
+                  )}
+                </div>
+
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className={`text-3xl font-bold tracking-tight ${x.from === 0 ? "text-slate-300" : x.ok ? "text-emerald-600" : "text-rose-600"}`}>
+                    {x.from > 0 ? p1(x.rate) : "-"}
+                  </span>
+                  <span className="text-xs text-slate-400">/ {x.target}%</span>
+                </div>
+
+                <div className="mt-3">
+                  <Bar value={ratio(x.rate, x.target)} color={x.ok ? "#059669" : isWeak ? "#f59e0b" : NAVY} />
+                </div>
+
+                <div className="mt-2.5 flex items-baseline justify-between text-xs">
+                  <span className="text-slate-400">{x.to} / {x.from} 件</span>
+                  {x.from > 0 && !x.ok && x.need > 0 && (
+                    <span className="font-semibold text-amber-700">あと {x.need} 件</span>
+                  )}
+                  {x.ok && <span className="font-semibold text-emerald-600">達成</span>}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 実数 */}
+      <section className="mb-10">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          {[
+            { label: "対応", v: mine.taio },
+            { label: "アプローチ", v: mine.apu },
+            { label: "アポ", v: mine.apo },
+            { label: "有効商談", v: mine.shodan },
+            { label: "完工", v: mine.kanko },
+            { label: "売上", v: yen(mine.sales), small: true },
+          ].map((k) => (
+            <Card key={k.label} className="p-4">
+              <p className="text-xs text-slate-400">{k.label}</p>
+              <p className={`mt-1 font-bold tracking-tight text-slate-900 ${k.small ? "text-base" : "text-2xl"}`}>{k.v}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
 
       {/* 個人目標に対する進捗 */}
       {myTarget && (
@@ -1252,75 +1309,6 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
         </section>
       )}
 
-      {/* 歩留まり */}
-      <section className="mb-10">
-        <SectionTitle note="支部目標との比較">歩留まり</SectionTitle>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {stages.map((x) => {
-            const isWeak = weakest && x.key === weakest.key && !x.ok;
-            return (
-              <Card key={x.key} className="p-5">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm font-bold text-slate-800">
-                    {x.label}
-                    {isWeak && (
-                      <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                        最優先
-                      </span>
-                    )}
-                  </span>
-                  {x.from > 0 && <span className="text-xs text-slate-400">{x.rank}位 / {x.total}名</span>}
-                </div>
-
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className={`text-3xl font-bold tracking-tight ${x.from === 0 ? "text-slate-300" : "text-slate-900"}`}>
-                    {x.from > 0 ? p1(x.rate) : "-"}
-                  </span>
-                  <span className="text-xs text-slate-400">目標 {x.target}%</span>
-                </div>
-
-                <div className="mt-3">
-                  <Bar value={ratio(x.rate, x.target)} color={x.ok ? "#059669" : NAVY} />
-                </div>
-
-                <div className="mt-2.5 flex items-baseline justify-between text-xs">
-                  <span className="text-slate-400">{x.to} / {x.from} 件</span>
-                  {x.from === 0 ? (
-                    <span className="text-slate-300">-</span>
-                  ) : x.ok ? (
-                    <span className="font-semibold text-emerald-600">達成</span>
-                  ) : (
-                    <span className="font-semibold text-slate-500">
-                      あと {p1(Math.abs(x.gap))}
-                      {x.need > 0 && `（${x.need}件）`}
-                    </span>
-                  )}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 実数 */}
-      <section className="mb-10">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-          {[
-            { label: "対応", v: mine.taio },
-            { label: "アプローチ", v: mine.apu },
-            { label: "アポ", v: mine.apo },
-            { label: "有効商談", v: mine.shodan },
-            { label: "完工", v: mine.kanko },
-            { label: "売上", v: yen(mine.sales), small: true },
-          ].map((k) => (
-            <Card key={k.label} className="p-4">
-              <p className="text-xs text-slate-400">{k.label}</p>
-              <p className={`mt-1 font-bold tracking-tight text-slate-900 ${k.small ? "text-base" : "text-2xl"}`}>{k.v}</p>
-            </Card>
-          ))}
-        </div>
-      </section>
-
       {/* メンバー比較 */}
       <section>
         <SectionTitle note="緑は目標達成">メンバー比較</SectionTitle>
@@ -1353,7 +1341,7 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
                             {r === null ? (
                               <span className="text-slate-300">-</span>
                             ) : (
-                              <span className={`font-semibold ${r >= goal[f.key] ? "text-emerald-600" : "text-slate-600"}`}>
+                              <span className={`font-semibold ${r >= goal[f.key] ? "text-emerald-600" : "text-rose-600"}`}>
                                 {p1(r)}
                               </span>
                             )}
@@ -3712,7 +3700,7 @@ const NAV_ITEMS = [
    ここに Apps Script のウェブアプリURLを貼り付けてください
    （デプロイを管理 → ウェブアプリのURL。末尾が /exec のもの）
    ══════════════════════════════════════════ */
-const API_URL = "ここにURLを貼り付け";
+const API_URL = "https://script.google.com/macros/s/AKfycbynWR39HbLwEv7y-wv-otaoXSf4ApaLzSLK9loCrCP1rkF0e1C483fO-cnoM1bIocFinA/exec";
 
 async function callServer(fn, ...args) {
   if (!API_URL || API_URL.indexOf("script.google.com") < 0) {

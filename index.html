@@ -1116,7 +1116,7 @@ function EditLogModal({ log, onClose, onSave, onDelete, currentUser }) {
 /* ══════════════════════════════════════════
    0. マイ成績
    ══════════════════════════════════════════ */
-function MyPerformance({ stats, goal, currentUser, month, setMonth, onGoInput }) {
+function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onGoInput }) {
   const valuesOf = (name) => {
     const v = stats.members[name] || {};
     const mi = stats.byMember[name] || 0;
@@ -1130,6 +1130,7 @@ function MyPerformance({ stats, goal, currentUser, month, setMonth, onGoInput })
     };
   };
   const mine = valuesOf(currentUser);
+  const myTarget = targets[currentUser];
 
   const stages = FUNNEL.map((f) => {
     const from = mine[f.from];
@@ -1266,6 +1267,47 @@ function MyPerformance({ stats, goal, currentUser, month, setMonth, onGoInput })
           ))}
         </div>
       </section>
+
+      {/* 個人目標に対する進捗 */}
+      {myTarget && (
+        <section className="mb-10">
+          <SectionTitle note={`${PERIOD.year}年${month}月の個人目標`}>目標進捗</SectionTitle>
+          <Card className="p-5 sm:p-6">
+            <div className="space-y-5">
+              {[
+                { label: "対応数", cur: mine.taio, tgt: myTarget.taio },
+                { label: "アプローチ数", cur: mine.apu, tgt: Math.round(myTarget.taio * (goal.taioApuRate / 100)) },
+                { label: "アポ数", cur: mine.apo, tgt: myTarget.apo },
+                { label: "有効商談数", cur: mine.shodan, tgt: myTarget.shodan },
+                { label: "完工数", cur: mine.kanko, tgt: myTarget.kanko },
+              ].map((r) => {
+                const pct = ratio(r.cur, r.tgt);
+                const done = r.tgt > 0 && r.cur >= r.tgt;
+                return (
+                  <div key={r.label}>
+                    <div className="mb-2 flex items-baseline justify-between text-sm">
+                      <span className="text-slate-600">{r.label}</span>
+                      <span>
+                        <span className={`font-bold ${done ? "text-emerald-600" : "text-slate-900"}`}>{r.cur}</span>
+                        <span className="ml-1 text-xs text-slate-400">
+                          / {r.tgt}（{r.tgt > 0 ? pct.toFixed(0) : "-"}%）
+                        </span>
+                        {!done && r.tgt > r.cur && (
+                          <span className="ml-2 text-xs font-semibold text-amber-700">あと {r.tgt - r.cur}</span>
+                        )}
+                      </span>
+                    </div>
+                    <Bar value={pct} color={done ? "#059669" : NAVY} />
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-5 text-xs leading-relaxed text-slate-400">
+              ※ 個人目標は設定画面で管理者が変更できます。アプローチ数の目標は、対応数の目標に支部の対応アプ率（{goal.taioApuRate}%）を掛けた値です。
+            </p>
+          </Card>
+        </section>
+      )}
 
       {/* メンバー比較 */}
       <section>
@@ -4103,6 +4145,7 @@ function App() {
             <MyPerformance
               stats={stats}
               goal={goal}
+              targets={targets}
               currentUser={currentUser}
               month={month}
               setMonth={setMonth}

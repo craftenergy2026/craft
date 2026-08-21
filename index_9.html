@@ -1,0 +1,4271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Craft energy 営業ダッシュボード</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js" crossorigin></script>
+<style>
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+      "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  input, select, button, textarea { font-family: inherit; }
+  @media (max-width: 640px) { input, select { font-size: 16px; } }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="boot" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#104183;color:#dbeafe;font-size:14px;padding:24px;text-align:center;">
+    読み込んでいます…
+  </div>
+</div>
+
+<script>
+  /* 読み込みに失敗した場合、原因を画面に表示する */
+  window.__bootError = function (message) {
+    var el = document.getElementById("root");
+    if (!el) return;
+    el.innerHTML =
+      '<div style="min-height:100vh;background:#104183;padding:24px;display:flex;align-items:center;justify-content:center;">' +
+      '<div style="background:#fff;border-radius:12px;padding:20px;max-width:640px;width:100%;font-size:13px;line-height:1.7;color:#334155;">' +
+      '<p style="font-weight:700;color:#0f172a;margin:0 0 12px;">画面を表示できませんでした</p>' +
+      '<p style="margin:0 0 12px;">次の点を確認してください。</p>' +
+      '<ol style="margin:0 0 12px;padding-left:20px;">' +
+      '<li>Index ファイルの貼り付けが途中で切れていないか（末尾が &lt;/html&gt; で終わっているか）</li>' +
+      '<li>インターネットに接続されているか（外部の表示用ライブラリを読み込みます）</li>' +
+      '<li>設定を変更した場合、新しいバージョンとして再デプロイしたか</li>' +
+      '</ol>' +
+      '<p style="margin:0 0 6px;font-weight:600;color:#0f172a;">エラー内容</p>' +
+      '<pre style="white-space:pre-wrap;word-break:break-all;background:#f1f5f9;padding:12px;border-radius:8px;margin:0;font-size:12px;">' +
+      String(message) +
+      '</pre></div></div>';
+  };
+
+  window.addEventListener("error", function (e) {
+    window.__bootError((e && e.message) || "不明なエラー");
+  });
+
+  /* 一定時間たっても描画されない場合の案内 */
+  setTimeout(function () {
+    var boot = document.getElementById("boot");
+    if (boot && document.body.contains(boot)) {
+      window.__bootError("表示用ライブラリの読み込み、またはコードの解析が完了しませんでした。");
+    }
+  }, 12000);
+</script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef } = React;
+/* ══════════════════════════════════════════
+   アイコン（lucide 相当のインライン SVG）
+   ══════════════════════════════════════════ */
+function Svg({ size = 24, strokeWidth = 2, className, style, children }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={style}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const LayoutDashboard = (p) => (
+  <Svg {...p}>
+    <rect width="7" height="9" x="3" y="3" rx="1" />
+    <rect width="7" height="5" x="14" y="3" rx="1" />
+    <rect width="7" height="9" x="14" y="12" rx="1" />
+    <rect width="7" height="5" x="3" y="16" rx="1" />
+  </Svg>
+);
+const PenSquare = (p) => (
+  <Svg {...p}>
+    <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" />
+  </Svg>
+);
+const BarChart3 = (p) => (
+  <Svg {...p}>
+    <path d="M3 3v18h18" />
+    <path d="M18 17V9" />
+    <path d="M13 17V5" />
+    <path d="M8 17v-3" />
+  </Svg>
+);
+const Users = (p) => (
+  <Svg {...p}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </Svg>
+);
+const Trophy = (p) => (
+  <Svg {...p}>
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+    <path d="M4 22h16" />
+    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+  </Svg>
+);
+const Settings = (p) => (
+  <Svg {...p}>
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+    <circle cx="12" cy="12" r="3" />
+  </Svg>
+);
+const TrendingUp = (p) => (
+  <Svg {...p}>
+    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+    <polyline points="16 7 22 7 22 13" />
+  </Svg>
+);
+const PhoneCall = (p) => (
+  <Svg {...p}>
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+    <path d="M14.05 2a9 9 0 0 1 8 7.94" />
+    <path d="M14.05 6A5 5 0 0 1 18 10" />
+  </Svg>
+);
+const CalendarDays = (p) => (
+  <Svg {...p}>
+    <rect width="18" height="18" x="3" y="4" rx="2" />
+    <path d="M16 2v4" />
+    <path d="M8 2v4" />
+    <path d="M3 10h18" />
+    <path d="M8 14h.01" />
+    <path d="M12 14h.01" />
+    <path d="M16 14h.01" />
+    <path d="M8 18h.01" />
+    <path d="M12 18h.01" />
+    <path d="M16 18h.01" />
+  </Svg>
+);
+const CheckCircle2 = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="m9 12 2 2 4-4" />
+  </Svg>
+);
+const AlertCircle = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 8v4" />
+    <path d="M12 16h.01" />
+  </Svg>
+);
+const Award = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="8" r="6" />
+    <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+  </Svg>
+);
+const Target = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="6" />
+    <circle cx="12" cy="12" r="2" />
+  </Svg>
+);
+const Briefcase = (p) => (
+  <Svg {...p}>
+    <rect width="20" height="14" x="2" y="7" rx="2" />
+    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+  </Svg>
+);
+const Info = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 16v-4" />
+    <path d="M12 8h.01" />
+  </Svg>
+);
+const Save = (p) => (
+  <Svg {...p}>
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+    <polyline points="17 21 17 13 7 13 7 21" />
+    <polyline points="7 3 7 8 15 8" />
+  </Svg>
+);
+const UserCircle2 = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M18 20a6 6 0 0 0-12 0" />
+    <circle cx="12" cy="10" r="4" />
+  </Svg>
+);
+const ShieldCheck = (p) => (
+  <Svg {...p}>
+    <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+    <path d="m9 12 2 2 4-4" />
+  </Svg>
+);
+const RotateCcw = (p) => (
+  <Svg {...p}>
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+  </Svg>
+);
+const XCircle = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="m15 9-6 6" />
+    <path d="m9 9 6 6" />
+  </Svg>
+);
+const X = (p) => (
+  <Svg {...p}>
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </Svg>
+);
+const ClipboardCheck = (p) => (
+  <Svg {...p}>
+    <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <path d="m9 14 2 2 4-4" />
+  </Svg>
+);
+const Ban = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="m4.9 4.9 14.2 14.2" />
+  </Svg>
+);
+const ChevronDown = (p) => (
+  <Svg {...p}>
+    <path d="m6 9 6 6 6-6" />
+  </Svg>
+);
+
+
+
+/* ══════════════════════════════════════════
+   ブランドカラー
+   ══════════════════════════════════════════ */
+const NAVY = "#104183";
+const NAVY_SOFT = "rgba(255,255,255,0.10)";
+const NAVY_TINT = "#eef3fb";
+const ACCENT = "#79a8e8";
+
+/* ══════════════════════════════════════════
+   基礎データ（2026年8月／スプレッドシート由来）
+   ══════════════════════════════════════════ */
+const DOW = ["日", "月", "火", "水", "木", "金", "土"];
+const NOW = new Date();
+const PERIOD = {
+  year: NOW.getFullYear(),
+  month: NOW.getMonth() + 1,
+  label: `${NOW.getFullYear()}年${NOW.getMonth() + 1}月`,
+};
+const TODAY = {
+  date: `${NOW.getMonth() + 1}/${NOW.getDate()}`,
+  dow: DOW[NOW.getDay()],
+  full: `${NOW.getFullYear()}年${NOW.getMonth() + 1}月${NOW.getDate()}日（${DOW[NOW.getDay()]}）`,
+  iso: `${NOW.getFullYear()}-${String(NOW.getMonth() + 1).padStart(2, "0")}-${String(NOW.getDate()).padStart(2, "0")}`,
+};
+
+const DEFAULT_GOAL = {
+  shodanApoRate: 20,
+  shodanKankoRate: 29,
+  closerKankoRate: 60,
+  sales: 20000000,
+  /* 支部の目標（歩留まり） */
+  taioApuRate: 15,   /* 対応アプ率：アプローチ ÷ 対応 */
+  apuApoRate: 40,    /* アプアポ率：アポ ÷ アプローチ */
+  apoShodanRate: 30, /* アポ商談率：商談 ÷ アポ */
+  kankoRate: 40,     /* 商談完工率：完工 ÷ 商談 */
+};
+
+/* 支部目標の段階（マイ成績で使います） */
+const FUNNEL = [
+  { key: "taioApuRate", label: "対応アプ率", from: "taio", to: "apu", fromLabel: "対応数", toLabel: "アプローチ数", advice: "対応の質を上げて、アプローチまで進む件数を増やしましょう" },
+  { key: "apuApoRate", label: "アプアポ率", from: "apu", to: "apo", fromLabel: "アプローチ数", toLabel: "アポ数", advice: "アプローチからアポにつなげるトークを見直しましょう" },
+  { key: "apoShodanRate", label: "アポ商談率", from: "apo", to: "shodan", fromLabel: "アポ数", toLabel: "有効商談数", advice: "アポの質を上げて、商談に至らない案件を減らしましょう" },
+  { key: "kankoRate", label: "商談完工率", from: "shodan", to: "kanko", fromLabel: "有効商談数", toLabel: "完工数", advice: "クローザーと連携し、商談の精度を高めましょう" },
+];
+
+/* メンバー名簿（役割と個人目標）／実績はすべて日報ログから集計します */
+const MEMBERS = [
+  { name: "坂神", role: "アポインター", target: { shukkin: 10, taio: 700, apo: 18, shodan: 5, kanko: 2, rate: 28 } },
+  { name: "沼口", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 35, shodan: 5, kanko: 2, rate: 14 } },
+  { name: "鄭", role: "アポインター", target: { shukkin: 11, taio: 700, apo: 20, shodan: 8, kanko: 2, rate: 40 } },
+  { name: "佐伯", role: "アポインター", target: { shukkin: 11, taio: 480, apo: 20, shodan: 4, kanko: 2, rate: 20 } },
+  { name: "石", role: "アポインター", target: { shukkin: 10, taio: 600, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
+  { name: "伊藤", role: "クローザー", target: { shukkin: 10, taio: 700, apo: 20, shodan: 3, kanko: 1, rate: 15 } },
+  { name: "藤代", role: "アポインター", target: { shukkin: 8, taio: 480, apo: 16, shodan: 5, kanko: 3, rate: 31 } },
+  { name: "山﨑", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
+  { name: "沼野", role: "アポインター", target: { shukkin: 4, taio: 260, apo: 12, shodan: 4, kanko: 1, rate: 33 } },
+  { name: "上山", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "王", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "大川", role: "クローザー", target: { shukkin: 4, taio: 200, apo: 16, shodan: 4, kanko: 2, rate: 25 } },
+  { name: "森野", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
+  { name: "斉藤", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
+  { name: "橋本", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
+];
+
+/* クローザー（商談完工率で評価する人） */
+const CLOSERS = MEMBERS.filter((m) => m.role === "クローザー");
+
+/* 管理者アカウント（営業実績は持たない） */
+const ADMINS = [
+  { name: "森野", role: "クローザー", admin: true, dept: "営業管理" },
+  { name: "斉藤", role: "クローザー", admin: true, dept: "営業管理" },
+  { name: "橋本", role: "クローザー", admin: true, dept: "営業管理" },
+];
+
+/* ログインできるアカウント */
+const ACCOUNTS = [...ADMINS, ...MEMBERS.map((m) => ({ name: m.name, role: m.role, admin: false }))];
+const findAccount = (name) => ACCOUNTS.find((a) => a.name === name);
+
+/* 未商談の理由 */
+const REASONS = ["既設7キロ以上", "屋根貸し3年未満禁止", "75歳以上"];
+
+/* 契約キャンセルの理由 */
+const CANCEL_REASONS = ["クーリングオフ", "審査NG", "設置条件NG", "顧客都合", "その他"];
+
+/* サンプルデータの日付を当月に読み替えるための補助 */
+const dayNumOfSeed = (d) => Number(String(d).split("/")[1]);
+
+/* 日報ログ（メンバー×日）
+   taio / apu / apo … 本人の活動量
+   items            … クローザーが担当した商談。appointer にアポインター名を入れます。 */
+const INITIAL_LOGS = [
+  { date: "8/11", dow: "火", name: "佐伯", taio: 51, apu: 1, apo: 0 },
+  { date: "8/10", dow: "月", name: "坂神", taio: 0, apu: 0, apo: 0 },
+  { date: "8/10", dow: "月", name: "山﨑", taio: 0, apu: 0, apo: 6 },
+  { date: "8/10", dow: "月", name: "大川", taio: 0, apu: 0, apo: 0,
+    items: [{ appointer: "坂神", mishodan: 1, reason: "75歳以上", by: "大川", at: "8/12 09:15", keiyaku: 1, sales: 2400000, kanko: 0 }] },
+  { date: "8/9", dow: "日", name: "坂神", taio: 58, apu: 0, apo: 3 },
+  { date: "8/9", dow: "日", name: "沼口", taio: 38, apu: 0, apo: 2 },
+  { date: "8/9", dow: "日", name: "鄭", taio: 75, apu: 4, apo: 0 },
+  { date: "8/9", dow: "日", name: "佐伯", taio: 60, apu: 2, apo: 1 },
+  { date: "8/9", dow: "日", name: "石", taio: 60, apu: 3, apo: 1 },
+  { date: "8/9", dow: "日", name: "伊藤", taio: 115, apu: 4, apo: 2 },
+  { date: "8/9", dow: "日", name: "藤代", taio: 50, apu: 1, apo: 1 },
+  { date: "8/9", dow: "日", name: "山﨑", taio: 55, apu: 5, apo: 2 },
+  { date: "8/8", dow: "土", name: "坂神", taio: 90, apu: 0, apo: 0 },
+  { date: "8/8", dow: "土", name: "沼口", taio: 30, apu: 0, apo: 4 },
+  { date: "8/8", dow: "土", name: "鄭", taio: 74, apu: 3, apo: 2 },
+  { date: "8/8", dow: "土", name: "佐伯", taio: 62, apu: 3, apo: 0 },
+  { date: "8/8", dow: "土", name: "石", taio: 61, apu: 5, apo: 1 },
+  { date: "8/8", dow: "土", name: "藤代", taio: 56, apu: 1, apo: 1 },
+  { date: "8/8", dow: "土", name: "山﨑", taio: 50, apu: 4, apo: 2,
+    items: [{ appointer: "坂神", keiyaku: 1, sales: 2780000, kanko: 1 }] },
+  { date: "8/2", dow: "日", name: "坂神", taio: 51, apu: 0, apo: 1 },
+  { date: "8/2", dow: "日", name: "沼口", taio: 30, apu: 0, apo: 2 },
+  { date: "8/2", dow: "日", name: "鄭", taio: 70, apu: 6, apo: 0 },
+  { date: "8/2", dow: "日", name: "佐伯", taio: 96, apu: 0, apo: 1 },
+  { date: "8/2", dow: "日", name: "石", taio: 53, apu: 7, apo: 1 },
+  { date: "8/2", dow: "日", name: "伊藤", taio: 90, apu: 5, apo: 2 },
+  { date: "8/2", dow: "日", name: "藤代", taio: 48, apu: 1, apo: 1 },
+  { date: "8/2", dow: "日", name: "沼野", taio: 50, apu: 0, apo: 2 },
+  { date: "8/2", dow: "日", name: "大川", taio: 40, apu: 3, apo: 2 },
+  { date: "8/2", dow: "日", name: "山﨑", taio: 30, apu: 1, apo: 1,
+    items: [
+      { appointer: "沼口" },
+      { appointer: "佐伯" },
+      { appointer: "山﨑" },
+      { appointer: "山﨑" },
+    ] },
+  { date: "8/1", dow: "土", name: "坂神", taio: 61, apu: 0, apo: 3 },
+  { date: "8/1", dow: "土", name: "沼口", taio: 40, apu: 0, apo: 5 },
+  { date: "8/1", dow: "土", name: "鄭", taio: 69, apu: 8, apo: 1 },
+  { date: "8/1", dow: "土", name: "石", taio: 50, apu: 1, apo: 1 },
+  { date: "8/1", dow: "土", name: "藤代", taio: 48, apu: 2, apo: 1 },
+  { date: "8/1", dow: "土", name: "沼野", taio: 60, apu: 0, apo: 1 },
+  { date: "8/1", dow: "土", name: "大川", taio: 30, apu: 3, apo: 2 },
+  { date: "8/1", dow: "土", name: "山﨑", taio: 50, apu: 8, apo: 3,
+    items: [
+      { appointer: "坂神", keiyaku: 1, sales: 3780000, kanko: 1 },
+      { appointer: "沼口", keiyaku: 1, sales: 3980000, kanko: 0 },
+      { appointer: "沼野", mishodan: 1, reason: "既設7キロ以上", by: "山﨑", at: "8/1 19:40" },
+    ] },
+].map((l, i) => ({
+  id: `L${i + 1}`,
+  editedBy: "",
+  editedAt: "",
+  items: [],
+  ...l,
+  date: `${PERIOD.month}/${dayNumOfSeed(l.date)}`,
+  dow: DOW[new Date(PERIOD.year, PERIOD.month - 1, dayNumOfSeed(l.date)).getDay()],
+}));
+
+/* ── 商談明細 ──────────────────────────────
+   クローザーが日報で1商談ずつ登録します。
+   どのアポインターの商談かを持たせることで、アポインター側の実績にも反映されます。
+   { appointer: "坂神", mishodan: 0, reason: "", keiyaku: 1, sales: 3780000, kanko: 1,
+     cancelled: 0, cancelReason: "", by: "", at: "", cancelBy: "", cancelAt: "" }
+   ──────────────────────────────────────── */
+const itemsOf = (l) => (Array.isArray(l.items) ? l.items : []);
+const num = (v) => Number(v || 0);
+
+/* ── 集計ロジック ───────────────────────────── */
+const LOG_KEYS = ["taio", "apu", "apo", "shodan", "keiyaku", "kanko", "sales"];
+const dayNum = (date) => Number(date.split("/")[1]);
+const monthOf = (date) => Number(String(date).split("/")[0]);
+const weekStartOf = (date) => `${monthOf(date)}/${1 + Math.floor((dayNum(date) - 1) / 7) * 7}`;
+const weekDefsOf = (month) => {
+  const last = new Date(PERIOD.year, month, 0).getDate();
+  return [1, 8, 15, 22, 29].map((d) => {
+    const end = Math.min(d + 6, last);
+    return { start: `${month}/${d}`, range: `${month}/${d}〜${month}/${end}` };
+  });
+};
+
+/* 日報の商談明細から、商談レコードを組み立てる。
+   closer  … 商談を担当したクローザー（日報を入力した人）
+   name    … その商談を取ったアポインター（実績はこちらに計上されます） */
+function buildDeals(logs) {
+  const out = [];
+  logs.forEach((l) => {
+    itemsOf(l).forEach((it, i) => {
+      const keiyaku = num(it.keiyaku) > 0 ? 1 : 0;
+      const cancelled = num(it.cancelled) > 0;
+      const mishodan = num(it.mishodan) > 0;
+      /* 未商談でも契約が生きていれば商談として数えます。
+         契約がない、またはキャンセルされた未商談だけを商談数から控除します。 */
+      /* 未商談でも契約が生きていれば有効商談として数えます。
+         契約がない、または契約がキャンセルされた未商談は、有効商談から除きます。
+         いずれの場合も商談数（未商談を含む）には計上されます。 */
+      const excluded = mishodan && !(keiyaku > 0 && !cancelled);
+      out.push({
+        id: `${l.id}#${i}`,
+        logId: l.id,
+        index: i,
+        date: l.date,
+        dow: l.dow,
+        week: weekStartOf(l.date),
+        name: it.appointer || l.name,
+        customer: it.customer || "",
+        mishodan,
+        excluded,
+        owner: l.name,
+        closer: it.closer || l.name,
+        reason: it.reason || "",
+        by: it.by || "",
+        at: it.at || "",
+        keiyaku,
+        sales: num(it.sales),
+        kanko: num(it.kanko) > 0 ? 1 : 0,
+        cancelled,
+        cancelReason: it.cancelReason || "",
+        cancelBy: it.cancelBy || "",
+        cancelAt: it.cancelAt || "",
+      });
+    });
+  });
+  return out.sort((a, b) => dayNum(a.date) - dayNum(b.date) || a.index - b.index);
+}
+
+/* 空の実績 */
+const emptyStat = () => ({ taio: 0, apu: 0, apo: 0, shodan: 0, keiyaku: 0, kanko: 0, kankoDone: 0, sales: 0 });
+
+/* 日報と商談レコードから、メンバー別・日別・週別・全社の実績を組み立てる。
+   対応数・アプローチ数・アポ数は日報を入力した本人の実績。
+   商談数・契約数・完工数・売上金額は、その商談のアポインターの実績になります。 */
+function aggregateAll(allLogs, allDeals, month) {
+  const logs = allLogs.filter((l) => monthOf(l.date) === month);
+  const deals = allDeals.filter((d) => monthOf(d.date) === month);
+  const members = {};
+  MEMBERS.forEach((m) => (members[m.name] = emptyStat()));
+  const closers = {};
+  MEMBERS.forEach((m) => (closers[m.name] = emptyStat()));
+
+  const dayMap = {};
+  const day = (date, dow) => {
+    if (!dayMap[date]) dayMap[date] = { date, dow, week: weekStartOf(date), ...emptyStat() };
+    return dayMap[date];
+  };
+
+  /* 活動量（本人の実績） */
+  logs.forEach((l) => {
+    const d = day(l.date, l.dow);
+    ["taio", "apu", "apo"].forEach((k) => {
+      if (members[l.name]) members[l.name][k] += num(l[k]);
+      d[k] += num(l[k]);
+    });
+  });
+
+  /* 商談（アポインターの実績／クローザーの実績の両方に積む） */
+  deals.forEach((x) => {
+    const d = day(x.date, x.dow);
+    const keiyaku = x.cancelled ? 0 : x.keiyaku;
+    /* 完工数は「完工済み＋完工見込み」。契約していてキャンセルされていなければ計上します。 */
+    const kanko = keiyaku;
+    const kankoDone = x.cancelled ? 0 : x.kanko;
+    const sales = x.cancelled ? 0 : x.sales;
+    [members[x.name], closers[x.closer]].forEach((t) => {
+      if (!t) return;
+      t.shodan += 1;
+      t.keiyaku += keiyaku;
+      t.kanko += kanko;
+      t.kankoDone += kankoDone;
+      t.sales += sales;
+    });
+    d.shodan += 1;
+    d.keiyaku += keiyaku;
+    d.kanko += kanko;
+    d.kankoDone += kankoDone;
+    d.sales += sales;
+  });
+
+  const daily = Object.values(dayMap).sort((a, b) => dayNum(a.date) - dayNum(b.date));
+  const base = daily.reduce((a, d) => {
+    Object.keys(a).forEach((k) => (a[k] += d[k]));
+    return a;
+  }, emptyStat());
+
+  const weeks = weekDefsOf(month).map((w) => {
+    const ds = daily.filter((d) => d.week === w.start);
+    return {
+      ...w,
+      apo: ds.reduce((a, d) => a + d.apo, 0),
+      shodan: ds.reduce((a, d) => a + d.shodan, 0),
+      kanko: ds.reduce((a, d) => a + d.kanko, 0),
+    };
+  });
+
+  return { members, closers, daily, weeks, base };
+}
+
+/* メンバー個人目標の初期値（設定画面で変更可） */
+const DEFAULT_TARGETS = MEMBERS.reduce((a, m) => ({ ...a, [m.name]: { ...m.target } }), {});
+
+const sumTargets = (targets) =>
+  Object.values(targets).reduce(
+    (a, t) => ({
+      apo: a.apo + Number(t.apo || 0),
+      shodan: a.shodan + Number(t.shodan || 0),
+      kanko: a.kanko + Number(t.kanko || 0),
+      taio: a.taio + Number(t.taio || 0),
+    }),
+    { apo: 0, shodan: 0, kanko: 0, taio: 0 }
+  );
+
+/* ══════════════════════════════════════════
+   ユーティリティ
+   ══════════════════════════════════════════ */
+const yen = (n) => "¥" + n.toLocaleString("ja-JP");
+const ratio = (a, b) => (b > 0 ? (a / b) * 100 : 0);
+const p1 = (n) => n.toFixed(1) + "%";
+const clamp = (n) => Math.max(0, Math.min(100, n));
+/* キャンセルを反映したメンバー実績 */
+const memberValue = (m, key, stats) => ((stats.members[m.name] || {})[key] || 0);
+/* クローザー視点の実績 */
+const closerValue = (m, key, stats) => ((stats.closers[m.name] || {})[key] || 0);
+const stamp = () => {
+  const d = new Date();
+  const pad = (x) => String(x).padStart(2, "0");
+  return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/* ══════════════════════════════════════════
+   共通パーツ
+   ══════════════════════════════════════════ */
+function Card({ children, className = "", onClick }) {
+  return (
+    <div onClick={onClick} className={`rounded-lg border border-slate-200 bg-white shadow-sm ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function SectionTitle({ children, note }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <h2 className="text-base font-bold text-slate-900">{children}</h2>
+      {note && <span className="text-xs text-slate-400">{note}</span>}
+    </div>
+  );
+}
+
+function Bar({ value, color = NAVY }) {
+  return (
+    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${clamp(value)}%`, backgroundColor: color }} />
+    </div>
+  );
+}
+
+/* ホバーで実数を表示するグループ棒グラフ */
+function GroupedBarChart({ data, series, height = 140, unit = "件", activeIndex = null, onSelect = null, compact = false }) {
+  const [hover, setHover] = useState(null);
+  const max = Math.max(1, ...data.flatMap((d) => series.map((s) => d.values[s.key] || 0)));
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
+        {series.map((s) => (
+          <span key={s.key} className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: s.color }} />
+            {s.label}
+          </span>
+        ))}
+      </div>
+
+      <div className="flex items-end gap-0.5 sm:gap-2">
+        {data.map((d, i) => {
+          const active = activeIndex === i;
+          const empty = series.every((s) => !d.values[s.key]);
+          return (
+            <div
+              key={d.label}
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+              onClick={() => onSelect && onSelect(i)}
+              className={`relative flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-md px-0 pb-1 pt-2 transition sm:gap-2 sm:px-0.5 ${
+                onSelect ? "cursor-pointer" : ""
+              } ${hover === i || active ? "bg-slate-50" : ""}`}
+            >
+              {hover === i && (
+                <div className="pointer-events-none absolute -top-1 left-1/2 z-20 w-32 -translate-x-1/2 -translate-y-full rounded-lg bg-slate-900 px-2.5 py-2 text-left shadow-lg sm:w-40 sm:px-3">
+                  <p className="mb-1.5 text-xs font-bold text-white">{d.label}</p>
+                  {series.map((s) => (
+                    <p key={s.key} className="flex items-center justify-between gap-3 text-xs text-slate-200">
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: s.color }} />
+                        {s.label}
+                      </span>
+                      <span className="font-bold text-white">
+                        {d.values[s.key] || 0}
+                        <span className="ml-0.5 text-[10px] font-normal text-slate-300">{unit}</span>
+                      </span>
+                    </p>
+                  ))}
+                  {d.extra && <p className="mt-1.5 border-t border-white/15 pt-1.5 text-xs text-slate-300">{d.extra}</p>}
+                </div>
+              )}
+
+              <div className="flex w-full items-end justify-center gap-px sm:gap-1" style={{ height: compact ? Math.round(height * 0.8) : height }}>
+                {series.map((s) => {
+                  const v = d.values[s.key] || 0;
+                  return (
+                    <div
+                      key={s.key}
+                      className="flex-1 rounded-t transition-all"
+                      style={{
+                        height: `${(v / max) * 100}%`,
+                        minHeight: v > 0 ? 3 : 0,
+                        backgroundColor: s.color,
+                        opacity: activeIndex !== null && !active ? 0.55 : 1,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              <span className={`whitespace-nowrap text-[10px] sm:text-xs ${active ? "font-bold text-slate-800" : empty ? "text-slate-300" : "text-slate-500"}`}>
+                {d.short || d.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* 対象月セレクト */
+function MonthSelect({ month, setMonth, months }) {
+  return (
+    <div className="flex items-center gap-2">
+      <CalendarDays size={16} style={{ color: NAVY }} />
+      <span className="whitespace-nowrap text-xs font-medium text-slate-600">対象月</span>
+      <select
+        value={month}
+        onChange={(e) => setMonth(Number(e.target.value))}
+        className="max-w-[11rem] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+      >
+        {months.map((x) => (
+          <option key={x.m} value={x.m}>
+            {PERIOD.year}年{x.m}月{x.hasData ? "" : "（未登録）"}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function Judge({ ok }) {
+  return (
+    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${ok ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-rose-50 text-rose-600 ring-rose-200"}`}>
+      {ok ? "OK" : "NG"}
+    </span>
+  );
+}
+
+function RoleTag({ role }) {
+  const style =
+    role === "管理者"
+      ? "bg-amber-50 text-amber-700 ring-amber-100"
+      : role === "クローザー"
+      ? "bg-indigo-50 text-indigo-700 ring-indigo-100"
+      : "bg-slate-100 text-slate-600 ring-slate-200";
+  return <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${style}`}>{role}</span>;
+}
+
+function IconBox({ icon: Icon, size = 20 }) {
+  return (
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: NAVY_TINT, color: NAVY }}>
+      <Icon size={size} />
+    </div>
+  );
+}
+
+function ExcludeToggle({ excl, setExcl }) {
+  return (
+    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+      {[
+        { label: "未商談を除く", v: true },
+        { label: "未商談を含む", v: false },
+      ].map((o) => (
+        <button
+          key={o.label}
+          onClick={() => setExcl(o.v)}
+          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${excl === o.v ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          style={excl === o.v ? { color: NAVY } : undefined}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MemberSelect({ value, onChange, includeAll = false, label = "入力者" }) {
+  return (
+    <div className="flex items-center gap-3">
+      <label className="flex items-center gap-2 whitespace-nowrap text-xs font-medium text-slate-600">
+        <UserCircle2 size={16} style={{ color: NAVY }} />
+        {label}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="max-w-[11rem] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+      >
+        {includeAll && <option value="all">全員</option>}
+        {MEMBERS.map((m) => (
+          <option key={m.name} value={m.name}>{m.name}（{m.role}）</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   商談明細の入力（クローザーが1商談ずつ登録）
+   ══════════════════════════════════════════ */
+function DealEditor({ items, setItems, author }) {
+  const add = () =>
+    setItems([...items, { customer: "", appointer: MEMBERS[0].name, mishodan: 0, reason: "", keiyaku: 0, sales: 0, kanko: 0 }]);
+  const remove = (i) => setItems(items.filter((_, x) => x !== i));
+  const patch = (i, obj) => setItems(items.map((it, x) => (x === i ? { ...it, ...obj } : it)));
+
+  const total = items.reduce((a, it) => a + (num(it.keiyaku) > 0 ? num(it.sales) : 0), 0);
+  const mishodan = items.filter((it) => num(it.mishodan) > 0).length;
+  const keiyaku = items.filter((it) => num(it.keiyaku) > 0).length;
+  const kanko = items.filter((it) => num(it.kanko) > 0).length;
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold text-slate-800">担当した商談</p>
+        <p className="text-xs text-slate-500">
+          商談 {items.length} 件／未商談 {mishodan} 件／契約 {keiyaku} 件／完工 {kanko} 件／売上 {yen(total)}
+        </p>
+      </div>
+      <p className="mb-3 text-xs leading-relaxed text-slate-400">
+        商談を1件ずつ登録してください。アポインターを選ぶと、その方の商談数・契約・売上にも自動で反映されます。同じ日に複数の商談がある場合は、顧客名を入れておくと後から見分けやすくなります。
+      </p>
+
+      {items.length > 0 && (
+        <div className="mb-3 space-y-3">
+          {items.map((it, i) => {
+            const isMishodan = num(it.mishodan) > 0;
+            const hasKeiyaku = num(it.keiyaku) > 0;
+            return (
+              <div
+                key={i}
+                className={`rounded-lg border p-3 ${isMishodan ? "border-rose-200 bg-rose-50/50" : "border-slate-200 bg-white"}`}
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">
+                    商談 {i + 1} 件目
+                    {it.customer && <span className="ml-2 font-normal text-slate-500">{it.customer} 様</span>}
+                  </span>
+                  <button
+                    onClick={() => remove(i)}
+                    aria-label="この商談を削除"
+                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-rose-600"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="mb-3">
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                    顧客名<span className="ml-1 text-slate-400">（任意）</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={it.customer || ""}
+                    onChange={(e) => patch(i, { customer: e.target.value })}
+                    placeholder="例：山田"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">アポインター（誰の商談か）</label>
+                  <select
+                    value={it.appointer || author}
+                    onChange={(e) => patch(i, { appointer: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none"
+                  >
+                    {MEMBERS.map((m) => (
+                      <option key={m.name} value={m.name}>{m.name}（{m.role}）</option>
+                    ))}
+                  </select>
+                </div>
+
+                <label className="mb-3 flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={isMishodan}
+                    onChange={(e) =>
+                      patch(i, {
+                        mishodan: e.target.checked ? 1 : 0,
+                        reason: e.target.checked ? it.reason || REASONS[0] : "",
+                      })
+                    }
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  未商談だった
+                </label>
+
+                {isMishodan && (
+                  <div className="mb-3">
+                    <label className="mb-1.5 block text-xs font-medium text-slate-600">未商談の理由</label>
+                    <select
+                      value={it.reason || REASONS[0]}
+                      onChange={(e) => patch(i, { reason: e.target.value })}
+                      className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-rose-700 shadow-sm focus:outline-none"
+                    >
+                      {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                <label className="mb-3 flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={hasKeiyaku}
+                    onChange={(e) => patch(i, { keiyaku: e.target.checked ? 1 : 0, sales: e.target.checked ? it.sales : 0, kanko: e.target.checked ? it.kanko : 0 })}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  契約になった
+                </label>
+
+                {hasKeiyaku && (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        value={num(it.sales) === 0 ? "" : it.sales}
+                        onChange={(e) => patch(i, { sales: e.target.value === "" ? 0 : Number(e.target.value) })}
+                        placeholder="0"
+                        className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-3 pr-10 text-right text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">円</span>
+                    </div>
+                    <label className="flex shrink-0 items-center gap-2 text-xs font-medium text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={num(it.kanko) > 0}
+                        onChange={(e) => patch(i, { kanko: e.target.checked ? 1 : 0 })}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                      完工済み
+                    </label>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <button
+        onClick={add}
+        className="w-full rounded-lg border border-dashed border-slate-300 py-2.5 text-xs font-semibold transition hover:bg-white"
+        style={{ color: NAVY }}
+      >
+        ＋ 商談を追加
+      </button>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   成績入力モーダル
+   ══════════════════════════════════════════ */
+function EntryModal({ author, setAuthor, onClose, onSubmit, isAdmin }) {
+  const fields = [
+    ["taio", "対応数", "件"],
+    ["apu", "アプローチ数", "件"],
+    ["apo", "アポ数", "件"],
+  ];
+  const [values, setValues] = useState({});
+  const [items, setItems] = useState([]);
+  const set = (k, v) => setValues((prev) => ({ ...prev, [k]: v === "" ? 0 : Number(v) }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">
+      <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+        <div className="border-b border-slate-100 px-6 py-5">
+          <h3 className="text-base font-bold text-slate-900">本日の営業成績を入力</h3>
+          <p className="mt-1 text-xs text-slate-500">{TODAY.full}</p>
+          <div className="mt-4">
+            {isAdmin ? (
+              <MemberSelect value={author} onChange={setAuthor} />
+            ) : (
+              <p className="text-sm font-semibold text-slate-800">入力者：{author}</p>
+            )}
+          </div>
+        </div>
+        <div className="grid gap-4 px-6 py-6 sm:grid-cols-2">
+          {fields.map(([key, label, unit]) => (
+            <div key={key}>
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">{label}</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={values[key] ?? ""}
+                  onChange={(e) => set(key, e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-3 pr-10 text-right text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">{unit}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="px-6 pb-6">
+          <DealEditor items={items} setItems={setItems} author={author} />
+        </div>
+        <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100">
+            キャンセル
+          </button>
+          <button
+            onClick={() => onSubmit(author, TODAY.iso, values, items)}
+            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+          >
+            {author} の成績を保存する
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   日報の修正モーダル
+   ══════════════════════════════════════════ */
+function EditLogModal({ log, onClose, onSave, onDelete, currentUser }) {
+  const [draft, setDraft] = useState(log);
+  const [items, setItems] = useState(itemsOf(log));
+  const [iso, setIso] = useState(
+    `${PERIOD.year}-${String(monthOf(log.date)).padStart(2, "0")}-${String(dayNum(log.date)).padStart(2, "0")}`
+  );
+  const dateChanged =
+    `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}` !== log.date;
+  const fields = [
+    ["taio", "対応数", "件"],
+    ["apu", "アプローチ数", "件"],
+    ["apo", "アポ数", "件"],
+  ];
+  const changed =
+    fields.some(([k]) => Number(draft[k] || 0) !== Number(log[k] || 0)) ||
+    JSON.stringify(items) !== JSON.stringify(itemsOf(log)) ||
+    dateChanged;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">
+      <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">日報を修正</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {log.date}（{log.dow}）／{log.name} さんの入力
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="閉じる" className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="border-b border-slate-100 px-6 py-4">
+          <label className="mb-1.5 block text-xs font-medium text-slate-600">
+            対象日
+            {dateChanged && <span className="ml-2 text-amber-600">変更：{log.date} → {`${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`}</span>}
+          </label>
+          <input
+            type="date"
+            value={iso}
+            onChange={(e) => setIso(e.target.value)}
+            className={`w-full rounded-lg border py-2 px-3 text-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 ${
+              dateChanged ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-slate-50"
+            }`}
+          />
+          <p className="mt-1.5 text-xs text-slate-400">
+            日付を変えると、この日報と商談がまとめてその日に移動します。
+          </p>
+        </div>
+
+        <div className="grid gap-4 px-6 py-6 sm:grid-cols-2">
+          {fields.map(([key, label, unit]) => {
+            const diff = Number(draft[key] || 0) !== Number(log[key] || 0);
+            return (
+              <div key={key}>
+                <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                  {label}
+                  {diff && <span className="ml-2 text-amber-600">変更：{log[key] || 0} → {draft[key] || 0}</span>}
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={draft[key] ?? 0}
+                    onChange={(e) => setDraft({ ...draft, [key]: e.target.value === "" ? 0 : Number(e.target.value) })}
+                    className={`w-full rounded-lg border py-2 pl-3 pr-10 text-right text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 ${
+                      diff ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-slate-50"
+                    }`}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">{unit}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="px-6 pb-6">
+          <DealEditor items={items} setItems={setItems} author={log.name} />
+        </div>
+
+        <div className="mx-6 mb-6 flex gap-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 ring-1 ring-amber-100">
+          <Info size={14} className="mt-0.5 shrink-0" />
+          <p>
+            保存すると全社・週別・月別・メンバー別の集計がすべて再計算されます。商談を削除すると、その商談の実績はアポインター側からも消えます。
+          </p>
+        </div>
+
+        <div className="flex flex-wrap justify-between gap-3 border-t border-slate-100 px-6 py-4">
+          <button
+            onClick={() => onDelete(log.id)}
+            className="rounded-lg px-4 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+          >
+            この日報を削除
+          </button>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100">
+              キャンセル
+            </button>
+            <button
+              onClick={() =>
+                onSave({
+                  ...draft,
+                  items,
+                  date: `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`,
+                  dow: ["日", "月", "火", "水", "木", "金", "土"][new Date(iso).getDay()],
+                })
+              }
+              disabled={!changed}
+              className="rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ backgroundColor: NAVY }}
+            >
+              修正を保存する
+            </button>
+          </div>
+        </div>
+        <p className="border-t border-slate-100 px-6 py-3 text-xs text-slate-400">修正者として {currentUser} が記録されます</p>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   0. マイ成績
+   ══════════════════════════════════════════ */
+function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onGoInput }) {
+  const valuesOf = (name) => {
+    const v = stats.members[name] || {};
+    const mi = stats.byMember[name] || 0;
+    return {
+      taio: v.taio || 0,
+      apu: v.apu || 0,
+      apo: v.apo || 0,
+      shodan: Math.max(0, (v.shodan || 0) - mi),
+      kanko: v.kanko || 0,
+      sales: v.sales || 0,
+    };
+  };
+  const mine = valuesOf(currentUser);
+  const myTarget = targets[currentUser];
+
+  const stages = FUNNEL.map((f) => {
+    const from = mine[f.from];
+    const to = mine[f.to];
+    const rate = ratio(to, from);
+    const target = goal[f.key];
+    const need = from > 0 ? Math.max(0, Math.ceil((target / 100) * from) - to) : 0;
+    const list = MEMBERS.map((m) => {
+      const v = valuesOf(m.name);
+      return { name: m.name, rate: v[f.from] > 0 ? ratio(v[f.to], v[f.from]) : -1 };
+    })
+      .filter((x) => x.rate >= 0)
+      .sort((a, b) => b.rate - a.rate);
+    return {
+      ...f,
+      from,
+      to,
+      rate,
+      target,
+      need,
+      rank: list.findIndex((x) => x.name === currentUser) + 1,
+      total: list.length,
+      ok: from > 0 && rate >= target,
+      gap: from > 0 ? rate - target : 999,
+    };
+  });
+
+  const active = stages.filter((x) => x.from > 0);
+  const weakest = active.length ? active.reduce((a, b) => (a.gap <= b.gap ? a : b)) : null;
+  const okCount = stages.filter((x) => x.ok).length;
+
+  return (
+    <>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{currentUser} さんの成績</h1>
+          <p className="mt-1 text-sm text-slate-500">{PERIOD.year}年{month}月</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
+            目標達成 {okCount} / {FUNNEL.length}
+          </span>
+          <button
+            onClick={onGoInput}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+            style={{ backgroundColor: NAVY }}
+          >
+            日報入力
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+      </div>
+
+      {/* いま一番の課題 */}
+      {weakest && (
+        <Card className="mb-8 border-slate-300 p-5">
+          {weakest.ok ? (
+            <div className="flex items-center gap-3">
+              <CheckCircle2 size={20} className="shrink-0 text-emerald-600" />
+              <p className="text-base font-bold text-slate-900">4項目すべて目標達成</p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <span className="rounded bg-slate-800 px-2 py-1 text-xs font-bold text-white">最優先</span>
+              <span className="text-base font-bold text-slate-900">{weakest.label}</span>
+              <span className="text-2xl font-bold tracking-tight text-slate-900">{p1(weakest.rate)}</span>
+              <span className="text-sm text-slate-400">目標 {weakest.target}%</span>
+              {weakest.need > 0 && (
+                <span className="ml-auto text-sm font-semibold text-slate-600">
+                  {weakest.toLabel} あと {weakest.need} 件
+                </span>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* 個人目標に対する進捗 */}
+      {myTarget && (
+        <section className="mb-10">
+          <SectionTitle note={`${PERIOD.year}年${month}月の個人目標`}>目標進捗</SectionTitle>
+          <Card className="p-5 sm:p-6">
+            <div className="space-y-5">
+              {[
+                { label: "対応数", cur: mine.taio, tgt: myTarget.taio },
+                { label: "アプローチ数", cur: mine.apu, tgt: Math.round(myTarget.taio * (goal.taioApuRate / 100)) },
+                { label: "アポ数", cur: mine.apo, tgt: myTarget.apo },
+                { label: "有効商談数", cur: mine.shodan, tgt: myTarget.shodan },
+                { label: "完工数", cur: mine.kanko, tgt: myTarget.kanko },
+              ].map((r) => {
+                const pct = ratio(r.cur, r.tgt);
+                const done = r.tgt > 0 && r.cur >= r.tgt;
+                return (
+                  <div key={r.label}>
+                    <div className="mb-2 flex items-baseline justify-between text-sm">
+                      <span className="text-slate-600">{r.label}</span>
+                      <span>
+                        <span className={`font-bold ${done ? "text-emerald-600" : "text-slate-900"}`}>{r.cur}</span>
+                        <span className="ml-1 text-xs text-slate-400">
+                          / {r.tgt}（{r.tgt > 0 ? pct.toFixed(0) : "-"}%）
+                        </span>
+                        {!done && r.tgt > r.cur && (
+                          <span className="ml-2 text-xs font-semibold text-amber-700">あと {r.tgt - r.cur}</span>
+                        )}
+                      </span>
+                    </div>
+                    <Bar value={pct} color={done ? "#059669" : NAVY} />
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-5 text-xs leading-relaxed text-slate-400">
+              ※ 個人目標は設定画面で管理者が変更できます。アプローチ数の目標は、対応数の目標に支部の対応アプ率（{goal.taioApuRate}%）を掛けた値です。
+            </p>
+          </Card>
+        </section>
+      )}
+
+      {/* 歩留まり */}
+      <section className="mb-10">
+        <SectionTitle note="支部目標との比較">歩留まり</SectionTitle>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {stages.map((x) => {
+            const isWeak = weakest && x.key === weakest.key && !x.ok;
+            return (
+              <Card key={x.key} className="p-5">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-bold text-slate-800">
+                    {x.label}
+                    {isWeak && (
+                      <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        最優先
+                      </span>
+                    )}
+                  </span>
+                  {x.from > 0 && <span className="text-xs text-slate-400">{x.rank}位 / {x.total}名</span>}
+                </div>
+
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className={`text-3xl font-bold tracking-tight ${x.from === 0 ? "text-slate-300" : "text-slate-900"}`}>
+                    {x.from > 0 ? p1(x.rate) : "-"}
+                  </span>
+                  <span className="text-xs text-slate-400">目標 {x.target}%</span>
+                </div>
+
+                <div className="mt-3">
+                  <Bar value={ratio(x.rate, x.target)} color={x.ok ? "#059669" : NAVY} />
+                </div>
+
+                <div className="mt-2.5 flex items-baseline justify-between text-xs">
+                  <span className="text-slate-400">{x.to} / {x.from} 件</span>
+                  {x.from === 0 ? (
+                    <span className="text-slate-300">-</span>
+                  ) : x.ok ? (
+                    <span className="font-semibold text-emerald-600">達成</span>
+                  ) : (
+                    <span className="font-semibold text-slate-500">
+                      あと {p1(Math.abs(x.gap))}
+                      {x.need > 0 && `（${x.need}件）`}
+                    </span>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 実数 */}
+      <section className="mb-10">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          {[
+            { label: "対応", v: mine.taio },
+            { label: "アプローチ", v: mine.apu },
+            { label: "アポ", v: mine.apo },
+            { label: "有効商談", v: mine.shodan },
+            { label: "完工", v: mine.kanko },
+            { label: "売上", v: yen(mine.sales), small: true },
+          ].map((k) => (
+            <Card key={k.label} className="p-4">
+              <p className="text-xs text-slate-400">{k.label}</p>
+              <p className={`mt-1 font-bold tracking-tight text-slate-900 ${k.small ? "text-base" : "text-2xl"}`}>{k.v}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* メンバー比較 */}
+      <section>
+        <SectionTitle note="緑は目標達成">メンバー比較</SectionTitle>
+        <Card className="w-full max-w-full overflow-x-auto">
+          <table className="w-full min-w-[620px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                {["メンバー", "アポ", "有効商談", ...FUNNEL.map((f) => f.label)].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...MEMBERS]
+                .map((m) => ({ m, v: valuesOf(m.name) }))
+                .sort((a, b) => b.v.apo - a.v.apo)
+                .map(({ m, v }) => {
+                  const self = m.name === currentUser;
+                  return (
+                    <tr key={m.name} className={`border-b border-slate-50 last:border-0 ${self ? "bg-blue-50/70" : ""}`}>
+                      <td className="px-4 py-3 font-semibold" style={self ? { color: NAVY } : { color: "#1e293b" }}>
+                        {m.name}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{v.apo || "-"}</td>
+                      <td className="px-4 py-3 text-slate-600">{v.shodan || "-"}</td>
+                      {FUNNEL.map((f) => {
+                        const r = v[f.from] > 0 ? ratio(v[f.to], v[f.from]) : null;
+                        return (
+                          <td key={f.key} className="px-4 py-3">
+                            {r === null ? (
+                              <span className="text-slate-300">-</span>
+                            ) : (
+                              <span className={`font-semibold ${r >= goal[f.key] ? "text-emerald-600" : "text-slate-600"}`}>
+                                {p1(r)}
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </Card>
+      </section>
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════
+   1. ダッシュボード
+   ══════════════════════════════════════════ */
+const DAILY_SERIES = [
+  { key: "apo", label: "アポ数", color: NAVY },
+  { key: "shodan", label: "商談数", color: ACCENT },
+  { key: "mishodan", label: "未商談", color: "#fda4af" },
+];
+const MONTH_SERIES = [
+  { key: "apo", label: "アポ数", color: NAVY },
+  { key: "shodan", label: "商談数", color: ACCENT },
+  { key: "kanko", label: "完工数", color: "#059669" },
+];
+
+function Dashboard({ excl, setExcl, showBanner, onOpenModal, onGoMishodan, stats, deals, month, setMonth, goal, teamTarget }) {
+  const isCurrent = month === PERIOD.month;
+  const md = stats.monthly.find((x) => x.m === month);
+  const mishodan = stats.total;
+  const yuko = md.shodan - mishodan;
+  const shodanBase = excl ? yuko : md.shodan;
+  const apoRate = ratio(shodanBase, md.apo);
+  const kankoRate = ratio(md.kanko, shodanBase);
+  const lastEdit = deals.filter((d) => d.at).sort((a, b) => (a.at < b.at ? 1 : -1))[0];
+
+  const dailyData = stats.daily.map((d) => {
+    const mi = stats.byDate[d.date] || 0;
+    const base = excl ? d.shodan - mi : d.shodan;
+    return {
+      label: `${d.date}（${d.dow}）`,
+      short: `${d.date}`,
+      values: { apo: d.apo, shodan: d.shodan, mishodan: mi },
+      extra: `商談アポ率 ${d.apo > 0 ? p1(ratio(base, d.apo)) : "-"}／完工率 ${base > 0 ? p1(ratio(d.kanko, base)) : "-"}`,
+    };
+  });
+
+  const monthlyData = stats.monthly.map((x) => ({
+    label: `${PERIOD.year}年${x.m}月`,
+    short: `${x.m}`,
+    values: { apo: x.apo, shodan: x.shodan, kanko: x.kanko },
+    extra: x.hasData ? `売上 ${yen(x.sales)}` : "データ未登録",
+  }));
+
+  return (
+    <>
+      {showBanner && isCurrent && stats.unsubmitted.length > 0 && (
+        <div className="mb-10 flex flex-col gap-4 rounded-lg border border-blue-100 bg-blue-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={20} className="mt-0.5 shrink-0 text-blue-600" />
+            <div>
+              <p className="text-sm font-semibold text-blue-900">本日の営業成績（アポ・商談など）が未入力です。</p>
+              <p className="mt-1 text-xs text-blue-700/80">
+                {TODAY.date}時点で未提出 {stats.unsubmitted.length} 名：{stats.unsubmitted.map((m) => m.name).join("、")}
+              </p>
+            </div>
+          </div>
+          <button onClick={onOpenModal} className="shrink-0 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+            成績を入力する
+          </button>
+        </div>
+      )}
+
+      <header className="mb-8">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">MONTHLY SALES OVERVIEW</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">営業ダッシュボード</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          {PERIOD.year}年{month}月の全社営業状況{isCurrent ? "" : "（当月以外の実績表示）"}
+        </p>
+      </header>
+
+      <div className="mb-10 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+        <div className="flex flex-wrap items-center gap-3">
+          <ExcludeToggle excl={excl} setExcl={setExcl} />
+          <button onClick={onGoMishodan} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold transition hover:bg-slate-50" style={{ color: NAVY }}>
+            未商談を判定する
+          </button>
+        </div>
+      </div>
+
+      {md.hasData ? (
+        <>
+          <div className="mb-10 flex items-start gap-3 rounded-lg bg-white px-4 py-3 ring-1 ring-slate-200">
+            <Info size={16} className="mt-0.5 shrink-0" style={{ color: NAVY }} />
+            <p className="text-xs text-slate-600">
+              率の計算から未商談 {mishodan} 件を差し引いて表示します。アポ数は減りません。
+              {lastEdit && <span className="ml-1 text-slate-400">最終判定：{lastEdit.at}／{lastEdit.by}</span>}
+            </p>
+          </div>
+
+          <section className="mb-12">
+            <SectionTitle note="目標＝メンバー別月間目標の合算">全体進捗（{month}月）</SectionTitle>
+            <div className="grid gap-5 lg:grid-cols-2">
+              {[
+                { title: "月間売上目標", icon: TrendingUp, cur: yen(md.sales), tgt: yen(goal.sales), rate: ratio(md.sales, goal.sales), note: stats.cancelSales > 0 ? `キャンセル −${yen(stats.cancelSales)} 反映済み` : "" },
+                { title: "月間アポ獲得目標", icon: PhoneCall, cur: String(md.apo), tgt: String(teamTarget.apo), rate: ratio(md.apo, teamTarget.apo) },
+              ].map((g) => (
+                <Card key={g.title} className="p-5 sm:p-6">
+                  <div className="flex flex-col gap-6 xl:flex-row xl:items-center">
+                    <div className="flex items-center gap-4 xl:w-1/2">
+                      <IconBox icon={g.icon} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-500">{g.title}</p>
+                        <p className="mt-1 truncate text-xl font-bold text-slate-900">
+                          {g.cur}
+                          <span className="ml-1 text-sm font-medium text-slate-400">/ {g.tgt}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="mb-2 flex items-baseline justify-between">
+                        <span className="text-xs text-slate-400">{g.note || "達成率"}</span>
+                        <span className="text-sm font-bold" style={{ color: NAVY }}>{g.rate.toFixed(0)}%</span>
+                      </div>
+                      <Bar value={g.rate} />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          <section className="mb-12">
+            <SectionTitle note={excl ? "未商談を除いた実質の数字" : "未商談を含んだ数字"}>
+              歩留まり（{excl ? "未商談除く" : "未商談含む"}）
+            </SectionTitle>
+            <div className="grid gap-5 lg:grid-cols-2">
+              {[
+                { title: "商談アポ率", icon: Target, value: apoRate, goal: goal.shodanApoRate, formula: `${shodanBase} 商談 ÷ ${md.apo} アポ`, other: ratio(excl ? md.shodan : yuko, md.apo) },
+                { title: "商談完工率", icon: CheckCircle2, value: kankoRate, goal: goal.shodanKankoRate, formula: `${md.kanko} 完工 ÷ ${shodanBase} 商談`, other: ratio(md.kanko, excl ? md.shodan : yuko) },
+              ].map((r) => (
+                <Card key={r.title} className="p-5 sm:p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <IconBox icon={r.icon} />
+                      <div>
+                        <p className="text-sm font-medium text-slate-500">{r.title}</p>
+                        <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{p1(r.value)}</p>
+                      </div>
+                    </div>
+                    <Judge ok={r.value >= r.goal} />
+                  </div>
+                  <div className="mt-5">
+                    <div className="mb-2 flex items-baseline justify-between text-xs text-slate-400">
+                      <span>目標 {r.goal}%</span>
+                      <span>{r.formula}</span>
+                    </div>
+                    <Bar value={ratio(r.value, r.goal)} color={r.value >= r.goal ? "#059669" : NAVY} />
+                  </div>
+                  <p className="mt-3 text-xs text-slate-400">
+                    {excl ? "未商談を含む場合" : "未商談を除く場合"}：{p1(r.other)}
+                  </p>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          <section className="mb-12">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                { label: `${month}月のアポ数`, value: md.apo, unit: "件", icon: CalendarDays, sub: `目標 ${teamTarget.apo} 件` },
+                { label: `${month}月の商談数`, value: md.shodan, unit: "件", icon: Users, sub: `うち未商談 ${mishodan} 件` },
+                { label: "有効商談数", value: yuko, unit: "件", icon: Briefcase, sub: "未商談を差し引いた実数" },
+                { label: `${month}月の完工数`, value: md.kanko, unit: "件", icon: CheckCircle2, sub: `うち完工済み ${stats.kankoDone} 件${stats.cancelKanko > 0 ? `／キャンセル −${stats.cancelKanko} 件` : ""}` },
+              ].map((k) => (
+                <Card key={k.label} className="p-5 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-slate-500">{k.label}</p>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: NAVY_TINT, color: NAVY }}>
+                      <k.icon size={17} />
+                    </div>
+                  </div>
+                  <p className="mt-4 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                    {k.value}
+                    <span className="ml-1 text-sm font-medium text-slate-400">{k.unit}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">{k.sub}</p>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          <section className="mb-12">
+            <SectionTitle note="バーに触れると実数と歩留まりが表示されます">日別のアポ・商談</SectionTitle>
+            <Card className="p-6">
+              <GroupedBarChart data={dailyData} series={DAILY_SERIES} />
+            </Card>
+          </section>
+        </>
+      ) : (
+        <Card className="mb-12 p-12 text-center">
+          <p className="text-sm font-semibold text-slate-700">{PERIOD.year}年{month}月のデータは未登録です</p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">
+            日報が入力されると、この月の進捗・歩留まり・ランキングが表示されます。
+          </p>
+          <button
+            onClick={() => setMonth(PERIOD.month)}
+            className="mt-5 rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+            style={{ backgroundColor: NAVY }}
+          >
+            {PERIOD.month}月の実績を見る
+          </button>
+        </Card>
+      )}
+
+      {/* 月別推移（全月共通） */}
+      <section className="mb-12">
+        <SectionTitle note="月をクリックするとその月の実績に切り替わります">月別推移（アポ・商談・完工）</SectionTitle>
+        <Card className="p-4 sm:p-6">
+          <GroupedBarChart
+            data={monthlyData}
+            series={MONTH_SERIES}
+            height={150}
+            compact
+            activeIndex={month - 1}
+            onSelect={(i) => setMonth(i + 1)}
+          />
+        </Card>
+      </section>
+
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════
+   2. 日報・成績入力
+   ══════════════════════════════════════════ */
+function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, stats, logs, onSaveLog, onDeleteLog, submitLog }) {
+  /* 自分の日報だけ修正できます（管理者は全員分） */
+  const canEditLog = (l) => isAdmin || l.name === currentUser;
+  const [filter, setFilter] = useState("all");
+  const [editing, setEditing] = useState(null);
+  const [iso, setIso] = useState(TODAY.iso);
+  const [values, setValues] = useState({});
+  const [items, setItems] = useState([]);
+  const [flash, setFlash] = useState("");
+  const setV = (k, v) => setValues((prev) => ({ ...prev, [k]: v === "" ? 0 : Number(v) }));
+
+  const FORM_FIELDS = [
+    ["taio", "対応数", "件"],
+    ["apu", "アプローチ数", "件"],
+    ["apo", "アポ数", "件"],
+  ];
+
+  const save = () => {
+    const mode = submitLog(author, iso, values, items);
+    setValues({});
+    setItems([]);
+    setFlash(mode === "update" ? `${author} さんの同じ日の日報を上書きしました` : `${author} さんの日報を登録しました`);
+    setTimeout(() => setFlash(""), 3000);
+  };
+
+  const rows = (filter === "all" ? logs : logs.filter((l) => l.name === filter))
+    .slice()
+    .sort((a, b) => dayNum(b.date) - dayNum(a.date));
+
+  const saveLog = (draft) => {
+    onSaveLog({ ...draft, editedBy: currentUser, editedAt: stamp() });
+    setEditing(null);
+  };
+  const deleteLog = (id) => {
+    onDeleteLog(id);
+    setEditing(null);
+  };
+
+  return (
+    <>
+      <header className="mb-8">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">DAILY REPORT</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">日報・成績入力</h1>
+        <p className="mt-2 text-sm text-slate-500">入力者を選んでから、その日の活動を登録します</p>
+      </header>
+
+      <Card className="mb-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div>
+          {isAdmin ? (
+            <MemberSelect value={author} onChange={setAuthor} />
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                <UserCircle2 size={16} style={{ color: NAVY }} />
+                入力者
+              </span>
+              <span className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-800">{author}</span>
+            </div>
+          )}
+          <p className="mt-2 text-xs text-slate-400">
+            {isAdmin
+              ? `管理者（${currentUser}）としてログイン中です。メンバーを選んで代理入力できます。`
+              : `${currentUser} さんとしてログイン中です。入力者は変更できません。`}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 text-sm">
+          <span className="text-xs text-slate-500">対象日</span>
+          <input type="date" value={iso} onChange={(e) => setIso(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none" />
+        </div>
+      </Card>
+
+      <div className="mb-10 grid gap-5 lg:grid-cols-3">
+        <Card className="p-6 lg:col-span-2">
+          <div className="mb-5 flex flex-wrap items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold" style={{ backgroundColor: NAVY_TINT, color: NAVY }}>
+              {author.slice(0, 1)}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">{author} さんの入力</p>
+              <p className="text-xs text-slate-400">{TODAY.full}</p>
+            </div>
+            <div className="ml-auto"><RoleTag role={MEMBERS.find((m) => m.name === author)?.role} /></div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            {FORM_FIELDS.map(([key, label, unit]) => (
+              <div key={key}>
+                <label className="mb-1.5 block text-xs font-medium text-slate-600">{label}</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={values[key] ?? ""}
+                    onChange={(e) => setV(key, e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-3 pr-10 text-right text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">{unit}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5">
+            <DealEditor items={items} setItems={setItems} author={author} />
+          </div>
+          <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
+            {flash && (
+              <span className="flex items-center justify-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                <CheckCircle2 size={14} /> {flash}
+              </span>
+            )}
+            <button
+              onClick={() => {
+                setValues({});
+                setItems([]);
+              }}
+              className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+            >
+              入力をクリア
+            </button>
+            <button
+              onClick={save}
+              className="flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+              style={{ backgroundColor: NAVY }}
+            >
+              <Save size={16} /> {author} の成績を保存する
+            </button>
+          </div>
+        </Card>
+
+        <div className="space-y-5">
+          <Card className="p-6">
+            <SectionTitle>未商談の判定について</SectionTitle>
+            <p className="text-xs leading-relaxed text-slate-500">
+              商談は一旦そのまま入力してください。後日キャンセルや不成立が判明した場合は、専用画面から該当日・該当アポインターの商談を未商談に変更できます。
+            </p>
+            <button onClick={onGoMishodan} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90" style={{ backgroundColor: NAVY }}>
+              <ClipboardCheck size={16} /> 未商談の判定へ
+            </button>
+          </Card>
+
+          <Card className="p-6">
+            <SectionTitle note={`${TODAY.date}時点`}>本日の提出状況</SectionTitle>
+            <p className="mb-4 text-sm">
+              <span className="text-2xl font-bold text-slate-900">{MEMBERS.length - stats.unsubmitted.length}</span>
+              <span className="text-slate-400"> / {MEMBERS.length} 名 提出済み</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {MEMBERS.map((m) => {
+                const done = stats.submitted.includes(m.name);
+                return (
+                  <span key={m.name} className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${done ? "bg-emerald-50 text-emerald-700 ring-emerald-100" : "bg-amber-50 text-amber-700 ring-amber-100"}`}>
+                    {m.name}
+                  </span>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      <section>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <SectionTitle note={isAdmin ? "管理者は全員分を修正できます" : "修正できるのはご自身の日報だけです"}>
+            入力履歴
+          </SectionTitle>
+          <MemberSelect value={filter} onChange={setFilter} includeAll label="絞り込み" />
+        </div>
+        <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
+        <Card className="w-full max-w-full overflow-x-auto">
+          <table className="w-full min-w-[660px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                {["日付", "入力者", "対応数", "アポ数", "担当商談", "契約", "完工", "売上金額", "状態", ""].map((h, i) => (
+                  <th key={i} className="px-4 py-3 text-left font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((l) => (
+                <tr key={l.id} className="border-b border-slate-50 last:border-0">
+                  <td className="px-4 py-3 text-slate-600">{l.date}（{l.dow}）</td>
+                  <td className="px-4 py-3 font-semibold text-slate-800">{l.name}</td>
+                  <td className="px-4 py-3 text-slate-600">{l.taio || "-"}</td>
+                  <td className="px-4 py-3 text-slate-600">{l.apo || "-"}</td>
+                  <td className="px-4 py-3 text-slate-600">{itemsOf(l).length || "-"}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {itemsOf(l).filter((x) => num(x.keiyaku) > 0 && !num(x.cancelled)).length || "-"}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {itemsOf(l).filter((x) => num(x.kanko) > 0 && !num(x.cancelled)).length || "-"}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {itemsOf(l).reduce((a, x) => a + (num(x.cancelled) ? 0 : num(x.sales)), 0)
+                      ? yen(itemsOf(l).reduce((a, x) => a + (num(x.cancelled) ? 0 : num(x.sales)), 0))
+                      : "-"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {l.editedAt ? (
+                      <span className="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-100">
+                        修正済み
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {canEditLog(l) ? (
+                      <button
+                        onClick={() => setEditing(l)}
+                        className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                      >
+                        <PenSquare size={13} /> 修正
+                      </button>
+                    ) : (
+                      <span className="whitespace-nowrap text-xs text-slate-300">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-400">入力履歴がありません。</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </Card>
+        {rows.some((l) => l.editedAt) && (
+          <div className="mt-3 space-y-1">
+            {rows
+              .filter((l) => l.editedAt)
+              .map((l) => (
+                <p key={l.id} className="text-xs text-slate-400">
+                  {l.date}／{l.name}：{l.editedAt} に {l.editedBy} が修正
+                </p>
+              ))}
+          </div>
+        )}
+
+        {editing && (
+          <EditLogModal
+            log={editing}
+            currentUser={currentUser}
+            onClose={() => setEditing(null)}
+            onSave={saveLog}
+            onDelete={deleteLog}
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════
+   商談1件の編集
+   ══════════════════════════════════════════ */
+function DealEditModal({ deal, onClose, onSave, currentUser }) {
+  const [draft, setDraft] = useState({
+    customer: deal.customer || "",
+    appointer: deal.name,
+    closer: deal.closer,
+    mishodan: deal.mishodan ? 1 : 0,
+    reason: deal.reason || REASONS[0],
+    keiyaku: deal.keiyaku ? 1 : 0,
+    sales: deal.sales || 0,
+    kanko: deal.kanko ? 1 : 0,
+    cancelled: deal.cancelled ? 1 : 0,
+    cancelReason: deal.cancelReason || CANCEL_REASONS[0],
+  });
+  const set = (obj) => setDraft((prev) => ({ ...prev, ...obj }));
+
+  const save = () => {
+    const patch = { ...draft };
+    if (!patch.mishodan) patch.reason = "";
+    if (!patch.keiyaku) {
+      patch.sales = 0;
+      patch.kanko = 0;
+      patch.cancelled = 0;
+    }
+    if (!patch.cancelled) patch.cancelReason = "";
+    if (draft.mishodan !== (deal.mishodan ? 1 : 0) || draft.reason !== deal.reason) {
+      patch.by = currentUser;
+      patch.at = stamp();
+    }
+    if (draft.cancelled !== (deal.cancelled ? 1 : 0) || draft.cancelReason !== deal.cancelReason) {
+      patch.cancelBy = currentUser;
+      patch.cancelAt = stamp();
+    }
+    onSave(deal.id, patch);
+    onClose();
+  };
+
+  const field = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">
+      <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">商談を編集</h3>
+            <p className="mt-1 text-xs text-slate-500">{deal.date}（{deal.dow}）の商談</p>
+          </div>
+          <button onClick={onClose} aria-label="閉じる" className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-6 py-6">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600">顧客名（任意）</label>
+            <input type="text" value={draft.customer} onChange={(e) => set({ customer: e.target.value })} placeholder="例：山田" className={field} />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">アポインター</label>
+              <select value={draft.appointer} onChange={(e) => set({ appointer: e.target.value })} className={field}>
+                {MEMBERS.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">クローザー</label>
+              <select value={draft.closer} onChange={(e) => set({ closer: e.target.value })} className={field}>
+                {MEMBERS.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 p-4">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input type="checkbox" checked={draft.mishodan > 0} onChange={(e) => set({ mishodan: e.target.checked ? 1 : 0 })} className="h-4 w-4 rounded border-slate-300" />
+              未商談だった
+            </label>
+            {draft.mishodan > 0 && (
+              <select value={draft.reason} onChange={(e) => set({ reason: e.target.value })} className={`mt-3 ${field}`}>
+                {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-slate-200 p-4">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input type="checkbox" checked={draft.keiyaku > 0} onChange={(e) => set({ keiyaku: e.target.checked ? 1 : 0 })} className="h-4 w-4 rounded border-slate-300" />
+              契約になった
+            </label>
+
+            {draft.keiyaku > 0 && (
+              <div className="mt-3 space-y-3">
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={draft.sales === 0 ? "" : draft.sales}
+                    onChange={(e) => set({ sales: e.target.value === "" ? 0 : Number(e.target.value) })}
+                    placeholder="0"
+                    className={`${field} pr-10 text-right`}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">円</span>
+                </div>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <input type="checkbox" checked={draft.kanko > 0} onChange={(e) => set({ kanko: e.target.checked ? 1 : 0 })} className="h-4 w-4 rounded border-slate-300" />
+                  完工済み
+                </label>
+                <label className="flex items-center gap-2 text-xs font-medium text-rose-600">
+                  <input type="checkbox" checked={draft.cancelled > 0} onChange={(e) => set({ cancelled: e.target.checked ? 1 : 0 })} className="h-4 w-4 rounded border-slate-300" />
+                  契約がキャンセルになった
+                </label>
+                {draft.cancelled > 0 && (
+                  <select value={draft.cancelReason} onChange={(e) => set({ cancelReason: e.target.value })} className={`${field} border-rose-200 text-rose-700`}>
+                    {CANCEL_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100">
+            キャンセル
+          </button>
+          <button onClick={save} className="rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90" style={{ backgroundColor: NAVY }}>
+            保存する
+          </button>
+        </div>
+        <p className="border-t border-slate-100 px-6 py-3 text-xs text-slate-400">変更者として {currentUser} が記録されます</p>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   3. 未商談の判定
+   ══════════════════════════════════════════ */
+function MishodanPage({ deals, onPatchDeal, stats, currentUser, canEdit, editPolicy, isAdmin, focusName }) {
+  const [fDate, setFDate] = useState("all");
+  const [fName, setFName] = useState(focusName || "all");
+  const [fState, setFState] = useState("all");
+  const [q, setQ] = useState("");
+  const [editing, setEditing] = useState(null);
+
+  /* 他の画面から特定の担当者を指定して来た場合、その人で絞り込みます */
+  useEffect(() => {
+    if (focusName) setFName(focusName);
+  }, [focusName]);
+
+  const dates = [...new Set(deals.map((d) => d.date))];
+
+  const rows = deals.filter(
+    (d) =>
+      (fDate === "all" || d.date === fDate) &&
+      (fName === "all" || d.name === fName || d.closer === fName) &&
+      (fState === "all" ||
+        (fState === "mishodan" && d.mishodan) ||
+        (fState === "cancelled" && d.cancelled) ||
+        (fState === "active" && !d.mishodan && !d.cancelled))
+  );
+
+  const patch = (id, data, who) => onPatchDeal(id, { ...data, ...who });
+
+  const toggleMishodan = (d) =>
+    patch(
+      d.id,
+      d.mishodan ? { mishodan: false, reason: "" } : { mishodan: true, reason: d.reason || REASONS[0] },
+      { by: currentUser, at: stamp() }
+    );
+
+  const toggleCancel = (d) =>
+    patch(
+      d.id,
+      d.cancelled ? { cancelled: false, cancelReason: "" } : { cancelled: true, cancelReason: d.cancelReason || CANCEL_REASONS[0] },
+      { cancelBy: currentUser, cancelAt: stamp() }
+    );
+
+  const selectCls =
+    "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none";
+
+  return (
+    <>
+      <header className="mb-8">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">DEAL VALIDATION</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">商談管理</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          クローザーが登録した商談を1件ずつ確認できます。未商談やキャンセルはここから変更でき、アポインター側の実績にも反映されます
+        </p>
+        <p className="mt-2 flex items-start gap-2 text-xs text-slate-400">
+          <Info size={14} className="mt-0.5 shrink-0" />
+          未商談でも契約が成立していれば有効商談として計上します。その契約がキャンセルになった場合は、未商談として有効商談から除きます。
+        </p>
+      </header>
+
+      <div className={`mb-8 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between ${canEdit ? "border-slate-200 bg-white" : "border-amber-200 bg-amber-50"}`}>
+        <div className="flex items-start gap-3">
+          <ShieldCheck size={18} className="mt-0.5 shrink-0" style={{ color: canEdit ? NAVY : "#b45309" }} />
+          <div>
+            <p className="text-sm font-semibold text-slate-800">
+              {canEdit ? `${currentUser} さんは判定を変更できます` : `${currentUser} さんには変更権限がありません`}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              現在の設定：{editPolicy === "all" ? "クローザーと管理者が変更可" : "管理者のみ変更可"}
+              {canEdit ? "" : "／アポインターは閲覧のみです"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* サマリー */}
+      <div className="mb-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <Card className="p-5">
+          <p className="text-sm font-medium text-slate-500">商談数（総数）</p>
+          <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{stats.base.shodan}</p>
+          <p className="mt-1 text-xs text-slate-400">日報に登録された商談の件数</p>
+        </Card>
+        <Card className="p-5">
+          <div className="flex items-baseline justify-between">
+            <p className="text-sm font-medium text-slate-500">未商談</p>
+            <span className="text-xs text-slate-400">商談数から控除</span>
+          </div>
+          <p className="mt-2 text-2xl font-bold tracking-tight text-rose-600 sm:text-3xl">{stats.total}</p>
+          <p className="mt-1 text-xs text-slate-400">有効商談 {stats.yuko} 件／商談アポ率 {p1(ratio(stats.yuko, stats.base.apo))}</p>
+        </Card>
+        <Card className="p-5">
+          <div className="flex items-baseline justify-between">
+            <p className="text-sm font-medium text-slate-500">契約キャンセル</p>
+            <span className="text-xs text-slate-400">完工・売上から控除</span>
+          </div>
+          <p className="mt-2 text-2xl font-bold tracking-tight text-rose-600 sm:text-3xl">{stats.cancelCount}</p>
+          <p className="mt-1 text-xs text-slate-400">
+            完工 {stats.kanko} 件（−{stats.cancelKanko}）／売上 {yen(stats.sales)}
+            {stats.cancelSales > 0 && `（−${yen(stats.cancelSales)}）`}
+          </p>
+        </Card>
+      </div>
+
+      {/* フィルタ */}
+      <Card className="mb-5 flex flex-wrap items-center gap-3 p-4 sm:gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-600">日付</span>
+          <select value={fDate} onChange={(e) => setFDate(e.target.value)} className={selectCls}>
+            <option value="all">すべて</option>
+            {dates.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-600">担当者</span>
+          <select value={fName} onChange={(e) => setFName(e.target.value)} className={selectCls}>
+            <option value="all">全員</option>
+            <optgroup label="クローザー">
+              {MEMBERS.filter((m) => m.role === "クローザー").map((m) => (
+                <option key={m.name} value={m.name}>{m.name}</option>
+              ))}
+            </optgroup>
+            <optgroup label="アポインター">
+              {MEMBERS.filter((m) => m.role !== "クローザー").map((m) => (
+                <option key={m.name} value={m.name}>{m.name}</option>
+              ))}
+            </optgroup>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-600">状態</span>
+          <select value={fState} onChange={(e) => setFState(e.target.value)} className={selectCls}>
+            <option value="all">すべて</option>
+            <option value="active">有効な商談のみ</option>
+            <option value="mishodan">未商談のみ</option>
+            <option value="cancelled">キャンセルのみ</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-600">顧客名</span>
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="検索"
+            className="w-28 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none sm:w-36"
+          />
+        </div>
+        <span className="ml-auto text-xs text-slate-400">{rows.length} 件を表示中</span>
+      </Card>
+
+      {/* 商談一覧 */}
+      <div className="space-y-3">
+        {rows.map((d) => (
+          <Card key={d.id} className={`p-4 sm:p-5 ${d.mishodan || d.cancelled ? "bg-rose-50/40" : ""}`}>
+
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="text-sm font-bold text-slate-900">{d.date}（{d.dow}）</span>
+              {d.customer && (
+                <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                  {d.customer} 様
+                </span>
+              )}
+              <span className="flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                アポ：
+                <select
+                  value={d.name}
+                  disabled={!canEdit}
+                  onChange={(e) => patch(d.id, { appointer: e.target.value }, {})}
+                  className="rounded border-0 bg-transparent py-0.5 pl-0 pr-5 text-xs font-semibold text-slate-800 focus:outline-none disabled:opacity-60"
+                >
+                  {MEMBERS.map((m) => (
+                    <option key={m.name} value={m.name}>{m.name}</option>
+                  ))}
+                </select>
+              </span>
+              <span className="flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">
+                商談：
+                <select
+                  value={d.closer}
+                  disabled={!canEdit}
+                  onChange={(e) => patch(d.id, { closer: e.target.value }, {})}
+                  className="rounded border-0 bg-transparent py-0.5 pl-0 pr-5 text-xs font-semibold text-indigo-700 focus:outline-none disabled:opacity-60"
+                >
+                  {MEMBERS.map((m) => (
+                    <option key={m.name} value={m.name}>{m.name}</option>
+                  ))}
+                </select>
+              </span>
+              {d.keiyaku > 0 && <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-blue-100">契約あり</span>}
+              {d.kanko > 0 && <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-100">完工 {d.kanko} 件</span>}
+              {d.sales > 0 && (
+                <span className={`text-xs ${d.cancelled ? "text-slate-400 line-through" : "text-slate-500"}`}>{yen(d.sales)}</span>
+              )}
+              {canEdit && (
+                <button
+                  onClick={() => setEditing(d)}
+                  className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                >
+                  <PenSquare size={13} /> 編集
+                </button>
+              )}
+            </div>
+
+            {/* 未商談の判定 */}
+            <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-700">未商談の判定</p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  {d.mishodan && !d.excluded
+                    ? "契約が成立しているため、有効商談として計上されています"
+                    : "商談数には含まれますが、有効商談からは除かれます（アポ数は減りません）"}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {d.mishodan ? (
+                  <>
+                    <select
+                      value={d.reason}
+                      disabled={!canEdit}
+                      onChange={(e) => patch(d.id, { reason: e.target.value }, { by: currentUser, at: stamp() })}
+                      className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs text-rose-700 shadow-sm focus:outline-none disabled:opacity-60"
+                    >
+                      {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">
+                      {d.excluded ? "未商談" : "未商談（契約あり）"}
+                    </span>
+                    <button
+                      onClick={() => toggleMishodan(d)}
+                      disabled={!canEdit}
+                      className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <RotateCcw size={14} /> 商談に戻す
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">有効商談</span>
+                    <button
+                      onClick={() => toggleMishodan(d)}
+                      disabled={!canEdit}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                      style={{ backgroundColor: "#e11d48" }}
+                    >
+                      <XCircle size={14} /> 未商談にする
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 契約キャンセルの判定 */}
+            {d.keiyaku > 0 ? (
+              <div className="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">契約キャンセル</p>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    完工 {d.kanko} 件・売上 {yen(d.sales)} を取り消します
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {d.cancelled ? (
+                    <>
+                      <select
+                        value={d.cancelReason}
+                        disabled={!canEdit}
+                        onChange={(e) => patch(d.id, { cancelReason: e.target.value }, { cancelBy: currentUser, cancelAt: stamp() })}
+                        className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs text-rose-700 shadow-sm focus:outline-none disabled:opacity-60"
+                      >
+                        {CANCEL_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">キャンセル済み</span>
+                      <button
+                        onClick={() => toggleCancel(d)}
+                        disabled={!canEdit}
+                        className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <RotateCcw size={14} /> 契約に戻す
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">契約有効</span>
+                      <button
+                        onClick={() => toggleCancel(d)}
+                        disabled={!canEdit}
+                        className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        style={{ borderColor: "#fecdd3", color: "#e11d48" }}
+                      >
+                        <Ban size={14} /> 契約をキャンセルにする
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-400">
+                契約なしの商談のため、キャンセル操作はありません。
+              </div>
+            )}
+
+            {(d.at || d.cancelAt) && (
+              <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-xs text-slate-400">
+                {d.at && (
+                  <p>
+                    未商談の更新：{d.at}／{d.by}
+                    {d.mishodan && d.reason && <span className="ml-2">理由：{d.reason}</span>}
+                  </p>
+                )}
+                {d.cancelAt && (
+                  <p>
+                    キャンセルの更新：{d.cancelAt}／{d.cancelBy}
+                    {d.cancelled && d.cancelReason && <span className="ml-2">理由：{d.cancelReason}</span>}
+                  </p>
+                )}
+              </div>
+            )}
+          </Card>
+        ))}
+        {rows.length === 0 && <Card className="p-10 text-center text-sm text-slate-400">条件に合う商談がありません。</Card>}
+      </div>
+
+      {editing && (
+        <DealEditModal
+          deal={editing}
+          currentUser={currentUser}
+          onClose={() => setEditing(null)}
+          onSave={(id, patch) => onPatchDeal(id, patch)}
+        />
+      )}
+
+      <p className="mt-6 text-xs leading-relaxed text-slate-400">
+        ※ 未商談は有効商談から控除されます。アポ数・対応数・商談数（未商談を含む）は変わりません。未商談でも契約が生きていれば有効商談として扱い、その契約がキャンセルされた場合は有効商談から外れます。契約キャンセルは完工数と売上金額からも控除されます。変更はすべての集計に即時反映され、変更者と日時が記録されます。
+      </p>
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════
+   4. 週別・月別集計
+   ══════════════════════════════════════════ */
+function Aggregate({ excl, setExcl, stats, month, setMonth, goal }) {
+  const isCurrent = month === PERIOD.month;
+  const md = stats.monthly.find((x) => x.m === month);
+  const mishodan = stats.total;
+  const yuko = md.shodan - mishodan;
+
+  const weekMishodan = (start) =>
+    stats.daily.filter((d) => d.week === start).reduce((a, d) => a + (stats.byDate[d.date] || 0), 0);
+
+  return (
+    <>
+      <header className="mb-8">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">WEEKLY / MONTHLY</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">週別・月別集計</h1>
+        <p className="mt-2 text-sm text-slate-500">週は土曜始まり。評価は日別ではなく週別・月別を主軸にします</p>
+      </header>
+
+      <div className="mb-10 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+        <div className="flex flex-wrap items-center gap-4">
+          <p className="text-xs text-slate-600">目標：商談アポ率 {goal.shodanApoRate}% ／ 商談完工率 {goal.shodanKankoRate}%</p>
+          <ExcludeToggle excl={excl} setExcl={setExcl} />
+        </div>
+      </div>
+
+      {md.hasData ? (
+        <>
+          <section className="mb-12">
+            <SectionTitle note="土曜始まり">週別（{month}月）</SectionTitle>
+            <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
+            <Card className="w-full max-w-full overflow-x-auto">
+              <table className="w-full min-w-[680px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                    {["期間", "アポ数", "商談数", "未商談", "有効商談", "完工数", "商談アポ率", "判定", "商談完工率", "判定"].map((h, i) => (
+                      <th key={i} className="px-4 py-3 text-left font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.weeks.map((w) => {
+                    const mi = weekMishodan(w.start);
+                    const wk = w.kanko; /* 完工数は集計時点でキャンセルを控除済み */
+                    const base = excl ? w.shodan - mi : w.shodan;
+                    const apoRate = ratio(base, w.apo);
+                    const kankoRate = ratio(wk, base);
+                    const empty = w.apo === 0;
+                    return (
+                      <tr key={w.start} className="border-b border-slate-50 last:border-0">
+                        <td className="px-4 py-3 font-semibold text-slate-800">{w.range}</td>
+                        <td className="px-4 py-3 text-slate-600">{empty ? "-" : w.apo}</td>
+                        <td className="px-4 py-3 text-slate-600">{empty ? "-" : w.shodan}</td>
+                        <td className="px-4 py-3 text-rose-600">{empty ? "-" : mi || "-"}</td>
+                        <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>{empty ? "-" : w.shodan - mi}</td>
+                        <td className="px-4 py-3 text-slate-600">{empty ? "-" : wk}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-800">{empty ? "-" : p1(apoRate)}</td>
+                        <td className="px-4 py-3">{empty ? "" : <Judge ok={apoRate >= goal.shodanApoRate} />}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-800">{empty ? "-" : p1(kankoRate)}</td>
+                        <td className="px-4 py-3">{empty ? "" : <Judge ok={kankoRate >= goal.shodanKankoRate} />}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </Card>
+          </section>
+
+          <section className="mb-12">
+            <SectionTitle note="アポ取得日と商談実施日がずれるため、参考値としてご覧ください">日別（{month}月）</SectionTitle>
+            <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
+            <Card className="w-full max-w-full overflow-x-auto">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                    {["日付", "アポ数", "商談数", "未商談", "有効商談", "完工数", "商談アポ率", "商談完工率"].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.daily.map((d) => {
+                    const mi = stats.byDate[d.date] || 0;
+                    const base = excl ? d.shodan - mi : d.shodan;
+                    const apoRate = ratio(base, d.apo);
+                    const kankoRate = ratio(d.kanko, base);
+                    return (
+                      <tr key={d.date} className="border-b border-slate-50 last:border-0">
+                        <td className="px-4 py-3 font-semibold text-slate-800">{d.date}（{d.dow}）</td>
+                        <td className="px-4 py-3 text-slate-600">{d.apo || "-"}</td>
+                        <td className="px-4 py-3 text-slate-600">{d.shodan || "-"}</td>
+                        <td className="px-4 py-3 text-rose-600">{mi || "-"}</td>
+                        <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>{d.shodan - mi || "-"}</td>
+                        <td className="px-4 py-3 text-slate-600">{d.kanko || "-"}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-800">{d.apo > 0 ? p1(apoRate) : "-"}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-800">{base > 0 ? p1(kankoRate) : "-"}</td>
+                      </tr>
+                    );
+                  })}
+                  {stats.daily.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">日報がありません。</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </Card>
+            <p className="mt-3 text-xs leading-relaxed text-slate-400">
+              ※ その日に取ったアポが翌日以降に商談になることがあるため、日別の率は100%を超えたり分母が0になったりします。評価は週別・月別でご確認ください。
+            </p>
+          </section>
+
+          <section className="mb-12">
+            <SectionTitle>{month}月のサマリー</SectionTitle>
+            <div className="grid gap-5 lg:grid-cols-3">
+              <Card className="p-6">
+                <p className="text-sm font-medium text-slate-500">{PERIOD.year}年{month}月</p>
+                <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{yen(md.sales)}</p>
+                <div className="mt-5 space-y-3 text-sm">
+                  {[["アポ数", md.apo], ["商談数", md.shodan], ["未商談", mishodan], ["有効商談数", yuko], ["完工数", md.kanko], ["契約キャンセル", stats.cancelCount]].map(([l, v]) => (
+                    <div key={l} className="flex items-center justify-between border-b border-slate-50 pb-2 last:border-0">
+                      <span className="text-slate-500">{l}</span>
+                      <span className="font-semibold text-slate-900">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <div className="grid gap-5 lg:col-span-2">
+                {[
+                  { title: "商談アポ率", v: ratio(excl ? yuko : md.shodan, md.apo), goal: goal.shodanApoRate },
+                  { title: "商談完工率", v: ratio(md.kanko, excl ? yuko : md.shodan), goal: goal.shodanKankoRate },
+                ].map((r) => (
+                  <Card key={r.title} className="p-5 sm:p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-500">{r.title}（{excl ? "未商談除く" : "未商談含む"}）</p>
+                        <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{p1(r.v)}</p>
+                      </div>
+                      <Judge ok={r.v >= r.goal} />
+                    </div>
+                    <div className="mt-5">
+                      <div className="mb-2 flex justify-between text-xs text-slate-400">
+                        <span>目標 {r.goal}%</span>
+                        <span>達成率 {ratio(r.v, r.goal).toFixed(0)}%</span>
+                      </div>
+                      <Bar value={ratio(r.v, r.goal)} color={r.v >= r.goal ? "#059669" : NAVY} />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </section>
+        </>
+      ) : (
+        <Card className="mb-12 p-12 text-center">
+          <p className="text-sm font-semibold text-slate-700">{PERIOD.year}年{month}月のデータは未登録です</p>
+          <p className="mt-2 text-xs text-slate-400">日報が入力されると、週別・月別の集計がここに表示されます。</p>
+        </Card>
+      )}
+
+      <section>
+        <SectionTitle note="行をタップするとその月の集計に切り替わります">月別一覧（{PERIOD.year}年）</SectionTitle>
+        <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
+        <Card className="w-full max-w-full overflow-x-auto">
+          <table className="w-full min-w-[680px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                {["月", "アポ数", "商談数", "未商談", "有効商談", "完工数", "売上金額", "商談アポ率", "商談完工率"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {stats.monthly.map((x) => {
+                const mi = x.mis;
+                const xk = x.kanko;
+                const xs = x.sales;
+                const base = excl ? x.shodan - mi : x.shodan;
+                return (
+                  <tr
+                    key={x.m}
+                    onClick={() => setMonth(x.m)}
+                    className={`cursor-pointer border-b border-slate-50 transition last:border-0 hover:bg-slate-50 ${month === x.m ? "bg-slate-50" : ""}`}
+                  >
+                    <td className="px-4 py-3 font-semibold text-slate-800">
+                      {x.m}月
+                      {x.m === PERIOD.month && <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">当月</span>}
+                    </td>
+                    {!x.hasData ? (
+                      <td colSpan={8} className="px-4 py-3 text-xs text-slate-300">データ未登録</td>
+                    ) : (
+                      <>
+                        <td className="px-4 py-3 text-slate-600">{x.apo}</td>
+                        <td className="px-4 py-3 text-slate-600">{x.shodan}</td>
+                        <td className="px-4 py-3 text-rose-600">{mi || "-"}</td>
+                        <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>{x.shodan - mi}</td>
+                        <td className="px-4 py-3 text-slate-600">{xk}</td>
+                        <td className="px-4 py-3 text-slate-600">{yen(xs)}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-800">{p1(ratio(base, x.apo))}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-800">{p1(ratio(xk, base))}</td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Card>
+        <p className="mt-4 text-xs text-slate-400">
+          ※ 日別の率はアポ取得日と商談実施日のズレで100%超や分母0が発生します。評価は週別・月別で行ってください。
+        </p>
+      </section>
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════
+   5. メンバー別分析
+   ══════════════════════════════════════════ */
+function MemberAnalysis({ excl, setExcl, stats, targets }) {
+  const [selected, setSelected] = useState("坂神");
+  const m = MEMBERS.find((x) => x.name === selected);
+  const mi = stats.byMember[m.name] || 0;
+  const cancelK = stats.cancelKankoByMember[m.name] || 0;
+  const cancelS = stats.cancelSalesByMember[m.name] || 0;
+  const mv = (key) => memberValue(m, key, stats);
+  const base = excl ? mv("shodan") - mi : mv("shodan");
+  const apoRate = ratio(base, mv("apo"));
+  const t = targets[m.name];
+  const rows = [
+    { label: "対応数", cur: mv("taio"), tgt: t.taio },
+    { label: "アポ数", cur: mv("apo"), tgt: t.apo },
+    { label: excl ? "有効商談数" : "商談数", cur: base, tgt: t.shodan },
+    { label: "完工数", cur: mv("kanko"), tgt: t.kanko },
+  ];
+
+  return (
+    <>
+      <header className="mb-8">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">MEMBER ANALYSIS</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">メンバー別分析</h1>
+        <p className="mt-2 text-sm text-slate-500">{PERIOD.label}の実績と個人目標の対比</p>
+      </header>
+
+      <div className="mb-6 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-slate-600">未商談の判定は個人の商談数にも反映されます</p>
+        <ExcludeToggle excl={excl} setExcl={setExcl} />
+      </div>
+
+      <div className="mb-6 flex flex-wrap gap-2">
+        {MEMBERS.map((x) => (
+          <button
+            key={x.name}
+            onClick={() => setSelected(x.name)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${selected === x.name ? "text-white shadow-sm" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"}`}
+            style={selected === x.name ? { backgroundColor: NAVY } : undefined}
+          >
+            {x.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-12 grid gap-5 lg:grid-cols-3">
+        <Card className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold" style={{ backgroundColor: NAVY_TINT, color: NAVY }}>
+              {m.name.slice(0, 1)}
+            </div>
+            <div>
+              <p className="text-xl font-bold text-slate-900">{m.name}</p>
+              <div className="mt-1 flex items-center gap-2">
+                <RoleTag role={m.role} />
+                <span className="text-xs text-slate-400">出勤目標 {t.shukkin} 日</span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 space-y-3 text-sm">
+            <div className="flex justify-between border-b border-slate-50 pb-2">
+              <span className="text-slate-500">売上金額</span>
+              <span className="font-bold text-slate-900">{yen(mv("sales"))}</span>
+            </div>
+            {cancelS + cancelK > 0 && (
+              <div className="flex justify-between border-b border-slate-50 pb-2">
+                <span className="text-slate-500">契約キャンセル</span>
+                <span className="font-bold text-rose-600">
+                  −{yen(cancelS)}{cancelK > 0 && ` / 完工 −${cancelK}`}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between border-b border-slate-50 pb-2">
+              <span className="text-slate-500">未商談</span>
+              <span className={`font-bold ${mi > 0 ? "text-rose-600" : "text-slate-900"}`}>{mi} 件</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-50 pb-2">
+              <span className="text-slate-500">商談アポ率（{excl ? "除く" : "含む"}）</span>
+              <span className="font-bold text-slate-900">{p1(apoRate)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">商談アポ率 目標</span>
+              <span className="font-semibold text-slate-500">{t.rate}%</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 lg:col-span-2">
+          <SectionTitle note={`${PERIOD.label}の目標に対する進捗`}>目標進捗</SectionTitle>
+          <div className="space-y-5">
+            {rows.map((r) => (
+              <div key={r.label}>
+                <div className="mb-2 flex items-baseline justify-between text-sm">
+                  <span className="text-slate-600">{r.label}</span>
+                  <span className="text-slate-900">
+                    <span className="font-bold">{r.cur}</span>
+                    <span className="ml-1 text-xs text-slate-400">/ {r.tgt}（{ratio(r.cur, r.tgt).toFixed(0)}%）</span>
+                  </span>
+                </div>
+                <Bar value={ratio(r.cur, r.tgt)} />
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <section>
+        <SectionTitle>全メンバー一覧</SectionTitle>
+        <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
+        <Card className="w-full max-w-full overflow-x-auto">
+          <table className="w-full min-w-[680px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                {["メンバー", "役割", "売上金額", "対応数", "アポ数", "商談数", "未商談", "有効商談", "商談アポ率", "対目標"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {MEMBERS.map((x) => {
+                const xm = stats.byMember[x.name] || 0;
+                const xShodan = memberValue(x, "shodan", stats);
+                const xb = excl ? xShodan - xm : xShodan;
+                const r = ratio(xb, memberValue(x, "apo", stats));
+                const xs = memberValue(x, "sales", stats);
+                const xk = memberValue(x, "kanko", stats);
+                return (
+                  <tr
+                    key={x.name}
+                    onClick={() => setSelected(x.name)}
+                    className={`cursor-pointer border-b border-slate-50 transition last:border-0 hover:bg-slate-50 ${selected === x.name ? "bg-slate-50" : ""}`}
+                  >
+                    <td className="px-4 py-3 font-semibold text-slate-800">{x.name}</td>
+                    <td className="px-4 py-3"><RoleTag role={x.role} /></td>
+                    <td className="px-4 py-3 text-slate-600">{yen(xs)}</td>
+                    <td className="px-4 py-3 text-slate-600">{memberValue(x, "taio", stats)}</td>
+                    <td className="px-4 py-3 text-slate-600">{memberValue(x, "apo", stats)}</td>
+                    <td className="px-4 py-3 text-slate-600">{xShodan}</td>
+                    <td className="px-4 py-3 text-rose-600">{xm || "-"}</td>
+                    <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>{xShodan - xm}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-800">{p1(r)}</td>
+                    <td className="px-4 py-3"><Judge ok={r >= targets[x.name].rate} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Card>
+      </section>
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════
+   クローザー分析
+   ══════════════════════════════════════════ */
+function CloserAnalysis({ stats, goal, deals, onGoMishodan, month, setMonth }) {
+  const [excl, setExcl] = useState(true);
+  const [selected, setSelected] = useState("");
+
+  const inMonth = useMemo(() => deals.filter((d) => monthOf(d.date) === month), [deals, month]);
+  const live = inMonth;
+
+  /* クローザー1人分の実績をまとめる */
+  const tally = (list) => {
+    const shodan = list.length;
+    const mi = list.filter((d) => d.excluded).length;
+    const keiyaku = list.filter((d) => d.keiyaku > 0 && !d.cancelled).length;
+    const kankoDone = list.filter((d) => d.kanko > 0 && !d.cancelled).length;
+    const sales = list.reduce((a, d) => a + (d.cancelled ? 0 : d.sales), 0);
+    const cancel = inMonth.filter((d) => d.cancelled).length;
+    return { shodan, mi, yuko: shodan - mi, kanko: keiyaku, kankoDone, sales, cancel };
+  };
+
+  const rows = CLOSERS.map((c) => {
+    const list = live.filter((d) => d.closer === c.name);
+    const t = tally(list);
+    const base = excl ? t.yuko : t.shodan;
+    return {
+      name: c.name,
+      ...t,
+      cancel: inMonth.filter((d) => d.closer === c.name && d.cancelled).length,
+      base,
+      rate: ratio(t.kanko, base),
+    };
+  });
+
+  const team = rows.reduce(
+    (a, r) => ({
+      shodan: a.shodan + r.shodan,
+      mi: a.mi + r.mi,
+      yuko: a.yuko + r.yuko,
+      kanko: a.kanko + r.kanko,
+      kankoDone: a.kankoDone + r.kankoDone,
+      base: a.base + r.base,
+      sales: a.sales + r.sales,
+    }),
+    { shodan: 0, mi: 0, yuko: 0, kanko: 0, kankoDone: 0, base: 0, sales: 0 }
+  );
+  const teamRate = ratio(team.kanko, team.base);
+  const target = goal.closerKankoRate;
+
+  /* 月別の推移（全クローザー合計） */
+  const monthly = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
+    const list = deals.filter((d) => monthOf(d.date) === m);
+    const t = tally(list);
+    const base = excl ? t.yuko : t.shodan;
+    return { m, ...t, base, rate: ratio(t.kanko, base), hasData: list.length > 0 };
+  });
+
+  const chart = rows.map((r) => ({
+    label: r.name,
+    short: r.name,
+    values: { shodan: r.shodan, yuko: r.yuko, kanko: r.kanko },
+    extra: `商談完工率 ${p1(r.rate)}`,
+  }));
+
+  return (
+    <>
+      <header className="mb-8">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">CLOSER PERFORMANCE</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">クローザー分析</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          {PERIOD.year}年{month}月／商談を担当した {CLOSERS.length} 名の商談数・完工数・商談完工率（目標 {target}%）
+        </p>
+      </header>
+
+      <div className="mb-8 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <MonthSelect
+          month={month}
+          setMonth={setMonth}
+          months={monthly.map((x) => ({ m: x.m, hasData: x.hasData }))}
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-xs text-slate-600">未商談を除くと、実際に商談できた件数が分母になります</p>
+          <ExcludeToggle excl={excl} setExcl={setExcl} />
+        </div>
+      </div>
+
+      {live.length === 0 && (
+        <Card className="mb-8 p-10 text-center">
+          <p className="text-sm font-semibold text-slate-700">{PERIOD.year}年{month}月の商談は登録されていません</p>
+          <p className="mt-2 text-xs text-slate-400">クローザーが日報で商談を登録すると、ここに集計されます。</p>
+        </Card>
+      )}
+
+      <section className="mb-12">
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "商談数（未商談含む）", value: team.shodan, unit: "件", icon: Users, sub: `うち未商談 ${team.mi} 件` },
+            { label: "有効商談数", value: team.yuko, unit: "件", icon: Briefcase, sub: "未商談を差し引いた実数" },
+            { label: "完工数（見込み含む）", value: team.kanko, unit: "件", icon: CheckCircle2, sub: `うち完工済み ${team.kankoDone} 件／売上 ${yen(team.sales)}` },
+            { label: "商談完工率", value: p1(teamRate), unit: "", icon: Target, sub: `目標 ${target}%` },
+          ].map((k) => (
+            <Card key={k.label} className="p-5 sm:p-6">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-slate-500">{k.label}</p>
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: NAVY_TINT, color: NAVY }}>
+                  <k.icon size={17} />
+                </div>
+              </div>
+              <p className="mt-4 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                {k.value}
+                {k.unit && <span className="ml-1 text-sm font-medium text-slate-400">{k.unit}</span>}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">{k.sub}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-12">
+        <SectionTitle note={`目標 ${target}%`}>チーム全体の商談完工率</SectionTitle>
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">{excl ? "未商談を除く" : "未商談を含む"}</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{p1(teamRate)}</p>
+            </div>
+            <Judge ok={teamRate >= target} />
+          </div>
+          <div className="mt-5">
+            <div className="mb-2 flex items-baseline justify-between text-xs text-slate-400">
+              <span>目標 {target}%</span>
+              <span>{team.kanko} 完工 ÷ {team.base} 商談</span>
+            </div>
+            <Bar value={ratio(teamRate, target)} color={teamRate >= target ? "#059669" : NAVY} />
+          </div>
+        </Card>
+      </section>
+
+      <section className="mb-12">
+        <SectionTitle note="バーにマウスを合わせると実数が表示されます">クローザー別の商談・完工</SectionTitle>
+        <Card className="p-4 sm:p-6">
+          <GroupedBarChart
+            data={chart}
+            series={[
+              { key: "shodan", label: "商談数", color: NAVY },
+              { key: "yuko", label: "有効商談", color: ACCENT },
+              { key: "kanko", label: "完工数", color: "#059669" },
+            ]}
+            height={150}
+          />
+        </Card>
+      </section>
+
+      <section className="mb-12">
+        <SectionTitle note="行をタップするとその月に切り替わります">月別推移（クローザー合計）</SectionTitle>
+        <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
+        <Card className="w-full max-w-full overflow-x-auto">
+          <table className="w-full min-w-[680px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                {["月", "商談数", "未商談", "有効商談", "完工数", "うち完工済み", "商談完工率", "判定", "売上金額"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {monthly.map((x) => (
+                <tr
+                  key={x.m}
+                  onClick={() => setMonth(x.m)}
+                  className={`cursor-pointer border-b border-slate-50 transition last:border-0 hover:bg-slate-50 ${month === x.m ? "bg-slate-50" : ""}`}
+                >
+                  <td className="px-4 py-3 font-semibold text-slate-800">{x.m}月</td>
+                  {!x.hasData ? (
+                    <td colSpan={8} className="px-4 py-3 text-xs text-slate-300">データ未登録</td>
+                  ) : (
+                    <>
+                      <td className="px-4 py-3 text-slate-600">{x.shodan}</td>
+                      <td className="px-4 py-3 text-rose-600">{x.mi || "-"}</td>
+                      <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>{x.yuko}</td>
+                      <td className="px-4 py-3 text-slate-600">{x.kanko}</td>
+                      <td className="px-4 py-3 text-slate-500">{x.kankoDone}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-800">{x.base > 0 ? p1(x.rate) : "-"}</td>
+                      <td className="px-4 py-3">{x.base > 0 ? <Judge ok={x.rate >= target} /> : ""}</td>
+                      <td className="px-4 py-3 text-slate-600">{yen(x.sales)}</td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      </section>
+
+      <section>
+        <SectionTitle note={`商談完工率の目標 ${target}%`}>クローザー別一覧（{month}月）</SectionTitle>
+        <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
+        <Card className="w-full max-w-full overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                {["クローザー", "商談数", "未商談", "有効商談", "完工数", "うち完工済み", "商談完工率", "判定", "売上金額"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...rows].sort((a, b) => b.rate - a.rate).map((r) => (
+                <tr
+                  key={r.name}
+                  onClick={() => setSelected(selected === r.name ? "" : r.name)}
+                  className={`cursor-pointer border-b border-slate-50 transition last:border-0 hover:bg-slate-50 ${
+                    selected === r.name ? "bg-slate-50" : ""
+                  }`}
+                >
+                  <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>
+                    {r.name}
+                    <span className="ml-1 text-xs font-normal text-slate-400">{selected === r.name ? "▲" : "▼"}</span>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{r.shodan || "-"}</td>
+                  <td className="px-4 py-3 text-rose-600">{r.mi || "-"}</td>
+                  <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>{r.yuko || "-"}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {r.kanko || "-"}
+                    {r.cancel > 0 && <span className="ml-1 text-xs text-rose-500">(−{r.cancel})</span>}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">{r.kankoDone || "-"}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-800">{r.base > 0 ? p1(r.rate) : "-"}</td>
+                  <td className="px-4 py-3">{r.base > 0 ? <Judge ok={r.rate >= target} /> : <span className="text-xs text-slate-300">—</span>}</td>
+                  <td className="px-4 py-3 text-slate-600">{r.sales ? yen(r.sales) : "-"}</td>
+                </tr>
+              ))}
+              <tr className="bg-slate-50">
+                <td className="px-4 py-3 font-bold text-slate-800">合計</td>
+                <td className="px-4 py-3 font-bold text-slate-800">{team.shodan}</td>
+                <td className="px-4 py-3 font-bold text-rose-600">{team.mi || "-"}</td>
+                <td className="px-4 py-3 font-bold" style={{ color: NAVY }}>{team.yuko}</td>
+                <td className="px-4 py-3 font-bold text-slate-800">{team.kanko}</td>
+                <td className="px-4 py-3 font-bold text-slate-500">{team.kankoDone}</td>
+                <td className="px-4 py-3 font-bold text-slate-800">{p1(teamRate)}</td>
+                <td className="px-4 py-3"><Judge ok={teamRate >= target} /></td>
+                <td className="px-4 py-3 font-bold text-slate-800">{yen(team.sales)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </Card>
+        <p className="mt-3 text-xs text-slate-400">
+          クローザー名をタップすると商談の内訳が開きます。内訳の商談をタップすると、修正画面へ移動します。
+        </p>
+
+        {selected && (
+          <div className="mt-5">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-sm font-bold text-slate-900">{selected} さんの商談内訳</h3>
+              <button onClick={() => setSelected("")} className="text-xs text-slate-400 transition hover:text-slate-600">
+                閉じる
+              </button>
+            </div>
+
+            {(() => {
+              const list = inMonth.filter((d) => d.closer === selected);
+              const mi = list.filter((d) => d.excluded).length;
+              return (
+                <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-500">
+                  商談数 <span className="font-bold text-slate-800">{list.length} 件</span>
+                  {mi > 0 && (
+                    <>
+                      ／うち未商談 {mi} 件（有効商談は {list.length - mi} 件）
+                    </>
+                  )}
+                </p>
+              );
+            })()}
+
+            <div className="space-y-2">
+              {inMonth
+                .filter((d) => d.closer === selected)
+                .map((d) => {
+                  const kept = d.mishodan && d.keiyaku > 0 && !d.cancelled;
+                  return (
+                    <Card key={d.id} className={`p-4 ${kept ? "border-blue-200 bg-blue-50/40" : d.excluded || d.cancelled ? "bg-rose-50/40" : ""}`}>
+                      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                        <span className="text-sm font-bold text-slate-900">{d.date}（{d.dow}）</span>
+                        {d.customer && (
+                          <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                            {d.customer} 様
+                          </span>
+                        )}
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                          アポ：<span className="font-semibold text-slate-800">{d.name}</span>
+                        </span>
+                        {d.mishodan && (
+                          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700">
+                            未商談{d.reason && `／${d.reason}`}
+                          </span>
+                        )}
+                        {!d.excluded ? (
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
+                            有効商談
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-600">
+                            有効商談から除外
+                          </span>
+                        )}
+                        {d.keiyaku > 0 && (
+                          <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
+                            契約
+                          </span>
+                        )}
+                        {d.keiyaku > 0 && (
+                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${d.kanko > 0 ? "bg-emerald-50 text-emerald-700 ring-emerald-100" : "bg-slate-100 text-slate-600 ring-slate-200"}`}>
+                            {d.kanko > 0 ? "完工済み" : "完工見込み"}
+                          </span>
+                        )}
+                        {d.cancelled && (
+                          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700">
+                            キャンセル{d.cancelReason && `／${d.cancelReason}`}
+                          </span>
+                        )}
+                        {d.sales > 0 && (
+                          <span className={`text-xs ${d.cancelled ? "text-slate-400 line-through" : "text-slate-500"}`}>
+                            {yen(d.sales)}
+                          </span>
+                        )}
+                      </div>
+
+                      {kept && (
+                        <p className="mt-3 flex items-start gap-2 rounded-lg bg-blue-100/60 p-2.5 text-xs text-blue-800">
+                          <Info size={14} className="mt-0.5 shrink-0" />
+                          未商談としていますが、契約が成立しているため有効商談として計上しています。
+                        </p>
+                      )}
+                    </Card>
+                  );
+                })}
+              {inMonth.filter((d) => d.closer === selected).length === 0 && (
+                <Card className="p-8 text-center text-sm text-slate-400">この月に登録された商談はありません。</Card>
+              )}
+            </div>
+
+            <button
+              onClick={() => onGoMishodan(selected)}
+              className="mt-4 w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 sm:w-auto"
+              style={{ backgroundColor: NAVY }}
+            >
+              {selected} さんの商談を修正する
+            </button>
+          </div>
+        )}
+
+        <p className="mt-6 text-xs leading-relaxed text-slate-400">
+          ※ 完工数には完工見込み（契約済みでキャンセルされていないもの）を含みます。商談完工率は「完工数 ÷ 商談数」で、未商談を除く設定では有効商談数を分母にします。
+          <br />
+          ※ 未商談でも契約が成立していれば有効商談として扱い、完工数にも計上します。その契約がキャンセルされた場合は、未商談として有効商談から除き、完工数と売上からも控除します。
+        </p>
+      </section>
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════
+   6. ランキング
+   ══════════════════════════════════════════ */
+function Ranking({ stats, currentUser, month, setMonth }) {
+  const [tab, setTab] = useState("apo");
+  const [showAll, setShowAll] = useState(false);
+
+  const valueOf = (m, key) =>
+    key === "yuko" ? memberValue(m, "shodan", stats) - (stats.byMember[m.name] || 0) : memberValue(m, key, stats);
+
+  const TABS = [
+    { key: "taio", label: "対応数" },
+    { key: "apu", label: "アプローチ数" },
+    { key: "apo", label: "アポ数" },
+    { key: "yuko", label: "有効商談数" },
+    { key: "kanko", label: "完工数" },
+    { key: "sales", label: "売上金額" },
+  ];
+  const badgeOf = {
+    taio: "対応数トップ",
+    apu: "アプローチ数トップ",
+    apo: "アポ数トップ",
+    yuko: "有効商談トップ",
+    kanko: "完工数トップ",
+    sales: "売上トップ",
+  };
+  const fmt = (m) => (tab === "sales" ? yen(valueOf(m, "sales")) : valueOf(m, tab));
+
+  const rankedAll = useMemo(
+    () => [...MEMBERS].sort((a, b) => valueOf(b, tab) - valueOf(a, tab)),
+    [tab, stats]
+  );
+  const ranked = showAll ? rankedAll : rankedAll.slice(0, 6);
+  const myRank = rankedAll.findIndex((m) => m.name === currentUser) + 1;
+
+  const medals = [
+    { bg: "#fef3c7", fg: "#b45309" },
+    { bg: "#f1f5f9", fg: "#64748b" },
+    { bg: "#fdebd8", fg: "#b1602f" },
+    { bg: "#f8fafc", fg: "#94a3b8" },
+  ];
+
+  return (
+    <>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">ランキング</h1>
+          <p className="mt-1 text-sm text-slate-500">{PERIOD.year}年{month}月</p>
+        </div>
+        {myRank > 0 && (
+          <span className="rounded-full px-3 py-1.5 text-xs font-bold text-white" style={{ backgroundColor: NAVY }}>
+            あなたは {myRank} 位 / {rankedAll.length}名
+          </span>
+        )}
+      </div>
+
+      <div className="mb-6">
+        <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+      </div>
+
+      <div className="mb-5 inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-100 p-1">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition ${tab === t.key ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            style={tab === t.key ? { color: NAVY } : undefined}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        {ranked.map((m, i) => {
+          const medal = medals[Math.min(i, 3)];
+          const self = m.name === currentUser;
+          return (
+            <Card
+              key={m.name}
+              className={`flex flex-col gap-3 p-4 transition hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5 ${
+                self ? "border-blue-300 bg-blue-50/60" : ""
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                  style={{ backgroundColor: medal.bg, color: medal.fg }}
+                >
+                  {i < 3 ? <Award size={18} /> : i + 1}
+                </div>
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className="text-xs font-semibold text-slate-400">{i + 1}位</span>
+                  <span className="text-base font-bold text-slate-900">{m.name}</span>
+                  {self && (
+                    <span className="rounded-full px-2.5 py-0.5 text-xs font-bold text-white" style={{ backgroundColor: NAVY }}>
+                      自分
+                    </span>
+                  )}
+                  {i === 0 && (
+                    <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-600 ring-1 ring-red-100">
+                      {badgeOf[tab]}
+                    </span>
+                  )}
+                  <RoleTag role={m.role} />
+                </div>
+              </div>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
+                <span>
+                  {TABS.find((t) => t.key === tab).label}：
+                  <span className="ml-1 text-base font-bold text-slate-900">{fmt(m)}</span>
+                </span>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {rankedAll.length > 6 && (
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className="mt-4 w-full rounded-lg border border-slate-200 bg-white py-3 text-sm font-semibold transition hover:bg-slate-50"
+          style={{ color: NAVY }}
+        >
+          {showAll ? "上位6名だけ表示する" : `全員を表示する（${rankedAll.length}名）`}
+        </button>
+      )}
+
+      <section className="mt-10">
+        <SectionTitle>全社サマリー</SectionTitle>
+        <Card className="p-6">
+          <div className="space-y-3 text-sm">
+            {[
+              ["総対応数", stats.base.taio],
+              ["総アプローチ数", stats.base.apu],
+              ["総アポ数", stats.base.apo],
+              ["総商談数", stats.base.shodan],
+              ["未商談", stats.total],
+              ["有効商談数", stats.yuko],
+              ["完工数", stats.kanko],
+              ["総売上", yen(stats.sales)],
+            ].map(([l, v]) => (
+              <div key={l} className="flex justify-between border-b border-slate-50 pb-2 last:border-0">
+                <span className="text-slate-500">{l}</span>
+                <span className="font-semibold text-slate-900">{v}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </section>
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════
+   7. 設定
+   ══════════════════════════════════════════ */
+function SettingsPage({
+  excl,
+  setExcl,
+  editPolicy,
+  isAdmin,
+  currentUser,
+  goal,
+  targets,
+  teamTarget,
+  onSaveSettings,
+  onResetData,
+  sharedInfo,
+  dealCount,
+}) {
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [draftGoal, setDraftGoal] = useState(goal);
+  const [draftTargets, setDraftTargets] = useState(targets);
+  const [saved, setSaved] = useState(false);
+
+  const locked = !isAdmin; /* 管理者以外は変更できない */
+
+  const dirty =
+    JSON.stringify(draftGoal) !== JSON.stringify(goal) ||
+    JSON.stringify(draftTargets) !== JSON.stringify(targets);
+
+  /* 編集していないときだけ、他の人の変更を取り込みます。
+     編集中に自動同期で入力が消えないよう、未保存の変更があるあいだは上書きしません。 */
+  const editing = useRef(false);
+  editing.current = dirty;
+
+  useEffect(() => {
+    if (editing.current) return;
+    setDraftGoal(goal);
+    setDraftTargets(targets);
+  }, [goal, targets]);
+
+  /* 利用者が切り替わったときは下書きを作り直します */
+  useEffect(() => {
+    setDraftGoal(goal);
+    setDraftTargets(targets);
+  }, [currentUser]);
+
+  const num = (v) => (v === "" ? 0 : Number(v));
+
+  const save = () => {
+    if (locked) return;
+    onSaveSettings({ goal: draftGoal, targets: draftTargets });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2600);
+  };
+
+  const reset = () => {
+    setDraftGoal(goal);
+    setDraftTargets(targets);
+  };
+
+  const setT = (name, key, value) =>
+    setDraftTargets((prev) => ({ ...prev, [name]: { ...prev[name], [key]: num(value) } }));
+
+  const draftTeam = sumTargets(draftTargets);
+  const inputBase =
+    "rounded-lg border py-2 pl-3 pr-12 text-right text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400";
+  const cellInput =
+    "w-16 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-right text-sm text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:w-20";
+
+  const TARGET_FIELDS = [
+    ["shukkin", "出勤数", ""],
+    ["taio", "対応数", ""],
+    ["apo", "アポ数", ""],
+    ["shodan", "商談数", ""],
+    ["kanko", "完工数", ""],
+    ["rate", "商談アポ率", "%"],
+  ];
+
+  return (
+    <>
+      <header className="mb-6">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">SETTINGS</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">設定</h1>
+        <p className="mt-2 text-sm text-slate-500">目標値・集計ルール・権限の管理</p>
+      </header>
+
+      {dirty && !locked && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">未保存の変更があります</p>
+            <p className="mt-0.5 text-xs text-amber-800">
+              下部の「変更を保存する」を押すまで反映されません。保存するまで、他の人の変更は取り込まれません。
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 権限バナー */}
+      <div className={`mb-6 flex items-start gap-3 rounded-lg border p-4 ${locked ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
+        <ShieldCheck size={18} className="mt-0.5 shrink-0" style={{ color: locked ? "#b45309" : NAVY }} />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-800">
+            {locked ? "設定を変更できるのは管理者のみです" : `${currentUser} さん（管理者）として設定を変更できます`}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {locked
+              ? `閲覧のみ可能です。変更が必要な場合は ${ADMINS.map((a) => a.name).join("・")} に依頼してください。`
+              : "変更後は「変更を保存する」を押すと全画面に反映されます。"}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* 全社の目標値 */}
+        <Card className="p-5 sm:p-6 lg:col-span-2">
+          <SectionTitle note="マイ成績の判定に使われます">支部の目標（歩留まり）</SectionTitle>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {FUNNEL.map((f) => (
+              <div key={f.key} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
+                <label className="text-sm text-slate-600 sm:w-32 sm:shrink-0">{f.label}</label>
+                <div className="relative w-full sm:flex-1">
+                  <input
+                    type="number"
+                    value={draftGoal[f.key]}
+                    disabled={locked}
+                    onChange={(e) => setDraftGoal((prev) => ({ ...prev, [f.key]: num(e.target.value) }))}
+                    className={`w-full border-slate-200 bg-slate-50 ${inputBase}`}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 rounded-lg bg-slate-50 p-4 text-xs leading-relaxed text-slate-500">
+            現在の適用値<br />
+            {FUNNEL.map((f) => `${f.label} ${goal[f.key]}%`).join(" ／ ")}
+          </div>
+        </Card>
+
+        <Card className="p-5 sm:p-6">
+          <SectionTitle note="ダッシュボードの判定に使われます">全社の目標値</SectionTitle>
+          <div className="space-y-4">
+            {[
+              { label: "商談アポ率 目標", key: "shodanApoRate", unit: "%", value: draftGoal.shodanApoRate },
+              { label: "商談完工率 目標", key: "shodanKankoRate", unit: "%", value: draftGoal.shodanKankoRate },
+              { label: "クローザー商談完工率 目標", key: "closerKankoRate", unit: "%", value: draftGoal.closerKankoRate },
+              { label: "月間売上目標", key: "sales", unit: "万円", value: draftGoal.sales / 10000 },
+            ].map((f) => (
+              <div key={f.key} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
+                <label className="text-sm text-slate-600 sm:w-36 sm:shrink-0">{f.label}</label>
+                <div className="relative w-full sm:flex-1">
+                  <input
+                    type="number"
+                    value={f.value}
+                    disabled={locked}
+                    onChange={(e) =>
+                      setDraftGoal((prev) => ({
+                        ...prev,
+                        [f.key]: f.key === "sales" ? num(e.target.value) * 10000 : num(e.target.value),
+                      }))
+                    }
+                    className={`w-full border-slate-200 bg-slate-50 ${inputBase}`}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">{f.unit}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 rounded-lg bg-slate-50 p-4 text-xs leading-relaxed text-slate-500">
+            現在の適用値<br />
+            商談アポ率 {goal.shodanApoRate}% ／ 商談完工率 {goal.shodanKankoRate}%<br />
+            クローザー商談完工率 {goal.closerKankoRate}%<br />
+            月間売上 {yen(goal.sales)}
+          </div>
+        </Card>
+
+        {/* 権限とアカウント */}
+        <Card className="p-5 sm:p-6">
+          <SectionTitle>商談管理の編集権限</SectionTitle>
+          <p className="text-xs leading-relaxed text-slate-500">
+            判定を誰が変更できるかを決めます。アポインターはどちらの設定でも変更できません。変更者と日時は必ず記録されます。
+          </p>
+          <div className={`mt-4 inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1 ${locked ? "opacity-50" : ""}`}>
+            {[
+              { label: "クローザーと管理者", v: "all" },
+              { label: "管理者のみ", v: "admin" },
+            ].map((o) => (
+              <button
+                key={o.v}
+                onClick={() => !locked && onSaveSettings({ editPolicy: o.v })}
+                disabled={locked}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed sm:px-3.5 ${
+                  editPolicy === o.v ? "bg-white shadow-sm" : "text-slate-500"
+                }`}
+                style={editPolicy === o.v ? { color: NAVY } : undefined}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 rounded-lg bg-slate-50 p-4">
+            <p className="text-sm font-semibold text-slate-800">ログインアカウント</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Googleアカウントで認証しています（{currentUser} さん／{isAdmin ? "管理者" : "メンバー"}）
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-slate-500">管理者：</span>
+              {ADMINS.map((a) => (
+                <span key={a.name} className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-100">
+                  {a.name}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <p className="mb-2 text-xs font-medium text-slate-600">率の既定表示（全員が変更可・即時反映）</p>
+            <ExcludeToggle excl={excl} setExcl={setExcl} />
+          </div>
+
+          <div className="mt-6 space-y-3">
+            {[
+              ["週の開始曜日", "土曜"],
+              ["対象年", `${PERIOD.year}年`],
+              ["日報・商談管理の同期", "10秒ごと"],
+              ["この設定画面の同期", "10分ごと"],
+            ].map(([l, v]) => (
+              <div key={l} className="flex justify-between border-b border-slate-50 pb-2 text-sm last:border-0">
+                <span className="text-slate-500">{l}</span>
+                <span className="font-semibold text-slate-800">{v}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* 個人目標 */}
+        <Card className="p-5 sm:p-6 lg:col-span-2">
+          <SectionTitle note={locked ? "閲覧のみ" : "数値を直接編集できます"}>メンバーと個人目標</SectionTitle>
+
+          {/* スマホ：カード表示 */}
+          <div className="space-y-3 sm:hidden">
+            {MEMBERS.map((m) => (
+              <div key={m.name} className="rounded-lg border border-slate-200 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-sm font-bold text-slate-900">{m.name}</span>
+                  <RoleTag role={m.role} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {TARGET_FIELDS.map(([key, label, unit]) => (
+                    <div key={key} className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-500">{label}</span>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={draftTargets[m.name][key]}
+                          disabled={locked}
+                          onChange={(e) => setT(m.name, key, e.target.value)}
+                          className={cellInput}
+                        />
+                        {unit && <span className="text-xs text-slate-400">{unit}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div className="rounded-lg bg-slate-50 p-4 text-sm">
+              <p className="mb-2 font-bold text-slate-800">合計（全社目標）</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                <span>対応数 <span className="font-bold text-slate-900">{draftTeam.taio}</span></span>
+                <span>アポ数 <span className="font-bold text-slate-900">{draftTeam.apo}</span></span>
+                <span>商談数 <span className="font-bold text-slate-900">{draftTeam.shodan}</span></span>
+                <span>完工数 <span className="font-bold text-slate-900">{draftTeam.kanko}</span></span>
+              </div>
+            </div>
+          </div>
+
+          {/* PC：表示 */}
+          <div className="hidden w-full max-w-full overflow-x-auto sm:block">
+            <table className="w-full min-w-[660px] text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                  {["メンバー", "役割", ...TARGET_FIELDS.map(([, label]) => label)].map((h) => (
+                    <th key={h} className="px-3 py-3 text-left font-medium">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {MEMBERS.map((m) => (
+                  <tr key={m.name} className="border-b border-slate-50 last:border-0">
+                    <td className="px-3 py-3 font-semibold text-slate-800">{m.name}</td>
+                    <td className="px-3 py-3"><RoleTag role={m.role} /></td>
+                    {TARGET_FIELDS.map(([key, , unit]) => (
+                      <td key={key} className="px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={draftTargets[m.name][key]}
+                            disabled={locked}
+                            onChange={(e) => setT(m.name, key, e.target.value)}
+                            className={cellInput}
+                          />
+                          {unit && <span className="text-xs text-slate-400">{unit}</span>}
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                <tr className="bg-slate-50 text-sm">
+                  <td className="px-3 py-3 font-bold text-slate-800" colSpan={3}>合計（全社目標）</td>
+                  <td className="px-3 py-3 font-bold text-slate-800">{draftTeam.taio}</td>
+                  <td className="px-3 py-3 font-bold text-slate-800">{draftTeam.apo}</td>
+                  <td className="px-3 py-3 font-bold text-slate-800">{draftTeam.shodan}</td>
+                  <td className="px-3 py-3 font-bold text-slate-800">{draftTeam.kanko}</td>
+                  <td className="px-3 py-3 text-slate-400">-</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {!locked && (
+            <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
+              {saved && (
+                <span className="flex items-center justify-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                  <CheckCircle2 size={14} /> 保存しました。各画面に反映されます
+                </span>
+              )}
+              {dirty && !saved && <span className="text-center text-xs text-amber-600">未保存の変更があります</span>}
+              <button
+                onClick={reset}
+                disabled={!dirty}
+                className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
+              >
+                変更を取り消す
+              </button>
+              <button
+                onClick={save}
+                disabled={!dirty}
+                className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ backgroundColor: NAVY }}
+              >
+                変更を保存する
+              </button>
+            </div>
+          )}
+          <p className="mt-3 text-xs text-slate-400 sm:text-right">
+            現在の適用値：月間アポ目標 {teamTarget.apo} 件／完工目標 {teamTarget.kanko} 件
+          </p>
+        </Card>
+
+        {/* 共有データ */}
+        <Card className="p-5 sm:p-6 lg:col-span-2">
+          <SectionTitle note="全員が同じ数字を見ています">共有データ</SectionTitle>
+          <div className="space-y-3 text-sm">
+            {[
+              ["日報の件数", `${sharedInfo.logs.length} 件`],
+              ["商談レコード", `${dealCount} 件`],
+              [
+                "最終更新",
+                sharedInfo.updatedAt
+                  ? `${new Date(sharedInfo.updatedAt).toLocaleString("ja-JP")}${sharedInfo.updatedBy ? `／${sharedInfo.updatedBy}` : ""}`
+                  : "未更新",
+              ],
+            ].map(([l, v]) => (
+              <div key={l} className="flex flex-wrap justify-between gap-2 border-b border-slate-50 pb-2 last:border-0">
+                <span className="text-slate-500">{l}</span>
+                <span className="font-semibold text-slate-800">{v}</span>
+              </div>
+            ))}
+          </div>
+
+          {!locked && (
+            <div className="mt-6 rounded-lg border border-rose-100 bg-rose-50/50 p-4">
+              <p className="text-sm font-semibold text-slate-800">データを初期状態に戻す</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                全員の日報と判定がサンプルデータに戻ります。運用開始前のテストを消すときに使ってください。この操作は取り消せません。
+              </p>
+              {confirmReset ? (
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    onClick={() => setConfirmReset(false)}
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-white"
+                  >
+                    やめる
+                  </button>
+                  <button
+                    onClick={() => {
+                      onResetData();
+                      setConfirmReset(false);
+                    }}
+                    className="rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+                    style={{ backgroundColor: "#e11d48" }}
+                  >
+                    本当に初期化する
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmReset(true)}
+                  className="mt-4 rounded-lg border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:bg-white"
+                >
+                  初期化する
+                </button>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════
+   ログイン（利用者の選択）
+   ══════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════
+   共有データ（全員で同じ数字を見るための保存領域）
+   ══════════════════════════════════════════ */
+const SHARED_KEY = "craft-sales-v1";
+
+/* 自動同期の間隔（ミリ秒）。画面ごとに変えられます。 */
+const SYNC_INTERVAL = {
+  my: 20000,         /* マイ成績：20秒 */
+  input: 10000,      /* 日報・成績入力：10秒 */
+  mishodan: 10000,   /* 商談管理：10秒 */
+  settings: 600000,  /* 設定：10分（ほとんど競合しないため長め） */
+  default: 30000,    /* その他の閲覧画面：30秒 */
+};
+const TOKEN_KEY = "craft-sales-token";
+const DEFAULT_SHARED = {
+  logs: INITIAL_LOGS,
+  goal: DEFAULT_GOAL,
+  targets: DEFAULT_TARGETS,
+  editPolicy: "all",
+  updatedAt: 0,
+  updatedBy: "",
+};
+
+/* 保存済みデータと既定値を合成する。
+   メンバーを追加した直後でも、目標値が空にならないようにするための処理です。 */
+function mergeShared(data) {
+  const d = { ...DEFAULT_SHARED, ...(data || {}) };
+  d.goal = { ...DEFAULT_GOAL, ...(d.goal || {}) };
+  d.targets = MEMBERS.reduce(
+    (a, m) => ({ ...a, [m.name]: { ...m.target, ...((d.targets || {})[m.name] || {}) } }),
+    {}
+  );
+  return d;
+}
+
+/* 同期状態の表示 */
+function SyncBadge({ sync, onRefresh, dark = false, intervalMs }) {
+  const label =
+    sync.state === "saving"
+      ? "保存中…"
+      : sync.state === "local"
+      ? "この端末のみ"
+      : `同期済み ${sync.at || ""}${intervalMs ? `（${Math.round(intervalMs / 1000)}秒ごと）` : ""}`;
+  const tone =
+    sync.state === "local"
+      ? dark ? "text-amber-200" : "text-amber-600"
+      : dark ? "text-blue-100/80" : "text-slate-400";
+  return (
+    <button
+      onClick={onRefresh}
+      className={`flex items-center gap-1.5 text-xs transition hover:opacity-80 ${tone}`}
+      title="最新のデータを読み込む"
+    >
+      <RotateCcw size={12} />
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+
+/* ══════════════════════════════════════════
+   メニュー
+   ══════════════════════════════════════════ */
+const NAV_ITEMS = [
+  { id: "my", label: "マイ成績", icon: Target },
+  { id: "ranking", label: "ランキング", icon: Trophy },
+  { id: "dashboard", label: "全社ダッシュボード", icon: LayoutDashboard },
+  { id: "input", label: "日報・成績入力", icon: PenSquare },
+  { id: "mishodan", label: "商談管理", icon: ClipboardCheck },
+  { id: "aggregate", label: "週別・月別集計", icon: BarChart3 },
+  { id: "member", label: "メンバー別分析", icon: Users },
+  { id: "closer", label: "クローザー分析", icon: Target },
+  { id: "settings", label: "設定", icon: Settings },
+];
+
+/* ══════════════════════════════════════════
+   サーバー（Apps Script）との通信
+   ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   ここに Apps Script のウェブアプリURLを貼り付けてください
+   （デプロイを管理 → ウェブアプリのURL。末尾が /exec のもの）
+   ══════════════════════════════════════════ */
+const API_URL = "ここにURLを貼り付け";
+
+async function callServer(fn, ...args) {
+  if (!API_URL || API_URL.indexOf("script.google.com") < 0) {
+    throw new Error("接続先が設定されていません。index.html の API_URL を書き換えてください。");
+  }
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ fn, args }),
+  });
+  if (!res.ok) throw new Error("サーバーに接続できませんでした");
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.result;
+}
+
+/* ログイン画面（メールアドレス＋合言葉） */
+function LoginScreen({ onLogin, error, busy }) {
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [remember, setRemember] = useState(true);
+  const ready = email.trim() !== "" && pass !== "";
+
+  const submit = () => {
+    if (ready && !busy) onLogin(email.trim(), pass, remember);
+  };
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10" style={{ backgroundColor: NAVY }}>
+      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+        <p className="text-center text-xl font-bold text-slate-900">Craft energy</p>
+        <p className="mt-1 text-center text-xs tracking-widest text-slate-400">SALES PLATFORM</p>
+
+        <div className="mt-7 space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600">メールアドレス</label>
+            <input
+              type="email"
+              inputMode="email"
+              autoComplete="username"
+              autoCapitalize="none"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              placeholder="you@example.com"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600">合言葉</label>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={pass}
+              onChange={(e) => setPass(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              placeholder="••••••••"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-xs text-slate-500">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+            次回から自動でログインする
+          </label>
+
+          {error && (
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600 ring-1 ring-rose-100">{error}</p>
+          )}
+
+          <button
+            onClick={submit}
+            disabled={!ready || busy}
+            className="w-full rounded-lg py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ backgroundColor: NAVY }}
+          >
+            {busy ? "確認しています…" : "ログイン"}
+          </button>
+        </div>
+
+        <p className="mt-6 text-center text-xs leading-relaxed text-slate-400">
+          合言葉がわからない場合は管理者にお問い合わせください。
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [page, setPage] = useState("my");
+  const [excl, setExcl] = useState(true);
+  const [showBanner, setShowBanner] = useState(true);
+  const [openModal, setOpenModal] = useState(false);
+  const [month, setMonth] = useState(PERIOD.month);
+  const [focusName, setFocusName] = useState("");
+
+  /* ログイン情報（Googleアカウントから取得） */
+  const [me, setMe] = useState(null);
+  const [token, setToken] = useState("");
+  const [booting, setBooting] = useState(true);
+  const [loginError, setLoginError] = useState("");
+  const [loginBusy, setLoginBusy] = useState(false);
+
+  /* 共有データ（スプレッドシートに保存） */
+  const [shared, setShared] = useState(DEFAULT_SHARED);
+  const [sync, setSync] = useState({ state: "ok", at: "" });
+  const [author, setAuthor] = useState(MEMBERS[0].name);
+  const queue = useRef(Promise.resolve());
+  const busy = useRef(false);
+
+  const { logs, goal, targets, editPolicy } = shared;
+  const deals = useMemo(() => buildDeals(logs), [logs]);
+  const teamTarget = useMemo(() => sumTargets(targets), [targets]);
+  const currentUser = me?.name || "";
+  const isAdmin = !!me?.admin;
+
+  /* サーバー操作：順番待ちで実行し、常に最新の全データを受け取る */
+  const run = (fn, ...args) => {
+    setSync((prev) => ({ state: "saving", at: prev.at }));
+    busy.current = true;
+    queue.current = queue.current
+      .then(() => callServer(fn, ...args))
+      .then((data) => {
+        if (data) setShared(mergeShared(data));
+        setSync({ state: "ok", at: stamp() });
+      })
+      .catch(() => setSync({ state: "error", at: "" }))
+      .then(() => {
+        busy.current = false;
+      });
+    return queue.current;
+  };
+
+  /* 最新データの取り込み */
+  const pull = async () => {
+    if (busy.current) return;
+    try {
+      const data = await callServer("getData", token);
+      if (data) setShared(mergeShared(data));
+      setSync({ state: "ok", at: stamp() });
+    } catch (e) {
+      setSync({ state: "error", at: "" });
+    }
+  };
+
+  /* 保存領域（使えない環境でも動くようにする） */
+  const store = {
+    get: () => {
+      try { return window.localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; }
+    },
+    set: (v) => {
+      try { window.localStorage.setItem(TOKEN_KEY, v); } catch (e) {}
+    },
+    clear: () => {
+      try { window.localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+    },
+  };
+
+  /* 起動処理：前回のログインが残っていれば自動で再開 */
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const saved = store.get();
+      if (!saved) {
+        if (alive) setBooting(false);
+        return;
+      }
+      try {
+        const res = await callServer("resume", saved);
+        if (!alive) return;
+        if (res && res.ok) {
+          setMe(res.me);
+          setToken(saved);
+          const self = MEMBERS.find((m) => m.name === res.me.name);
+          setAuthor(self ? self.name : MEMBERS[0].name);
+          if (res.data) {
+            setShared(mergeShared(res.data));
+          } else {
+            const seeded = await callServer("initData", DEFAULT_SHARED, saved);
+            if (alive && seeded) setShared(mergeShared(seeded));
+          }
+          setSync({ state: "ok", at: stamp() });
+        } else {
+          store.clear();
+        }
+      } catch (e) {
+        if (alive) setSync({ state: "error", at: "" });
+      }
+      if (alive) setBooting(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /* ログイン（メールアドレス＋合言葉） */
+  const doLogin = async (email, pass, remember) => {
+    setLoginBusy(true);
+    setLoginError("");
+    try {
+      const res = await callServer("login", email, pass);
+      if (!res || !res.ok) {
+        setLoginError((res && res.message) || "ログインできませんでした");
+        setLoginBusy(false);
+        return;
+      }
+      setMe(res.me);
+      setToken(res.token);
+      if (remember) store.set(res.token);
+      else store.clear();
+      const self = MEMBERS.find((m) => m.name === res.me.name);
+      setAuthor(self ? self.name : MEMBERS[0].name);
+      if (res.data) {
+        setShared(mergeShared(res.data));
+      } else {
+        const seeded = await callServer("initData", DEFAULT_SHARED, res.token);
+        if (seeded) setShared(mergeShared(seeded));
+      }
+      setSync({ state: "ok", at: stamp() });
+    } catch (e) {
+      setLoginError("通信できませんでした。電波状況を確認して、もう一度お試しください");
+    }
+    setLoginBusy(false);
+  };
+
+  const doLogout = () => {
+    store.clear();
+    setToken("");
+    setMe(null);
+  };
+
+  /* 他の人の入力を取り込む間隔。画面によって変えています。
+     日報や判定は複数人が同時に触るため短く、設定はほとんど競合しないため長めです。 */
+  const syncMs = SYNC_INTERVAL[page] ?? SYNC_INTERVAL.default;
+
+  useEffect(() => {
+    if (!me?.authorized || !token) return;
+    const id = setInterval(pull, syncMs);
+    return () => clearInterval(id);
+  }, [me, token, syncMs]);
+
+  /* 各種操作 */
+  const onSaveLog = (entry) => run("upsertLog", entry, token);
+  const onDeleteLog = (id) => run("deleteLog", id, token);
+  const onPatchDeal = (id, patch) => run("patchDeal", id, patch, token);
+  const onSaveSettings = (patch) => run("saveSettings", patch, token);
+  const resetData = () => run("resetData", DEFAULT_SHARED, token);
+
+  const submitLog = (name, iso, values, items = []) => {
+    const date = `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
+    const dow = ["日", "月", "火", "水", "木", "金", "土"][new Date(iso).getDay()];
+    const exists = logs.some((l) => l.name === name && l.date === date);
+    run("upsertLog", {
+      id: exists ? logs.find((l) => l.name === name && l.date === date).id : "",
+      date,
+      dow,
+      name,
+      taio: 0,
+      apu: 0,
+      apo: 0,
+      shodan: 0,
+      ...values,
+      items,
+      editedBy: exists ? currentUser : "",
+      editedAt: exists ? stamp() : "",
+    }, token);
+    return exists ? "update" : "add";
+  };
+
+  const stats = useMemo(() => {
+    const agg = aggregateAll(logs, deals, month);
+    const inMonth = deals.filter((d) => monthOf(d.date) === month);
+    const mis = inMonth.filter((d) => d.excluded);
+    const can = inMonth.filter((d) => d.cancelled);
+    const sum = (arr, key) => arr.reduce((a, d) => a + (d[key] || 0), 0);
+    const by = (arr, key, valueKey) =>
+      arr.reduce((a, d) => ({ ...a, [d[key]]: (a[d[key]] || 0) + (valueKey ? d[valueKey] || 0 : 1) }), {});
+
+    const cancelKanko = sum(can, "keiyaku");
+    const cancelSales = sum(can, "sales");
+    const submitted = logs.filter((l) => l.date === TODAY.date).map((l) => l.name);
+
+    /* 月別の一覧（12か月分。日報のある月だけ数字が入ります） */
+    const monthly = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
+      const a = aggregateAll(logs, deals, m);
+      const ds = deals.filter((d) => monthOf(d.date) === m);
+      return {
+        m,
+        apo: a.base.apo,
+        shodan: a.base.shodan,
+        kanko: a.base.kanko,
+        kankoDone: a.base.kankoDone,
+        sales: a.base.sales,
+        mis: ds.filter((d) => d.excluded).length,
+        cancel: ds.filter((d) => d.cancelled).length,
+        hasData: a.daily.length > 0,
+      };
+    });
+
+    return {
+      base: agg.base,
+      daily: agg.daily,
+      weeks: agg.weeks,
+      members: agg.members,
+      closers: agg.closers,
+      monthly,
+      submitted,
+      unsubmitted: MEMBERS.filter((m) => !submitted.includes(m.name)),
+      total: mis.length,
+      yuko: Math.max(0, agg.base.shodan - mis.length),
+      byDate: by(mis, "date"),
+      byMember: by(mis, "name"),
+      byCloser: by(mis, "closer"),
+      cancelCount: can.length,
+      cancelKanko,
+      cancelSales,
+      cancelKeiyaku: sum(can, "keiyaku"),
+      cancelKankoByWeek: by(can, "week", "keiyaku"),
+      cancelKankoByMember: by(can, "name", "keiyaku"),
+      cancelSalesByMember: by(can, "name", "sales"),
+      cancelKankoByCloser: by(can, "closer", "keiyaku"),
+      cancelSalesByCloser: by(can, "closer", "sales"),
+      kanko: agg.base.kanko,
+      kankoDone: agg.base.kankoDone,
+      sales: agg.base.sales,
+    };
+  }, [deals, logs, month]);
+
+  /* 未商談・キャンセルの判定ができるのは、管理者とクローザーです */
+  const isCloser = MEMBERS.some((m) => m.name === currentUser && m.role === "クローザー");
+  const canEdit = isAdmin || (editPolicy === "all" && isCloser);
+
+  if (booting) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: NAVY }}>
+        <p className="text-sm text-blue-100">読み込んでいます…</p>
+      </div>
+    );
+  }
+  if (!me?.authorized) {
+    return <LoginScreen onLogin={doLogin} error={loginError} busy={loginBusy} />;
+  }
+
+  return (
+    <div className="flex min-h-screen w-full overflow-x-hidden bg-slate-50 font-sans text-slate-900">
+      <aside className="hidden w-64 shrink-0 flex-col md:flex" style={{ backgroundColor: NAVY }}>
+        <div className="px-7 py-8">
+          <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
+          <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
+        </div>
+
+        <nav className="mt-2 flex-1 space-y-1 pr-4">
+          {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+            const active = page === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setPage(id)}
+                className="flex w-full items-center gap-3 rounded-r-lg py-3 pl-6 pr-4 text-left text-sm transition"
+                style={{
+                  backgroundColor: active ? NAVY_SOFT : "transparent",
+                  borderLeft: `3px solid ${active ? ACCENT : "transparent"}`,
+                  color: active ? "#ffffff" : "rgba(255,255,255,0.62)",
+                  fontWeight: active ? 600 : 400,
+                }}
+              >
+                <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
+                {label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="m-5 rounded-lg p-4" style={{ backgroundColor: NAVY_SOFT }}>
+          <p className="text-xs text-blue-100/80">ログイン中</p>
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
+            {currentUser}
+            {isAdmin && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">管理者</span>}
+          </p>
+          <p className="mt-1 truncate text-xs text-blue-100/70">{me.email}</p>
+          <p className="mt-1 text-xs text-blue-100/60">{PERIOD.label}</p>
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/15 pt-3">
+            <SyncBadge sync={sync} onRefresh={pull} dark intervalMs={syncMs} />
+            <button onClick={doLogout} className="shrink-0 text-xs text-blue-100/70 transition hover:text-white">
+              ログアウト
+            </button>
+          </div>
+        </div>
+
+      </aside>
+
+      <main className="min-w-0 flex-1 overflow-x-hidden">
+        <div className="md:hidden" style={{ backgroundColor: NAVY }}>
+          <div className="flex items-center justify-between gap-3 px-6 py-4">
+            <span className="text-lg font-bold text-white">Craft energy</span>
+            <div className="flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3" style={{ backgroundColor: "rgba(255,255,255,0.18)" }} title={me.email || currentUser}>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold" style={{ color: NAVY }}>
+                {currentUser.slice(0, 1)}
+              </span>
+              <span className="max-w-[6rem] truncate text-sm font-semibold text-white">{currentUser}</span>
+              {isAdmin && <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-medium text-white">管理</span>}
+            </div>
+          </div>
+          <div className="flex items-center justify-between px-6 pb-2">
+            <SyncBadge sync={sync} onRefresh={pull} dark intervalMs={syncMs} />
+            <button onClick={doLogout} className="text-xs text-blue-100/70 transition hover:text-white">
+              ログアウト
+            </button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto px-4 pb-3">
+            {NAV_ITEMS.map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setPage(id)}
+                className="whitespace-nowrap rounded-full px-3 py-1.5 text-xs transition"
+                style={{
+                  backgroundColor: page === id ? "#ffffff" : NAVY_SOFT,
+                  color: page === id ? NAVY : "rgba(255,255,255,0.75)",
+                  fontWeight: page === id ? 700 : 400,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-10 sm:py-10">
+          {sync.state === "error" && (
+            <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+              <div>
+                <p className="text-sm font-semibold text-amber-900">サーバーと通信できませんでした</p>
+                <p className="mt-0.5 text-xs text-amber-800">
+                  通信状況を確認して、同期表示をタップし直してください。保存されていない可能性があります。
+                </p>
+              </div>
+            </div>
+          )}
+
+          {page === "my" && (
+            <MyPerformance
+              stats={stats}
+              goal={goal}
+              targets={targets}
+              currentUser={currentUser}
+              month={month}
+              setMonth={setMonth}
+              onGoInput={() => setPage("input")}
+            />
+          )}
+          {page === "dashboard" && (
+            <Dashboard
+              excl={excl}
+              setExcl={setExcl}
+              showBanner={showBanner}
+              onOpenModal={() => setOpenModal(true)}
+              onGoMishodan={() => {
+                setFocusName("");
+                setPage("mishodan");
+              }}
+              stats={stats}
+              deals={deals}
+              month={month}
+              setMonth={setMonth}
+              goal={goal}
+              teamTarget={teamTarget}
+            />
+          )}
+          {page === "input" && (
+            <DailyInput
+              author={author}
+              setAuthor={setAuthor}
+              onGoMishodan={() => {
+                setFocusName("");
+                setPage("mishodan");
+              }}
+              currentUser={currentUser}
+              isAdmin={isAdmin}
+              stats={stats}
+              logs={logs}
+              onSaveLog={onSaveLog}
+              onDeleteLog={onDeleteLog}
+              submitLog={submitLog}
+            />
+          )}
+          {page === "mishodan" && (
+            <MishodanPage
+              deals={deals}
+              onPatchDeal={onPatchDeal}
+              stats={stats}
+              currentUser={currentUser}
+              canEdit={canEdit}
+              editPolicy={editPolicy}
+              isAdmin={isAdmin}
+              focusName={focusName}
+            />
+          )}
+          {page === "aggregate" && <Aggregate excl={excl} setExcl={setExcl} stats={stats} month={month} setMonth={setMonth} goal={goal} />}
+          {page === "member" && <MemberAnalysis excl={excl} setExcl={setExcl} stats={stats} targets={targets} />}
+          {page === "closer" && (
+            <CloserAnalysis
+              stats={stats}
+              goal={goal}
+              deals={deals}
+              month={month}
+              setMonth={setMonth}
+              onGoMishodan={(name) => {
+                setFocusName(name || "");
+                setPage("mishodan");
+              }}
+            />
+          )}
+          {page === "ranking" && <Ranking stats={stats} currentUser={currentUser} month={month} setMonth={setMonth} />}
+          {page === "settings" && (
+            <SettingsPage
+              excl={excl}
+              setExcl={setExcl}
+              editPolicy={editPolicy}
+              isAdmin={isAdmin}
+              currentUser={currentUser}
+              goal={goal}
+              targets={targets}
+              teamTarget={teamTarget}
+              onSaveSettings={onSaveSettings}
+              onResetData={resetData}
+              sharedInfo={shared}
+              dealCount={deals.length}
+            />
+          )}
+        </div>
+      </main>
+
+      {openModal && (
+        <EntryModal
+          author={author}
+          setAuthor={setAuthor}
+          isAdmin={isAdmin}
+          onClose={() => setOpenModal(false)}
+          onSubmit={(name, iso, values, items) => {
+            submitLog(name, iso, values, items);
+            setOpenModal(false);
+            setShowBanner(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>

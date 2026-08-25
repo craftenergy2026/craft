@@ -2547,7 +2547,7 @@ function Aggregate({ excl, setExcl, stats, month, setMonth, goal }) {
 /* ══════════════════════════════════════════
    5. メンバー別分析
    ══════════════════════════════════════════ */
-function MemberAnalysis({ excl, setExcl, stats, targets }) {
+function MemberAnalysis({ excl, setExcl, stats, targets, goal }) {
   const [selected, setSelected] = useState("坂神");
   const m = MEMBERS.find((x) => x.name === selected);
   const mi = stats.byMember[m.name] || 0;
@@ -2557,6 +2557,32 @@ function MemberAnalysis({ excl, setExcl, stats, targets }) {
   const base = excl ? mv("shodan") - mi : mv("shodan");
   const apoRate = ratio(base, mv("apo"));
   const t = targets[m.name];
+
+  /* 支部目標との歩留まり比較（全メンバー共通の計算） */
+  const funnelOf = (name) => {
+    const v = stats.members[name] || {};
+    const miss = stats.byMember[name] || 0;
+    const vals = {
+      taio: v.taio || 0,
+      apu: v.apu || 0,
+      apo: v.apo || 0,
+      shodan: Math.max(0, (v.shodan || 0) - miss),
+      kanko: v.kanko || 0,
+    };
+    return FUNNEL.map((f) => ({
+      ...f,
+      from: vals[f.from],
+      to: vals[f.to],
+      rate: vals[f.from] > 0 ? ratio(vals[f.to], vals[f.from]) : null,
+      target: goal[f.key],
+    }));
+  };
+
+  const myFunnel = funnelOf(m.name);
+  const weak = myFunnel
+    .filter((x) => x.rate !== null)
+    .sort((a, b) => a.rate - a.target - (b.rate - b.target))[0];
+
   const rows = [
     { label: "対応数", cur: mv("taio"), tgt: t.taio },
     { label: "アポ数", cur: mv("apo"), tgt: t.apo },
@@ -2650,6 +2676,100 @@ function MemberAnalysis({ excl, setExcl, stats, targets }) {
           </div>
         </Card>
       </div>
+
+      <section className="mb-12">
+        <SectionTitle note={`支部目標との比較（${m.name} さん）`}>歩留まり</SectionTitle>
+        {weak && (
+          <Card className="mb-4 border-slate-300 p-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span className="rounded bg-slate-800 px-2 py-1 text-xs font-bold text-white">課題</span>
+              <span className="text-sm font-bold text-slate-900">{weak.label}</span>
+              <span className="text-xl font-bold tracking-tight text-slate-900">{p1(weak.rate)}</span>
+              <span className="text-xs text-slate-400">目標 {weak.target}%</span>
+              <span className="ml-auto text-xs text-slate-500">{weak.advice}</span>
+            </div>
+          </Card>
+        )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {myFunnel.map((x) => {
+            const ok = x.rate !== null && x.rate >= x.target;
+            return (
+              <Card key={x.key} className="p-5">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-bold text-slate-800">{x.label}</span>
+                  <span className="text-xs text-slate-400">{x.to} / {x.from} 件</span>
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className={`text-2xl font-bold tracking-tight ${x.rate === null ? "text-slate-300" : "text-slate-900"}`}>
+                    {x.rate === null ? "-" : p1(x.rate)}
+                  </span>
+                  <span className="text-xs text-slate-400">目標 {x.target}%</span>
+                  {ok && <span className="text-xs font-semibold text-emerald-600">達成</span>}
+                </div>
+                <div className="mt-3">
+                  <Bar value={x.rate === null ? 0 : ratio(x.rate, x.target)} color={ok ? "#059669" : NAVY} />
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="mb-12">
+        <SectionTitle note="行をタップすると上の詳細が切り替わります">全メンバーの歩留まり</SectionTitle>
+        <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
+        <Card className="w-full max-w-full overflow-x-auto">
+          <table className="w-full min-w-[680px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                <th className="px-4 py-3 text-left font-medium">メンバー</th>
+                <th className="px-4 py-3 text-left font-medium">役割</th>
+                {FUNNEL.map((f) => (
+                  <th key={f.key} className="px-4 py-3 text-left font-medium">
+                    {f.label}
+                    <span className="ml-1 font-normal text-slate-400">{goal[f.key]}%</span>
+                  </th>
+                ))}
+                <th className="px-4 py-3 text-left font-medium">達成数</th>
+              </tr>
+            </thead>
+            <tbody>
+              {MEMBERS.map((x) => {
+                const fn = funnelOf(x.name);
+                const okCount = fn.filter((y) => y.rate !== null && y.rate >= y.target).length;
+                return (
+                  <tr
+                    key={x.name}
+                    onClick={() => setSelected(x.name)}
+                    className={`cursor-pointer border-b border-slate-50 transition last:border-0 hover:bg-slate-50 ${selected === x.name ? "bg-slate-50" : ""}`}
+                  >
+                    <td className="px-4 py-3 font-semibold text-slate-800">{x.name}</td>
+                    <td className="px-4 py-3"><RoleTag role={x.role} /></td>
+                    {fn.map((y) => (
+                      <td key={y.key} className="px-4 py-3">
+                        {y.rate === null ? (
+                          <span className="text-slate-300">-</span>
+                        ) : (
+                          <span className={`font-semibold ${y.rate >= y.target ? "text-emerald-600" : "text-slate-600"}`}>
+                            {p1(y.rate)}
+                          </span>
+                        )}
+                      </td>
+                    ))}
+                    <td className="px-4 py-3">
+                      <span className={`font-bold ${okCount === FUNNEL.length ? "text-emerald-600" : "text-slate-600"}`}>
+                        {okCount}
+                      </span>
+                      <span className="text-xs text-slate-400"> / {FUNNEL.length}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Card>
+        <p className="mt-3 text-xs text-slate-400">※ 緑は支部目標を達成した項目です。達成数が少ない方から優先的に確認してください。</p>
+      </section>
 
       <section>
         <SectionTitle>全メンバー一覧</SectionTitle>
@@ -4212,7 +4332,7 @@ function App() {
             />
           )}
           {page === "aggregate" && <Aggregate excl={excl} setExcl={setExcl} stats={stats} month={month} setMonth={setMonth} goal={goal} />}
-          {page === "member" && <MemberAnalysis excl={excl} setExcl={setExcl} stats={stats} targets={targets} />}
+          {page === "member" && <MemberAnalysis excl={excl} setExcl={setExcl} stats={stats} targets={targets} goal={goal} />}
           {page === "closer" && (
             <CloserAnalysis
               stats={stats}

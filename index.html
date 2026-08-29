@@ -305,25 +305,36 @@ const FUNNEL = [
 
 /* メンバー名簿（役割と個人目標）／実績はすべて日報ログから集計します */
 const MEMBERS = [
-  { name: "坂神", role: "アポインター", target: { shukkin: 10, taio: 700, apo: 18, shodan: 5, kanko: 2, rate: 28 } },
-  { name: "沼口", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 35, shodan: 5, kanko: 2, rate: 14 } },
-  { name: "鄭", role: "アポインター", target: { shukkin: 11, taio: 700, apo: 20, shodan: 8, kanko: 2, rate: 40 } },
-  { name: "佐伯", role: "アポインター", target: { shukkin: 11, taio: 480, apo: 20, shodan: 4, kanko: 2, rate: 20 } },
-  { name: "石", role: "アポインター", target: { shukkin: 10, taio: 600, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
-  { name: "伊藤", role: "クローザー", target: { shukkin: 10, taio: 700, apo: 20, shodan: 3, kanko: 1, rate: 15 } },
-  { name: "藤代", role: "アポインター", target: { shukkin: 8, taio: 480, apo: 16, shodan: 5, kanko: 3, rate: 31 } },
-  { name: "山﨑", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
-  { name: "沼野", role: "アポインター", target: { shukkin: 4, taio: 260, apo: 12, shodan: 4, kanko: 1, rate: 33 } },
-  { name: "上山", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
-  { name: "王", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
-  { name: "大川", role: "クローザー", target: { shukkin: 4, taio: 200, apo: 16, shodan: 4, kanko: 2, rate: 25 } },
-  { name: "森野", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
-  { name: "斉藤", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
-  { name: "橋本", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
+  /* ── 東京支店 ── */
+  { name: "坂神", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 700, apo: 18, shodan: 5, kanko: 2, rate: 28 } },
+  { name: "沼口", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 35, shodan: 5, kanko: 2, rate: 14 } },
+  { name: "鄭", branch: "東京", role: "アポインター", target: { shukkin: 11, taio: 700, apo: 20, shodan: 8, kanko: 2, rate: 40 } },
+  { name: "佐伯", branch: "東京", role: "アポインター", target: { shukkin: 11, taio: 480, apo: 20, shodan: 4, kanko: 2, rate: 20 } },
+  { name: "石", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 600, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
+  { name: "伊藤", branch: "東京", role: "クローザー", target: { shukkin: 10, taio: 700, apo: 20, shodan: 3, kanko: 1, rate: 15 } },
+  { name: "藤代", branch: "東京", role: "アポインター", target: { shukkin: 8, taio: 480, apo: 16, shodan: 5, kanko: 3, rate: 31 } },
+  { name: "山﨑", branch: "東京", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
+  { name: "沼野", branch: "東京", role: "アポインター", target: { shukkin: 4, taio: 260, apo: 12, shodan: 4, kanko: 1, rate: 33 } },
+  { name: "上山", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "王", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "大川", branch: "東京", role: "クローザー", target: { shukkin: 4, taio: 200, apo: 16, shodan: 4, kanko: 2, rate: 25 } },
+  { name: "森野", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
+  { name: "斉藤", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
+  { name: "橋本", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
+
+  /* ── 静岡支店 ── */
+  { name: "扇田", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "保坂", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
 ];
+
+/* 支店 */
+const BRANCHES = ["東京", "静岡"];
+const branchOf = (name) => (MEMBERS.find((m) => m.name === name) || {}).branch || "";
+const membersIn = (branch) => (branch === "all" ? MEMBERS : MEMBERS.filter((m) => m.branch === branch));
 
 /* クローザー（商談完工率で評価する人） */
 const CLOSERS = MEMBERS.filter((m) => m.role === "クローザー");
+const closersIn = (branch) => membersIn(branch).filter((m) => m.role === "クローザー");
 
 /* 管理者アカウント（営業実績は持たない） */
 const ADMINS = [
@@ -482,9 +493,11 @@ const emptyStat = () => ({ taio: 0, apu: 0, apo: 0, shodan: 0, keiyaku: 0, kanko
 /* 日報と商談レコードから、メンバー別・日別・週別・全社の実績を組み立てる。
    対応数・アプローチ数・アポ数は日報を入力した本人の実績。
    商談数・契約数・完工数・売上金額は、その商談のアポインターの実績になります。 */
-function aggregateAll(allLogs, allDeals, month) {
-  const logs = allLogs.filter((l) => monthOf(l.date) === month);
-  const deals = allDeals.filter((d) => monthOf(d.date) === month);
+function aggregateAll(allLogs, allDeals, month, branch = "all") {
+  const inBranch = (name) => branch === "all" || branchOf(name) === branch;
+  const logs = allLogs.filter((l) => monthOf(l.date) === month && inBranch(l.name));
+  /* 実績はアポインター基準で集計します */
+  const deals = allDeals.filter((d) => monthOf(d.date) === month && inBranch(d.name));
   const members = {};
   MEMBERS.forEach((m) => (members[m.name] = emptyStat()));
   const closers = {};
@@ -680,6 +693,24 @@ function GroupedBarChart({ data, series, height = 140, unit = "件", activeIndex
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* 支店の切り替え */
+function BranchSelect({ branch, setBranch }) {
+  return (
+    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+      {[{ label: "全社", v: "all" }, ...BRANCHES.map((b) => ({ label: `${b}支店`, v: b }))].map((o) => (
+        <button
+          key={o.v}
+          onClick={() => setBranch(o.v)}
+          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${branch === o.v ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          style={branch === o.v ? { color: NAVY } : undefined}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -1117,6 +1148,8 @@ function EditLogModal({ log, onClose, onSave, onDelete, currentUser }) {
    0. マイ成績
    ══════════════════════════════════════════ */
 function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onGoInput }) {
+  const myBranch = branchOf(currentUser) || "all";
+  const peers = membersIn(myBranch);
   const valuesOf = (name) => {
     const v = stats.members[name] || {};
     const mi = stats.byMember[name] || 0;
@@ -1138,7 +1171,7 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
     const rate = ratio(to, from);
     const target = goal[f.key];
     const need = from > 0 ? Math.max(0, Math.ceil((target / 100) * from) - to) : 0;
-    const list = MEMBERS.map((m) => {
+    const list = peers.map((m) => {
       const v = valuesOf(m.name);
       return { name: m.name, rate: v[f.from] > 0 ? ratio(v[f.to], v[f.from]) : -1 };
     })
@@ -1167,7 +1200,9 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">{currentUser} さんの成績</h1>
-          <p className="mt-1 text-sm text-slate-500">{PERIOD.year}年{month}月</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {PERIOD.year}年{month}月{myBranch !== "all" && ` ／ ${myBranch}支店`}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
@@ -1334,7 +1369,7 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
               </tr>
             </thead>
             <tbody>
-              {[...MEMBERS]
+              {[...peers]
                 .map((m) => ({ m, v: valuesOf(m.name) }))
                 .sort((a, b) => b.v.apo - a.v.apo)
                 .map(({ m, v }) => {
@@ -1385,7 +1420,7 @@ const MONTH_SERIES = [
   { key: "kanko", label: "完工数", color: "#059669" },
 ];
 
-function Dashboard({ excl, setExcl, showBanner, onOpenModal, onGoMishodan, stats, deals, month, setMonth, goal, teamTarget }) {
+function Dashboard({ excl, setExcl, showBanner, onOpenModal, onGoMishodan, stats, deals, month, setMonth, goal, teamTarget, branch, setBranch }) {
   const isCurrent = month === PERIOD.month;
   const md = stats.monthly.find((x) => x.m === month);
   const mishodan = stats.total;
@@ -1436,12 +1471,15 @@ function Dashboard({ excl, setExcl, showBanner, onOpenModal, onGoMishodan, stats
         <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">MONTHLY SALES OVERVIEW</p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">営業ダッシュボード</h1>
         <p className="mt-2 text-sm text-slate-500">
-          {PERIOD.year}年{month}月の全社営業状況{isCurrent ? "" : "（当月以外の実績表示）"}
+          {PERIOD.year}年{month}月／{branch === "all" ? "全社" : `${branch}支店`}の営業状況{isCurrent ? "" : "（当月以外の実績表示）"}
         </p>
       </header>
 
       <div className="mb-10 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+        <div className="flex flex-wrap items-center gap-3">
+          <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+          <BranchSelect branch={branch} setBranch={setBranch} />
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <ExcludeToggle excl={excl} setExcl={setExcl} />
           <button onClick={onGoMishodan} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold transition hover:bg-slate-50" style={{ color: NAVY }}>
@@ -2328,7 +2366,7 @@ function MishodanPage({ deals, onPatchDeal, stats, currentUser, canEdit, editPol
 /* ══════════════════════════════════════════
    4. 週別・月別集計
    ══════════════════════════════════════════ */
-function Aggregate({ excl, setExcl, stats, month, setMonth, goal }) {
+function Aggregate({ excl, setExcl, stats, month, setMonth, goal, branch, setBranch }) {
   const isCurrent = month === PERIOD.month;
   const md = stats.monthly.find((x) => x.m === month);
   const mishodan = stats.total;
@@ -2346,7 +2384,10 @@ function Aggregate({ excl, setExcl, stats, month, setMonth, goal }) {
       </header>
 
       <div className="mb-10 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+        <div className="flex flex-wrap items-center gap-3">
+          <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+          <BranchSelect branch={branch} setBranch={setBranch} />
+        </div>
         <div className="flex flex-wrap items-center gap-4">
           <p className="text-xs text-slate-600">目標：商談アポ率 {goal.shodanApoRate}% ／ 商談完工率 {goal.shodanKankoRate}%</p>
           <ExcludeToggle excl={excl} setExcl={setExcl} />
@@ -2547,8 +2588,8 @@ function Aggregate({ excl, setExcl, stats, month, setMonth, goal }) {
 /* ══════════════════════════════════════════
    5. メンバー別分析
    ══════════════════════════════════════════ */
-function MemberAnalysis({ excl, setExcl, stats, targets, goal }) {
-  const [selected, setSelected] = useState("坂神");
+function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch }) {
+  const [selected, setSelected] = useState(MEMBERS[0].name);
   const m = MEMBERS.find((x) => x.name === selected);
   const mi = stats.byMember[m.name] || 0;
   const cancelK = stats.cancelKankoByMember[m.name] || 0;
@@ -2598,13 +2639,13 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal }) {
         <p className="mt-2 text-sm text-slate-500">{PERIOD.label}の実績と個人目標の対比</p>
       </header>
 
-      <div className="mb-6 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-slate-600">未商談の判定は個人の商談数にも反映されます</p>
+      <div className="mb-6 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <BranchSelect branch={branch} setBranch={setBranch} />
         <ExcludeToggle excl={excl} setExcl={setExcl} />
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
-        {MEMBERS.map((x) => (
+        {membersIn(branch).map((x) => (
           <button
             key={x.name}
             onClick={() => setSelected(x.name)}
@@ -2734,7 +2775,7 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal }) {
               </tr>
             </thead>
             <tbody>
-              {MEMBERS.map((x) => {
+              {membersIn(branch).map((x) => {
                 const fn = funnelOf(x.name);
                 const okCount = fn.filter((y) => y.rate !== null && y.rate >= y.target).length;
                 return (
@@ -2784,7 +2825,7 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal }) {
               </tr>
             </thead>
             <tbody>
-              {MEMBERS.map((x) => {
+              {membersIn(branch).map((x) => {
                 const xm = stats.byMember[x.name] || 0;
                 const xShodan = memberValue(x, "shodan", stats);
                 const xb = excl ? xShodan - xm : xShodan;
@@ -2821,11 +2862,14 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal }) {
 /* ══════════════════════════════════════════
    クローザー分析
    ══════════════════════════════════════════ */
-function CloserAnalysis({ stats, goal, deals, onGoMishodan, month, setMonth }) {
+function CloserAnalysis({ stats, goal, deals, onGoMishodan, month, setMonth, branch, setBranch }) {
   const [excl, setExcl] = useState(true);
   const [selected, setSelected] = useState("");
 
-  const inMonth = useMemo(() => deals.filter((d) => monthOf(d.date) === month), [deals, month]);
+  const inMonth = useMemo(
+    () => deals.filter((d) => monthOf(d.date) === month && (branch === "all" || branchOf(d.closer) === branch)),
+    [deals, month, branch]
+  );
   const live = inMonth;
 
   /* クローザー1人分の実績をまとめる */
@@ -2839,7 +2883,7 @@ function CloserAnalysis({ stats, goal, deals, onGoMishodan, month, setMonth }) {
     return { shodan, mi, yuko: shodan - mi, kanko: keiyaku, kankoDone, sales, cancel };
   };
 
-  const rows = CLOSERS.map((c) => {
+  const rows = closersIn(branch).map((c) => {
     const list = live.filter((d) => d.closer === c.name);
     const t = tally(list);
     const base = excl ? t.yuko : t.shodan;
@@ -2869,7 +2913,7 @@ function CloserAnalysis({ stats, goal, deals, onGoMishodan, month, setMonth }) {
 
   /* 月別の推移（全クローザー合計） */
   const monthly = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
-    const list = deals.filter((d) => monthOf(d.date) === m);
+    const list = deals.filter((d) => monthOf(d.date) === m && (branch === "all" || branchOf(d.closer) === branch));
     const t = tally(list);
     const base = excl ? t.yuko : t.shodan;
     return { m, ...t, base, rate: ratio(t.kanko, base), hasData: list.length > 0 };
@@ -2888,16 +2932,19 @@ function CloserAnalysis({ stats, goal, deals, onGoMishodan, month, setMonth }) {
         <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">CLOSER PERFORMANCE</p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">クローザー分析</h1>
         <p className="mt-2 text-sm text-slate-500">
-          {PERIOD.year}年{month}月／商談を担当した {CLOSERS.length} 名の商談数・完工数・商談完工率（目標 {target}%）
+          {PERIOD.year}年{month}月／{branch === "all" ? "全社" : `${branch}支店`}のクローザー {closersIn(branch).length} 名（商談完工率の目標 {target}%）
         </p>
       </header>
 
       <div className="mb-8 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <MonthSelect
-          month={month}
-          setMonth={setMonth}
-          months={monthly.map((x) => ({ m: x.m, hasData: x.hasData }))}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <MonthSelect
+            month={month}
+            setMonth={setMonth}
+            months={monthly.map((x) => ({ m: x.m, hasData: x.hasData }))}
+          />
+          <BranchSelect branch={branch} setBranch={setBranch} />
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-xs text-slate-600">未商談を除くと、実際に商談できた件数が分母になります</p>
           <ExcludeToggle excl={excl} setExcl={setExcl} />
@@ -3182,7 +3229,7 @@ function CloserAnalysis({ stats, goal, deals, onGoMishodan, month, setMonth }) {
 /* ══════════════════════════════════════════
    6. ランキング
    ══════════════════════════════════════════ */
-function Ranking({ stats, currentUser, month, setMonth }) {
+function Ranking({ stats, currentUser, month, setMonth, branch, setBranch }) {
   const [tab, setTab] = useState("apo");
   const [showAll, setShowAll] = useState(false);
 
@@ -3208,8 +3255,8 @@ function Ranking({ stats, currentUser, month, setMonth }) {
   const fmt = (m) => (tab === "sales" ? yen(valueOf(m, "sales")) : valueOf(m, tab));
 
   const rankedAll = useMemo(
-    () => [...MEMBERS].sort((a, b) => valueOf(b, tab) - valueOf(a, tab)),
-    [tab, stats]
+    () => [...membersIn(branch)].sort((a, b) => valueOf(b, tab) - valueOf(a, tab)),
+    [tab, stats, branch]
   );
   const ranked = showAll ? rankedAll : rankedAll.slice(0, 6);
   const myRank = rankedAll.findIndex((m) => m.name === currentUser) + 1;
@@ -3235,8 +3282,9 @@ function Ranking({ stats, currentUser, month, setMonth }) {
         )}
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
         <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+        <BranchSelect branch={branch} setBranch={setBranch} />
       </div>
 
       <div className="mb-5 inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-100 p-1">
@@ -3928,6 +3976,7 @@ function App() {
   const [openModal, setOpenModal] = useState(false);
   const [month, setMonth] = useState(PERIOD.month);
   const [focusName, setFocusName] = useState("");
+  const [branch, setBranch] = useState("all");
 
   /* ログイン情報（Googleアカウントから取得） */
   const [me, setMe] = useState(null);
@@ -4103,8 +4152,9 @@ function App() {
   };
 
   const stats = useMemo(() => {
-    const agg = aggregateAll(logs, deals, month);
-    const inMonth = deals.filter((d) => monthOf(d.date) === month);
+    const inBranch = (name) => branch === "all" || branchOf(name) === branch;
+    const agg = aggregateAll(logs, deals, month, branch);
+    const inMonth = deals.filter((d) => monthOf(d.date) === month && inBranch(d.name));
     const mis = inMonth.filter((d) => d.excluded);
     const can = inMonth.filter((d) => d.cancelled);
     const sum = (arr, key) => arr.reduce((a, d) => a + (d[key] || 0), 0);
@@ -4117,8 +4167,8 @@ function App() {
 
     /* 月別の一覧（12か月分。日報のある月だけ数字が入ります） */
     const monthly = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => {
-      const a = aggregateAll(logs, deals, m);
-      const ds = deals.filter((d) => monthOf(d.date) === m);
+      const a = aggregateAll(logs, deals, m, branch);
+      const ds = deals.filter((d) => monthOf(d.date) === m && inBranch(d.name));
       return {
         m,
         apo: a.base.apo,
@@ -4140,7 +4190,7 @@ function App() {
       closers: agg.closers,
       monthly,
       submitted,
-      unsubmitted: MEMBERS.filter((m) => !submitted.includes(m.name)),
+      unsubmitted: membersIn(branch).filter((m) => !submitted.includes(m.name)),
       total: mis.length,
       yuko: Math.max(0, agg.base.shodan - mis.length),
       byDate: by(mis, "date"),
@@ -4159,7 +4209,7 @@ function App() {
       kankoDone: agg.base.kankoDone,
       sales: agg.base.sales,
     };
-  }, [deals, logs, month]);
+  }, [deals, logs, month, branch]);
 
   /* 未商談・キャンセルの判定ができるのは、管理者とクローザーです */
   const isCloser = MEMBERS.some((m) => m.name === currentUser && m.role === "クローザー");
@@ -4300,6 +4350,8 @@ function App() {
               setMonth={setMonth}
               goal={goal}
               teamTarget={teamTarget}
+              branch={branch}
+              setBranch={setBranch}
             />
           )}
           {page === "input" && (
@@ -4331,8 +4383,8 @@ function App() {
               focusName={focusName}
             />
           )}
-          {page === "aggregate" && <Aggregate excl={excl} setExcl={setExcl} stats={stats} month={month} setMonth={setMonth} goal={goal} />}
-          {page === "member" && <MemberAnalysis excl={excl} setExcl={setExcl} stats={stats} targets={targets} goal={goal} />}
+          {page === "aggregate" && <Aggregate excl={excl} setExcl={setExcl} stats={stats} month={month} setMonth={setMonth} goal={goal} branch={branch} setBranch={setBranch} />}
+          {page === "member" && <MemberAnalysis excl={excl} setExcl={setExcl} stats={stats} targets={targets} goal={goal} branch={branch} setBranch={setBranch} />}
           {page === "closer" && (
             <CloserAnalysis
               stats={stats}
@@ -4340,13 +4392,15 @@ function App() {
               deals={deals}
               month={month}
               setMonth={setMonth}
+              branch={branch}
+              setBranch={setBranch}
               onGoMishodan={(name) => {
                 setFocusName(name || "");
                 setPage("mishodan");
               }}
             />
           )}
-          {page === "ranking" && <Ranking stats={stats} currentUser={currentUser} month={month} setMonth={setMonth} />}
+          {page === "ranking" && <Ranking stats={stats} currentUser={currentUser} month={month} setMonth={setMonth} branch={branch} setBranch={setBranch} />}
           {page === "settings" && (
             <SettingsPage
               excl={excl}

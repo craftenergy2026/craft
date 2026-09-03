@@ -482,6 +482,7 @@ function buildDeals(logs) {
         cancelReason: it.cancelReason || "",
         cancelBy: it.cancelBy || "",
         cancelAt: it.cancelAt || "",
+        note: it.note || "",
         /* 契約後の進捗管理 */
         tel: it.tel || "",
         payment: it.payment || "",
@@ -2001,6 +2002,7 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
 function DealEditModal({ deal, onClose, onSave, currentUser }) {
   const [draft, setDraft] = useState({
     customer: deal.customer || "",
+    note: deal.note || "",
     tel: deal.tel || "",
     payment: deal.payment || "",
     credit: deal.credit || "",
@@ -2243,6 +2245,22 @@ function DealEditModal({ deal, onClose, onSave, currentUser }) {
               </div>
             </div>
           )}
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              備考<span className="ml-1 text-slate-400">（任意）</span>
+            </label>
+            <textarea
+              value={draft.note}
+              onChange={(e) => set({ note: e.target.value })}
+              rows={3}
+              placeholder="例：キャンセル依頼あり。再商談の日程を調整中（8/25 連絡予定）"
+              className={`${field} resize-y`}
+            />
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
+              予定どおりに進んでいない理由や、対応中の状況を残しておけます。入力すると案件進捗の一覧に表示されます。
+            </p>
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
@@ -2276,11 +2294,18 @@ function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBr
     .sort((a, b) => b.alerts.length - a.alerts.length || dayNum(a.date) - dayNum(b.date));
 
   const rows = targets
-    .filter((d) => (only === "alert" ? d.alerts.length > 0 : true))
-    .filter((d) => q.trim() === "" || String(d.customer).includes(q.trim()) || String(d.tel).includes(q.trim()));
+    .filter((d) => (only === "alert" ? d.alerts.length > 0 : only === "note" ? !!d.note : true))
+    .filter(
+      (d) =>
+        q.trim() === "" ||
+        String(d.customer).includes(q.trim()) ||
+        String(d.tel).includes(q.trim()) ||
+        String(d.note).includes(q.trim())
+    );
 
   const alertCount = targets.filter((d) => d.alerts.length > 0).length;
   const doneCount = targets.filter((d) => d.alerts.length === 0).length;
+  const noteCount = targets.filter((d) => !!d.note).length;
 
   /* 項目ごとの遅延件数（どこで詰まっているかを把握する） */
   const byCheck = PROGRESS_CHECKS.map((c) => ({
@@ -2371,6 +2396,7 @@ function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBr
         <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
           {[
             { label: `要対応のみ（${alertCount}）`, v: "alert" },
+            { label: `備考あり（${noteCount}）`, v: "note" },
             { label: `すべて（${targets.length}）`, v: "all" },
           ].map((o) => (
             <button
@@ -2389,7 +2415,7 @@ function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBr
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="顧客名・電話番号"
+            placeholder="顧客名・電話番号・備考"
             className="w-40 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none"
           />
         </div>
@@ -2430,6 +2456,12 @@ function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBr
                 </p>
               )}
 
+              {d.note && (
+                <p className="mt-3 whitespace-pre-wrap rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-900 ring-1 ring-amber-100">
+                  {d.note}
+                </p>
+              )}
+
               <div className="mt-3 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
                 {PROGRESS_CHECKS.map((c) => chip(d, c))}
               </div>
@@ -2438,7 +2470,11 @@ function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBr
         })}
         {rows.length === 0 && (
           <Card className="p-10 text-center text-sm text-slate-400">
-            {only === "alert" ? "期限を過ぎている案件はありません。" : "対象の契約案件がありません。"}
+            {only === "alert"
+              ? "期限を過ぎている案件はありません。"
+              : only === "note"
+              ? "備考が入力された案件はありません。"
+              : "対象の契約案件がありません。"}
           </Card>
         )}
       </div>
@@ -2758,6 +2794,12 @@ function MishodanPage({ deals, onPatchDeal, stats, currentUser, canEdit, editPol
               <div className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-400">
                 契約なしの商談のため、キャンセル操作はありません。
               </div>
+            )}
+
+            {d.note && (
+              <p className="mt-3 whitespace-pre-wrap rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-900 ring-1 ring-amber-100">
+                {d.note}
+              </p>
             )}
 
             {(d.at || d.cancelAt) && (

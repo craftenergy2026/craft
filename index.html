@@ -612,6 +612,8 @@ const PAYMENTS = ["一括", "銀行", "ローン"];
 const CREDIT_RESULTS = ["承認", "否決", "審査中"];
 /* 工事会社は選択式。増える場合はここに追加してください（自由入力も可） */
 const KOUJI_COMPANIES = ["スターダスト", "太陽光技研", "ブリッジ"];
+/* 現調日時は1時間単位で選びます */
+const HOURS = Array.from({ length: 15 }, (_, i) => String(i + 7).padStart(2, "0"));
 
 /* 銀行・ローンのときだけ信販結果が必要 */
 const needsCredit = (d) => d.payment === "銀行" || d.payment === "ローン";
@@ -636,8 +638,8 @@ const fmtDateTime = (v) => {
   if (!v) return "";
   const s = String(v);
   const d = s.slice(5, 10).replace("-", "/");
-  const t = s.length > 10 ? ` ${s.slice(11, 16)}` : "";
-  return d + t;
+  const hh = s.slice(11, 13);
+  return hh ? `${d} ${Number(hh)}時` : d;
 };
 
 /* 今日から見た残り日数（マイナスなら過ぎている） */
@@ -666,7 +668,7 @@ const PROGRESS_CHECKS = [
   { key: "timetreeGencho", label: "現調のタイムツリー", type: "toggle", done: (d) => !!d.timetreeGencho, overdue: (d) => overdueByContract(d, 7) },
   { key: "slack", label: "スラックフォーム", type: "toggle", done: (d) => !!d.slack, overdue: (d) => overdueByContract(d, 7) },
   { key: "credit", label: "信販結果", type: "choice", done: (d) => !!d.credit, skip: (d) => !needsCredit(d), overdue: (d) => overdueByContract(d, 7) },
-  { key: "koujiDate", label: "工事日時", type: "date", done: (d) => !!d.koujiDate, overdue: (d) => overdueByGencho(d, 2) },
+  { key: "koujiDate", label: "工事日", type: "date", done: (d) => !!d.koujiDate, overdue: (d) => overdueByGencho(d, 2) },
   { key: "timetreeKouji", label: "工事のタイムツリー", type: "toggle", done: (d) => !!d.timetreeKouji, overdue: (d) => overdueByGencho(d, 2) },
   {
     key: "hacchu",
@@ -934,7 +936,7 @@ function DealEditor({ items, setItems, author }) {
         </p>
       </div>
       <p className="mb-3 text-xs leading-relaxed text-slate-400">
-        商談を1件ずつ登録してください。アポインターを選ぶと、その方の商談数・契約・売上にも自動で反映されます。同じ日に複数の商談がある場合は、顧客名を入れておくと後から見分けやすくなります。
+        商談を1件ずつ登録してください。アポインターを選ぶと、その方の商談数・契約・売上にも自動で反映されます。顧客名は必ず入力してください（同じ日に複数の商談があっても見分けられます）。
       </p>
 
       {items.length > 0 && (
@@ -963,14 +965,16 @@ function DealEditor({ items, setItems, author }) {
 
                 <div className="mb-3">
                   <label className="mb-1.5 block text-xs font-medium text-slate-600">
-                    顧客名<span className="ml-1 text-slate-400">（任意）</span>
+                    顧客名<span className="ml-1 text-rose-600">必須</span>
                   </label>
                   <input
                     type="text"
                     value={it.customer || ""}
                     onChange={(e) => patch(i, { customer: e.target.value })}
                     placeholder="例：山田"
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    className={`w-full rounded-lg border px-3 py-2 text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 ${
+                      String(it.customer || "").trim() ? "border-slate-200 bg-slate-50" : "border-rose-300 bg-rose-50"
+                    }`}
                   />
                 </div>
 
@@ -2027,6 +2031,7 @@ function DealEditModal({ deal, onClose, onSave, currentUser }) {
   const set = (obj) => setDraft((prev) => ({ ...prev, ...obj }));
 
   const save = () => {
+    if (!draft.customer.trim()) return; /* 顧客名は必須 */
     const patch = { ...draft };
     if (!patch.mishodan) patch.reason = "";
     if (!patch.keiyaku) {
@@ -2049,6 +2054,8 @@ function DealEditModal({ deal, onClose, onSave, currentUser }) {
   };
 
   const field = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100";
+  /* 現調は1時間単位。既定は9時 */
+  const genchoHour = String(draft.gencho || "").slice(11, 13) || "09";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">
@@ -2065,8 +2072,19 @@ function DealEditModal({ deal, onClose, onSave, currentUser }) {
 
         <div className="space-y-4 px-6 py-6">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-600">顧客名（任意）</label>
-            <input type="text" value={draft.customer} onChange={(e) => set({ customer: e.target.value })} placeholder="例：山田" className={field} />
+            <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              顧客名<span className="ml-1 text-rose-600">必須</span>
+            </label>
+            <input
+              type="text"
+              value={draft.customer}
+              onChange={(e) => set({ customer: e.target.value })}
+              placeholder="例：山田"
+              className={`${field} ${draft.customer.trim() ? "" : "border-rose-300 bg-rose-50"}`}
+            />
+            {!draft.customer.trim() && (
+              <p className="mt-1.5 text-xs text-rose-600">顧客名を入力してください。</p>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -2214,18 +2232,43 @@ function DealEditModal({ deal, onClose, onSave, currentUser }) {
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-slate-600">現調日時</label>
-                  <input type="datetime-local" value={draft.gencho} onChange={(e) => set({ gencho: e.target.value })} className={field} />
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={String(draft.gencho || "").slice(0, 10)}
+                      onChange={(e) => set({ gencho: e.target.value ? `${e.target.value}T${genchoHour}:00` : "" })}
+                      className={`${field} flex-1`}
+                    />
+                    <select
+                      value={genchoHour}
+                      onChange={(e) => {
+                        const day = String(draft.gencho || "").slice(0, 10);
+                        set({ gencho: day ? `${day}T${e.target.value}:00` : "" });
+                      }}
+                      disabled={!String(draft.gencho || "").slice(0, 10)}
+                      className={`${field} w-24 shrink-0 disabled:opacity-50`}
+                    >
+                      {HOURS.map((h) => <option key={h} value={h}>{Number(h)}時</option>)}
+                    </select>
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-400">日付を選ぶと時間を指定できます（1時間単位）。</p>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600">工事日時</label>
-                  <input type="datetime-local" value={draft.koujiDate} onChange={(e) => set({ koujiDate: e.target.value })} className={field} />
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">工事日</label>
+                  <input
+                    type="date"
+                    value={String(draft.koujiDate || "").slice(0, 10)}
+                    onChange={(e) => set({ koujiDate: e.target.value })}
+                    className={field}
+                  />
+                  <p className="mt-1.5 text-xs text-slate-400">日付のみを登録します。</p>
                 </div>
               </div>
 
               <div className="mt-4 space-y-2">
                 {[
                   { key: "timetreeGencho", label: "現調日時のタイムツリー反映" },
-                  { key: "timetreeKouji", label: "工事日時のタイムツリー反映" },
+                  { key: "timetreeKouji", label: "工事日のタイムツリー反映" },
                   { key: "slack", label: "スラックフォーム入力" },
                   { key: "hacchu", label: "発注" },
                 ].map((t) => (
@@ -2267,7 +2310,12 @@ function DealEditModal({ deal, onClose, onSave, currentUser }) {
           <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100">
             キャンセル
           </button>
-          <button onClick={save} className="rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90" style={{ backgroundColor: NAVY }}>
+          <button
+            onClick={save}
+            disabled={!draft.customer.trim()}
+            className="rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ backgroundColor: NAVY }}
+          >
             保存する
           </button>
         </div>
@@ -2283,6 +2331,7 @@ function DealEditModal({ deal, onClose, onSave, currentUser }) {
 function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBranch, month, setMonth, stats }) {
   const [only, setOnly] = useState("alert");
   const [q, setQ] = useState("");
+  const [fName, setFName] = useState("all");
   const [editing, setEditing] = useState(null);
 
   /* 契約済み・未キャンセルの案件だけが進捗管理の対象です */
@@ -2295,6 +2344,7 @@ function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBr
 
   const rows = targets
     .filter((d) => (only === "alert" ? d.alerts.length > 0 : only === "note" ? !!d.note : true))
+    .filter((d) => fName === "all" || d.closer === fName || d.name === fName)
     .filter(
       (d) =>
         q.trim() === "" ||
@@ -2410,6 +2460,26 @@ function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBr
           ))}
         </div>
         <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-600">担当者</span>
+          <select
+            value={fName}
+            onChange={(e) => setFName(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value="all">全員</option>
+            <optgroup label="クローザー">
+              {membersIn(branch).filter((m) => m.role === "クローザー").map((m) => (
+                <option key={m.name} value={m.name}>{m.name}</option>
+              ))}
+            </optgroup>
+            <optgroup label="アポインター">
+              {membersIn(branch).filter((m) => m.role !== "クローザー").map((m) => (
+                <option key={m.name} value={m.name}>{m.name}</option>
+              ))}
+            </optgroup>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-slate-600">検索</span>
           <input
             type="text"
@@ -2489,7 +2559,7 @@ function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBr
       )}
 
       <p className="mt-6 text-xs leading-relaxed text-slate-400">
-        ※ 期限の基準：現調日時・接続確認・工事会社・現調のタイムツリー・スラックフォーム・信販結果は契約日から7日、工事日時・工事のタイムツリーは現調日から2日、発注は現調日から3日または工事日の15日前です。信販結果は支払方法が銀行・ローンの場合のみ対象になります。
+        ※ 期限の基準：現調日時・接続確認・工事会社・現調のタイムツリー・スラックフォーム・信販結果は契約日から7日、工事日・工事のタイムツリーは現調日から2日、発注は現調日から3日または工事日の15日前です。信販結果は支払方法が銀行・ローンの場合のみ対象になります。
       </p>
     </>
   );

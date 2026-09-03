@@ -482,6 +482,18 @@ function buildDeals(logs) {
         cancelReason: it.cancelReason || "",
         cancelBy: it.cancelBy || "",
         cancelAt: it.cancelAt || "",
+        /* 契約後の進捗管理 */
+        tel: it.tel || "",
+        payment: it.payment || "",
+        credit: it.credit || "",
+        kouji: it.kouji || "",
+        gencho: it.gencho || "",
+        koujiDate: it.koujiDate || "",
+        setsuzoku: it.setsuzoku || "",
+        timetreeGencho: num(it.timetreeGencho) > 0 ? 1 : 0,
+        timetreeKouji: num(it.timetreeKouji) > 0 ? 1 : 0,
+        slack: num(it.slack) > 0 ? 1 : 0,
+        hacchu: num(it.hacchu) > 0 ? 1 : 0,
       });
     });
   });
@@ -591,6 +603,100 @@ const stamp = () => {
   const pad = (x) => String(x).padStart(2, "0");
   return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
+
+/* ══════════════════════════════════════════
+   案件の進捗管理（契約後のタスク）
+   ══════════════════════════════════════════ */
+const PAYMENTS = ["一括", "銀行", "ローン"];
+const CREDIT_RESULTS = ["承認", "否決", "審査中"];
+/* 工事会社は選択式。増える場合はここに追加してください（自由入力も可） */
+const KOUJI_COMPANIES = ["スターダスト", "太陽光技研", "ブリッジ"];
+
+/* 銀行・ローンのときだけ信販結果が必要 */
+const needsCredit = (d) => d.payment === "銀行" || d.payment === "ローン";
+
+/* "8/14" → "2026-08-14" */
+const isoOfDate = (md) => {
+  const p = String(md || "").split("/");
+  if (p.length < 2) return "";
+  return `${PERIOD.year}-${String(p[0]).padStart(2, "0")}-${String(p[1]).padStart(2, "0")}`;
+};
+
+/* 指定日から今日までの経過日数。未入力なら null */
+const daysSince = (value) => {
+  if (!value) return null;
+  const t = new Date(String(value).slice(0, 10) + "T00:00:00");
+  if (isNaN(t.getTime())) return null;
+  const today = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
+  return Math.floor((today - t) / 86400000);
+};
+
+const fmtDateTime = (v) => {
+  if (!v) return "";
+  const s = String(v);
+  const d = s.slice(5, 10).replace("-", "/");
+  const t = s.length > 10 ? ` ${s.slice(11, 16)}` : "";
+  return d + t;
+};
+
+/* 今日から見た残り日数（マイナスなら過ぎている） */
+const daysUntil = (value) => {
+  const d = daysSince(value);
+  return d === null ? null : -d;
+};
+
+/* 進捗項目。overdue はリマインドを出す条件で、理由の文字列を返します。
+   ・契約日から7日：現調日時／接続確認／工事会社／現調のタイムツリー／スラック／信販結果
+   ・現調日から2日：工事日時／工事のタイムツリー
+   ・現調日から3日、または工事日の15日前：発注 */
+const overdueByContract = (deal, limit) => {
+  const d = daysSince(isoOfDate(deal.date));
+  return d !== null && d >= limit ? `契約日から${d}日経過` : "";
+};
+const overdueByGencho = (deal, limit) => {
+  const d = daysSince(deal.gencho);
+  return d !== null && d >= limit ? `現調日から${d}日経過` : "";
+};
+
+const PROGRESS_CHECKS = [
+  { key: "gencho", label: "現調日時", type: "date", done: (d) => !!d.gencho, overdue: (d) => overdueByContract(d, 7) },
+  { key: "setsuzoku", label: "接続確認", type: "choice", done: (d) => d.setsuzoku === "OK" || d.setsuzoku === "NG", overdue: (d) => overdueByContract(d, 7) },
+  { key: "kouji", label: "工事会社", type: "text", done: (d) => !!d.kouji, overdue: (d) => overdueByContract(d, 7) },
+  { key: "timetreeGencho", label: "現調のタイムツリー", type: "toggle", done: (d) => !!d.timetreeGencho, overdue: (d) => overdueByContract(d, 7) },
+  { key: "slack", label: "スラックフォーム", type: "toggle", done: (d) => !!d.slack, overdue: (d) => overdueByContract(d, 7) },
+  { key: "credit", label: "信販結果", type: "choice", done: (d) => !!d.credit, skip: (d) => !needsCredit(d), overdue: (d) => overdueByContract(d, 7) },
+  { key: "koujiDate", label: "工事日時", type: "date", done: (d) => !!d.koujiDate, overdue: (d) => overdueByGencho(d, 2) },
+  { key: "timetreeKouji", label: "工事のタイムツリー", type: "toggle", done: (d) => !!d.timetreeKouji, overdue: (d) => overdueByGencho(d, 2) },
+  {
+    key: "hacchu",
+    label: "発注",
+    type: "toggle",
+    done: (d) => !!d.hacchu,
+    /* 現調から3日、または工事日が15日以内に迫ったらリマインドします */
+    overdue: (d) => {
+      const byGencho = overdueByGencho(d, 3);
+      const left = daysUntil(d.koujiDate);
+      if (left !== null && left <= 15) {
+        return left >= 0 ? `工事日まで残り${left}日` : `工事日を${-left}日超過`;
+      }
+      return byGencho;
+    },
+  },
+];
+
+/* 案件ごとの未対応項目を返す */
+function dealAlerts(deal) {
+  /* 契約になっていない、またはキャンセル済みの案件は対象外 */
+  if (!deal.keiyaku || deal.cancelled) return [];
+  const out = [];
+  PROGRESS_CHECKS.forEach((c) => {
+    if (c.skip && c.skip(deal)) return;
+    if (c.done(deal)) return;
+    const reason = c.overdue(deal);
+    if (reason) out.push({ ...c, reason });
+  });
+  return out;
+}
 
 /* ══════════════════════════════════════════
    共通パーツ
@@ -1895,6 +2001,17 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
 function DealEditModal({ deal, onClose, onSave, currentUser }) {
   const [draft, setDraft] = useState({
     customer: deal.customer || "",
+    tel: deal.tel || "",
+    payment: deal.payment || "",
+    credit: deal.credit || "",
+    kouji: deal.kouji || "",
+    gencho: deal.gencho || "",
+    koujiDate: deal.koujiDate || "",
+    setsuzoku: deal.setsuzoku || "",
+    timetreeGencho: deal.timetreeGencho ? 1 : 0,
+    timetreeKouji: deal.timetreeKouji ? 1 : 0,
+    slack: deal.slack ? 1 : 0,
+    hacchu: deal.hacchu ? 1 : 0,
     appointer: deal.name,
     closer: deal.closer,
     mishodan: deal.mishodan ? 1 : 0,
@@ -1916,6 +2033,7 @@ function DealEditModal({ deal, onClose, onSave, currentUser }) {
       patch.cancelled = 0;
     }
     if (!patch.cancelled) patch.cancelReason = "";
+    if (!needsCredit(patch)) patch.credit = "";
     if (draft.mishodan !== (deal.mishodan ? 1 : 0) || draft.reason !== deal.reason) {
       patch.by = currentUser;
       patch.at = stamp();
@@ -2010,6 +2128,121 @@ function DealEditModal({ deal, onClose, onSave, currentUser }) {
               </div>
             )}
           </div>
+
+          {/* 契約になった案件だけ、進捗の入力欄を出します */}
+          {draft.keiyaku > 0 && draft.cancelled === 0 && (
+            <div className="rounded-lg border border-slate-200 p-4">
+              <p className="mb-4 text-sm font-bold text-slate-800">契約後の進捗</p>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">電話番号</label>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={draft.tel}
+                    onChange={(e) => set({ tel: e.target.value })}
+                    placeholder="090-1234-5678"
+                    className={field}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">支払方法</label>
+                  <select value={draft.payment} onChange={(e) => set({ payment: e.target.value })} className={field}>
+                    <option value="">未選択</option>
+                    {PAYMENTS.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* 銀行・ローンのときだけ信販結果を表示 */}
+              {needsCredit(draft) && (
+                <div className="mt-4">
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                    信販結果<span className="ml-1 text-rose-600">必須</span>
+                  </label>
+                  <select
+                    value={draft.credit}
+                    onChange={(e) => set({ credit: e.target.value })}
+                    className={`${field} ${draft.credit ? "" : "border-rose-300 bg-rose-50"}`}
+                  >
+                    <option value="">未入力</option>
+                    {CREDIT_RESULTS.map((r) => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">工事会社</label>
+                  <input
+                    type="text"
+                    list="kouji-list"
+                    value={draft.kouji}
+                    onChange={(e) => set({ kouji: e.target.value })}
+                    placeholder="選択または入力"
+                    className={field}
+                  />
+                  <datalist id="kouji-list">
+                    {KOUJI_COMPANIES.map((k) => <option key={k} value={k} />)}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">接続確認</label>
+                  <div className="flex gap-2">
+                    {["OK", "NG"].map((v) => (
+                      <button
+                        key={v}
+                        onClick={() => set({ setsuzoku: draft.setsuzoku === v ? "" : v })}
+                        className={`flex-1 rounded-lg border py-2 text-sm font-semibold transition ${
+                          draft.setsuzoku === v
+                            ? v === "OK"
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                              : "border-rose-300 bg-rose-50 text-rose-700"
+                            : "border-slate-200 bg-slate-50 text-slate-500"
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">現調日時</label>
+                  <input type="datetime-local" value={draft.gencho} onChange={(e) => set({ gencho: e.target.value })} className={field} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">工事日時</label>
+                  <input type="datetime-local" value={draft.koujiDate} onChange={(e) => set({ koujiDate: e.target.value })} className={field} />
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {[
+                  { key: "timetreeGencho", label: "現調日時のタイムツリー反映" },
+                  { key: "timetreeKouji", label: "工事日時のタイムツリー反映" },
+                  { key: "slack", label: "スラックフォーム入力" },
+                  { key: "hacchu", label: "発注" },
+                ].map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => set({ [t.key]: draft[t.key] ? 0 : 1 })}
+                    className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-sm transition ${
+                      draft[t.key] ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    <span className={draft[t.key] ? "font-semibold text-emerald-800" : "text-slate-600"}>{t.label}</span>
+                    <span className={`text-xs font-bold ${draft[t.key] ? "text-emerald-700" : "text-slate-400"}`}>
+                      {draft[t.key] ? "完了" : "未完了"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
@@ -2023,6 +2256,206 @@ function DealEditModal({ deal, onClose, onSave, currentUser }) {
         <p className="border-t border-slate-100 px-6 py-3 text-xs text-slate-400">変更者として {currentUser} が記録されます</p>
       </div>
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   案件進捗（支部長向け）
+   ══════════════════════════════════════════ */
+function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBranch, month, setMonth, stats }) {
+  const [only, setOnly] = useState("alert");
+  const [q, setQ] = useState("");
+  const [editing, setEditing] = useState(null);
+
+  /* 契約済み・未キャンセルの案件だけが進捗管理の対象です */
+  const targets = deals
+    .filter((d) => d.keiyaku > 0 && !d.cancelled)
+    .filter((d) => monthOf(d.date) === month)
+    .filter((d) => branch === "all" || branchOf(d.name) === branch || branchOf(d.closer) === branch)
+    .map((d) => ({ ...d, alerts: dealAlerts(d) }))
+    .sort((a, b) => b.alerts.length - a.alerts.length || dayNum(a.date) - dayNum(b.date));
+
+  const rows = targets
+    .filter((d) => (only === "alert" ? d.alerts.length > 0 : true))
+    .filter((d) => q.trim() === "" || String(d.customer).includes(q.trim()) || String(d.tel).includes(q.trim()));
+
+  const alertCount = targets.filter((d) => d.alerts.length > 0).length;
+  const doneCount = targets.filter((d) => d.alerts.length === 0).length;
+
+  /* 項目ごとの遅延件数（どこで詰まっているかを把握する） */
+  const byCheck = PROGRESS_CHECKS.map((c) => ({
+    ...c,
+    count: targets.filter((d) => d.alerts.some((a) => a.key === c.key)).length,
+  })).filter((c) => c.count > 0);
+
+  const chip = (d, c) => {
+    const late = d.alerts.some((a) => a.key === c.key);
+    const skip = c.skip && c.skip(d);
+    if (skip) return null;
+    const ok = c.done(d);
+    return (
+      <span
+        key={c.key}
+        className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+          ok
+            ? "bg-emerald-50 text-emerald-700"
+            : late
+            ? "bg-rose-100 font-bold text-rose-700"
+            : "bg-slate-100 text-slate-400"
+        }`}
+      >
+        {late && "⚠ "}
+        {c.label}
+        {ok && c.type === "date" && `：${fmtDateTime(d[c.key])}`}
+        {ok && c.type === "choice" && `：${d[c.key]}`}
+        {ok && c.type === "text" && `：${d[c.key]}`}
+      </span>
+    );
+  };
+
+  return (
+    <>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">案件進捗</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {PERIOD.year}年{month}月／契約後のタスクの進み具合
+          </p>
+        </div>
+        {alertCount > 0 && (
+          <span className="flex items-center gap-2 rounded-full bg-rose-600 px-3 py-1.5 text-xs font-bold text-white">
+            <AlertCircle size={14} /> 要対応 {alertCount} 件
+          </span>
+        )}
+      </div>
+
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+        <BranchSelect branch={branch} setBranch={setBranch} />
+      </div>
+
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <Card className={`p-5 ${alertCount > 0 ? "border-rose-300 bg-rose-50/50" : ""}`}>
+          <p className="text-sm font-medium text-slate-500">要対応の案件</p>
+          <p className={`mt-2 text-3xl font-bold tracking-tight ${alertCount > 0 ? "text-rose-600" : "text-slate-900"}`}>
+            {alertCount}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">期限を過ぎた項目があります</p>
+        </Card>
+        <Card className="p-5">
+          <p className="text-sm font-medium text-slate-500">対応済みの案件</p>
+          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{doneCount}</p>
+          <p className="mt-1 text-xs text-slate-400">期限内に処理されています</p>
+        </Card>
+        <Card className="p-5">
+          <p className="text-sm font-medium text-slate-500">契約案件（合計）</p>
+          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{targets.length}</p>
+          <p className="mt-1 text-xs text-slate-400">キャンセルを除く</p>
+        </Card>
+      </div>
+
+      {byCheck.length > 0 && (
+        <Card className="mb-6 p-5">
+          <p className="mb-3 text-sm font-bold text-slate-800">遅延している項目</p>
+          <div className="flex flex-wrap gap-2">
+            {byCheck.map((c) => (
+              <span key={c.key} className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-100">
+                {c.label} {c.count} 件
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <Card className="mb-5 flex flex-wrap items-center gap-3 p-4">
+        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+          {[
+            { label: `要対応のみ（${alertCount}）`, v: "alert" },
+            { label: `すべて（${targets.length}）`, v: "all" },
+          ].map((o) => (
+            <button
+              key={o.v}
+              onClick={() => setOnly(o.v)}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${only === o.v ? "bg-white shadow-sm" : "text-slate-500"}`}
+              style={only === o.v ? { color: NAVY } : undefined}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-600">検索</span>
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="顧客名・電話番号"
+            className="w-40 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+        <span className="ml-auto text-xs text-slate-400">{rows.length} 件を表示中</span>
+      </Card>
+
+      <div className="space-y-3">
+        {rows.map((d) => {
+          const late = d.alerts.length > 0;
+          return (
+            <Card key={d.id} className={`p-4 sm:p-5 ${late ? "border-rose-300 bg-rose-50/40" : ""}`}>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                {late && <AlertCircle size={18} className="shrink-0 text-rose-600" />}
+                <span className="text-sm font-bold text-slate-900">{d.date}（{d.dow}）契約</span>
+                {d.customer && (
+                  <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800">{d.customer} 様</span>
+                )}
+                {d.tel && <span className="text-xs text-slate-500">{d.tel}</span>}
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">アポ：{d.name}</span>
+                <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">商談：{d.closer}</span>
+                {d.payment && (
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{d.payment}</span>
+                )}
+                <span className="text-xs text-slate-500">{yen(d.sales)}</span>
+                {canEdit && (
+                  <button
+                    onClick={() => setEditing(d)}
+                    className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                  >
+                    <PenSquare size={13} /> 入力する
+                  </button>
+                )}
+              </div>
+
+              {late && (
+                <p className="mt-3 text-xs font-semibold text-rose-700">
+                  {d.alerts.map((a) => `${a.label}（${a.reason}）`).join(" ／ ")}
+                </p>
+              )}
+
+              <div className="mt-3 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
+                {PROGRESS_CHECKS.map((c) => chip(d, c))}
+              </div>
+            </Card>
+          );
+        })}
+        {rows.length === 0 && (
+          <Card className="p-10 text-center text-sm text-slate-400">
+            {only === "alert" ? "期限を過ぎている案件はありません。" : "対象の契約案件がありません。"}
+          </Card>
+        )}
+      </div>
+
+      {editing && (
+        <DealEditModal
+          deal={editing}
+          currentUser={currentUser}
+          onClose={() => setEditing(null)}
+          onSave={(id, patch) => onPatchDeal(id, patch)}
+        />
+      )}
+
+      <p className="mt-6 text-xs leading-relaxed text-slate-400">
+        ※ 期限の基準：現調日時・接続確認・工事会社・現調のタイムツリー・スラックフォーム・信販結果は契約日から7日、工事日時・工事のタイムツリーは現調日から2日、発注は現調日から3日または工事日の15日前です。信販結果は支払方法が銀行・ローンの場合のみ対象になります。
+      </p>
+    </>
   );
 }
 
@@ -3809,6 +4242,7 @@ const SYNC_INTERVAL = {
   my: 20000,         /* マイ成績：20秒 */
   input: 10000,      /* 日報・成績入力：10秒 */
   mishodan: 10000,   /* 商談管理：10秒 */
+  progress: 15000,   /* 案件進捗：15秒 */
   settings: 600000,  /* 設定：10分（ほとんど競合しないため長め） */
   default: 30000,    /* その他の閲覧画面：30秒 */
 };
@@ -3868,6 +4302,7 @@ const NAV_ITEMS = [
   { id: "dashboard", label: "全社ダッシュボード", icon: LayoutDashboard },
   { id: "input", label: "日報・成績入力", icon: PenSquare },
   { id: "mishodan", label: "商談管理", icon: ClipboardCheck },
+  { id: "progress", label: "案件進捗", icon: Briefcase },
   { id: "aggregate", label: "週別・月別集計", icon: BarChart3 },
   { id: "member", label: "メンバー別分析", icon: Users },
   { id: "closer", label: "クローザー分析", icon: Target },
@@ -3881,7 +4316,7 @@ const NAV_ITEMS = [
    ここに Apps Script のウェブアプリURLを貼り付けてください
    （デプロイを管理 → ウェブアプリのURL。末尾が /exec のもの）
    ══════════════════════════════════════════ */
-const API_URL = "https://script.google.com/macros/s/AKfycbynWR39HbLwEv7y-wv-otaoXSf4ApaLzSLK9loCrCP1rkF0e1C483fO-cnoM1bIocFinA/exec";
+const API_URL = "ここにURLを貼り付け";
 
 async function callServer(fn, ...args) {
   if (!API_URL || API_URL.indexOf("script.google.com") < 0) {
@@ -4382,6 +4817,19 @@ function App() {
               editPolicy={editPolicy}
               isAdmin={isAdmin}
               focusName={focusName}
+            />
+          )}
+          {page === "progress" && (
+            <ProgressBoard
+              deals={deals}
+              onPatchDeal={onPatchDeal}
+              currentUser={currentUser}
+              canEdit={canEdit}
+              branch={branch}
+              setBranch={setBranch}
+              month={month}
+              setMonth={setMonth}
+              stats={stats}
             />
           )}
           {page === "aggregate" && <Aggregate excl={excl} setExcl={setExcl} stats={stats} month={month} setMonth={setMonth} goal={goal} branch={branch} setBranch={setBranch} />}

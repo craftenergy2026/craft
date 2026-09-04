@@ -502,7 +502,7 @@ function buildDeals(logs) {
 }
 
 /* 空の実績 */
-const emptyStat = () => ({ taio: 0, apu: 0, apo: 0, shodan: 0, keiyaku: 0, kanko: 0, kankoDone: 0, sales: 0 });
+const emptyStat = () => ({ shukkin: 0, taio: 0, apu: 0, apo: 0, shodan: 0, keiyaku: 0, kanko: 0, kankoDone: 0, sales: 0 });
 
 /* 日報と商談レコードから、メンバー別・日別・週別・全社の実績を組み立てる。
    対応数・アプローチ数・アポ数は日報を入力した本人の実績。
@@ -523,13 +523,19 @@ function aggregateAll(allLogs, allDeals, month, branch = "all") {
     return dayMap[date];
   };
 
-  /* 活動量（本人の実績） */
+  /* 活動量（本人の実績）。出勤数は日報を出した日数で数えます */
   logs.forEach((l) => {
     const d = day(l.date, l.dow);
     ["taio", "apu", "apo"].forEach((k) => {
       if (members[l.name]) members[l.name][k] += num(l[k]);
       d[k] += num(l[k]);
     });
+    /* 出勤：その日に活動があれば1日とみなします */
+    const worked = num(l.taio) + num(l.apu) + num(l.apo) + itemsOf(l).length > 0 || num(l.shukkin) > 0;
+    if (worked) {
+      if (members[l.name]) members[l.name].shukkin += 1;
+      d.shukkin += 1;
+    }
   });
 
   /* 商談（アポインターの実績／クローザーの実績の両方に積む） */
@@ -1256,10 +1262,168 @@ function EditLogModal({ log, onClose, onSave, onDelete, currentUser }) {
   );
 }
 
+/* 指定メンバーの、指定月の実績をまとめる */
+function statsOfMember(logs, deals, name, month) {
+  const ls = logs.filter((l) => l.name === name && monthOf(l.date) === month);
+  const ds = deals.filter((d) => d.name === name && monthOf(d.date) === month);
+  const shodan = ds.length;
+  const mis = ds.filter((d) => d.excluded).length;
+  const live = ds.filter((d) => d.keiyaku > 0 && !d.cancelled);
+  return {
+    shukkin: ls.filter((l) => num(l.taio) + num(l.apu) + num(l.apo) + itemsOf(l).length > 0).length,
+    taio: ls.reduce((a, l) => a + num(l.taio), 0),
+    apu: ls.reduce((a, l) => a + num(l.apu), 0),
+    apo: ls.reduce((a, l) => a + num(l.apo), 0),
+    shodan: Math.max(0, shodan - mis),
+    shodanAll: shodan,
+    kanko: live.length,
+    sales: live.reduce((a, d) => a + num(d.sales), 0),
+  };
+}
+
+/* 月内を週（土曜始まり）で区切って推移を返す */
+function weeklyOfMember(logs, deals, name, month) {
+  return weekDefsOf(month).map((w) => {
+    const ls = logs.filter((l) => l.name === name && monthOf(l.date) === month && weekStartOf(l.date) === w.start);
+    const ds = deals.filter((d) => d.name === name && monthOf(d.date) === month && weekStartOf(d.date) === w.start);
+    const live = ds.filter((d) => d.keiyaku > 0 && !d.cancelled);
+    return {
+      label: w.range,
+      short: w.start,
+      shukkin: ls.filter((l) => num(l.taio) + num(l.apu) + num(l.apo) + itemsOf(l).length > 0).length,
+      taio: ls.reduce((a, l) => a + num(l.taio), 0),
+      apu: ls.reduce((a, l) => a + num(l.apu), 0),
+      apo: ls.reduce((a, l) => a + num(l.apo), 0),
+      shodan: ds.filter((d) => !d.excluded).length,
+      kanko: live.length,
+      sales: live.reduce((a, d) => a + num(d.sales), 0),
+    };
+  });
+}
+
+/* ══════════════════════════════════════════
+   推移（週別・月別）。マイ成績とメンバー別分析で共用します
+   ══════════════════════════════════════════ */
+function TrendSection({ logs, deals, name, month, setMonth, title }) {
+  const weeklyTrend = weeklyOfMember(logs, deals, name, month);
+  const monthlyTrend = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    .map((m) => ({ m, ...statsOfMember(logs, deals, name, m) }))
+    .filter((x) => x.shukkin > 0 || x.taio > 0 || x.apo > 0);
+
+  const series = [
+    { key: "taio", label: "対応数", color: NAVY },
+    { key: "apu", label: "アプローチ数", color: ACCENT },
+    { key: "apo", label: "アポ数", color: "#059669" },
+  ];
+
+  return (
+    <section className="mb-10">
+      <SectionTitle note="施策の効果を振り返る">{title || "推移"}</SectionTitle>
+
+      <Card className="mb-4 p-4 sm:p-6">
+        <p className="mb-4 text-sm font-bold text-slate-800">週別（{month}月）</p>
+        <GroupedBarChart
+          data={weeklyTrend.map((w) => ({
+            label: w.label,
+            short: w.short,
+            values: { taio: w.taio, apu: w.apu, apo: w.apo },
+            extra: `出勤 ${w.shukkin}日／商談 ${w.shodan}／完工 ${w.kanko}`,
+          }))}
+          series={series}
+          height={130}
+        />
+        <div className="mt-5 w-full max-w-full overflow-x-auto">
+          <table className="w-full min-w-[620px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                {["期間", "出勤", "対応", "アプローチ", "アポ", "有効商談", "完工", "アプアポ率"].map((h) => (
+                  <th key={h} className="px-3 py-2.5 text-left font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {weeklyTrend.map((w) => (
+                <tr key={w.short} className="border-b border-slate-50 last:border-0">
+                  <td className="px-3 py-2.5 font-semibold text-slate-800">{w.label}</td>
+                  <td className="px-3 py-2.5 text-slate-600">{w.shukkin || "-"}</td>
+                  <td className="px-3 py-2.5 text-slate-600">{w.taio || "-"}</td>
+                  <td className="px-3 py-2.5 text-slate-600">{w.apu || "-"}</td>
+                  <td className="px-3 py-2.5 text-slate-600">{w.apo || "-"}</td>
+                  <td className="px-3 py-2.5 text-slate-600">{w.shodan || "-"}</td>
+                  <td className="px-3 py-2.5 text-slate-600">{w.kanko || "-"}</td>
+                  <td className="px-3 py-2.5 font-semibold text-slate-800">{w.apu > 0 ? p1(ratio(w.apo, w.apu)) : "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card className="p-4 sm:p-6">
+        <p className="mb-4 text-sm font-bold text-slate-800">月別</p>
+        {monthlyTrend.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-400">実績のある月がまだありません。</p>
+        ) : (
+          <>
+            <GroupedBarChart
+              data={monthlyTrend.map((x) => ({
+                label: `${PERIOD.year}年${x.m}月`,
+                short: `${x.m}`,
+                values: { taio: x.taio, apu: x.apu, apo: x.apo },
+                extra: `出勤 ${x.shukkin}日／商談 ${x.shodan}／完工 ${x.kanko}`,
+              }))}
+              series={series}
+              height={130}
+              compact
+              activeIndex={monthlyTrend.findIndex((x) => x.m === month)}
+              onSelect={(i) => setMonth(monthlyTrend[i].m)}
+            />
+            <div className="mt-5 w-full max-w-full overflow-x-auto">
+              <table className="w-full min-w-[680px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                    {["月", "出勤", "対応", "アプローチ", "アポ", "有効商談", "完工", "売上金額", "1日あたりアポ"].map((h) => (
+                      <th key={h} className="px-3 py-2.5 text-left font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyTrend.map((x) => (
+                    <tr
+                      key={x.m}
+                      onClick={() => setMonth(x.m)}
+                      className={`cursor-pointer border-b border-slate-50 transition last:border-0 hover:bg-slate-50 ${month === x.m ? "bg-slate-50" : ""}`}
+                    >
+                      <td className="px-3 py-2.5 font-semibold text-slate-800">{x.m}月</td>
+                      <td className="px-3 py-2.5 text-slate-600">{x.shukkin || "-"}</td>
+                      <td className="px-3 py-2.5 text-slate-600">{x.taio || "-"}</td>
+                      <td className="px-3 py-2.5 text-slate-600">{x.apu || "-"}</td>
+                      <td className="px-3 py-2.5 text-slate-600">{x.apo || "-"}</td>
+                      <td className="px-3 py-2.5 text-slate-600">{x.shodan || "-"}</td>
+                      <td className="px-3 py-2.5 text-slate-600">{x.kanko || "-"}</td>
+                      <td className="px-3 py-2.5 text-slate-600">{x.sales ? yen(x.sales) : "-"}</td>
+                      <td className="px-3 py-2.5 font-semibold text-slate-800">
+                        {x.shukkin > 0 ? (x.apo / x.shukkin).toFixed(1) : "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+        <p className="mt-4 text-xs leading-relaxed text-slate-400">
+          ※ 出勤数は日報を入力した日数で数えています。1日あたりアポは「アポ数 ÷ 出勤数」で、出勤日数の違いを除いて比較できます。
+        </p>
+      </Card>
+    </section>
+  );
+}
+
 /* ══════════════════════════════════════════
    0. マイ成績
    ══════════════════════════════════════════ */
-function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onGoInput }) {
+function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onGoInput, logs, deals }) {
   const myBranch = branchOf(currentUser) || "all";
   const peers = membersIn(myBranch);
   const valuesOf = (name) => {
@@ -1276,6 +1440,17 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
   };
   const mine = valuesOf(currentUser);
   const myTarget = targets[currentUser];
+
+  /* 出勤の進捗と、残り出勤日から見た1日あたりの目標 */
+  const shukkin = (stats.members[currentUser] || {}).shukkin || 0;
+  const shukkinTarget = myTarget ? myTarget.shukkin : 0;
+  const restDays = Math.max(0, shukkinTarget - shukkin);
+  const perDay = (target, current) => {
+    const rest = Math.max(0, target - current);
+    if (restDays <= 0) return rest > 0 ? null : 0;
+    return Math.ceil(rest / restDays);
+  };
+
 
   const stages = FUNNEL.map((f) => {
     const from = mine[f.from];
@@ -1363,6 +1538,29 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
         <section className="mb-10">
           <SectionTitle note={`${PERIOD.year}年${month}月の個人目標`}>目標進捗</SectionTitle>
           <Card className="p-5 sm:p-6">
+            <div className="mb-6 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-lg bg-slate-50 p-4">
+                <p className="text-xs text-slate-500">出勤数</p>
+                <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                  {shukkin}
+                  <span className="ml-1 text-sm font-medium text-slate-400">/ {shukkinTarget} 日</span>
+                </p>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-4">
+                <p className="text-xs text-slate-500">残り出勤日</p>
+                <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                  {restDays}
+                  <span className="ml-1 text-sm font-medium text-slate-400">日</span>
+                </p>
+              </div>
+              <div className="rounded-lg p-4" style={{ backgroundColor: NAVY_TINT }}>
+                <p className="text-xs" style={{ color: NAVY }}>1日あたりの必要数</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                  下の各項目に「1日◯」として表示しています
+                </p>
+              </div>
+            </div>
+
             <div className="space-y-5">
               {[
                 { label: "対応数", cur: mine.taio, tgt: myTarget.taio },
@@ -1383,7 +1581,14 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
                           / {r.tgt}（{r.tgt > 0 ? pct.toFixed(0) : "-"}%）
                         </span>
                         {!done && r.tgt > r.cur && (
-                          <span className="ml-2 text-xs font-semibold text-amber-700">あと {r.tgt - r.cur}</span>
+                          <>
+                            <span className="ml-2 text-xs font-semibold text-amber-700">あと {r.tgt - r.cur}</span>
+                            {perDay(r.tgt, r.cur) !== null && restDays > 0 && (
+                              <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                1日 {perDay(r.tgt, r.cur)}
+                              </span>
+                            )}
+                          </>
                         )}
                       </span>
                     </div>
@@ -1394,6 +1599,8 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
             </div>
             <p className="mt-5 text-xs leading-relaxed text-slate-400">
               ※ 個人目標は設定画面で管理者が変更できます。アプローチ数の目標は、対応数の目標に支部の対応アプ率（{goal.taioApuRate}%）を掛けた値です。
+              「1日◯」は、残り出勤日 {restDays} 日で目標に届かせるために必要な1日あたりの件数です。
+              {restDays === 0 && "（出勤目標に達しているため表示していません）"}
             </p>
           </Card>
         </section>
@@ -1467,6 +1674,8 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
           ))}
         </div>
       </section>
+
+      <TrendSection logs={logs} deals={deals} name={currentUser} month={month} setMonth={setMonth} />
 
       {/* メンバー比較 */}
       <section>
@@ -3134,7 +3343,7 @@ function Aggregate({ excl, setExcl, stats, month, setMonth, goal, branch, setBra
 /* ══════════════════════════════════════════
    5. メンバー別分析
    ══════════════════════════════════════════ */
-function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch }) {
+function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch, logs, deals, month, setMonth }) {
   const [selected, setSelected] = useState(MEMBERS[0].name);
   const m = MEMBERS.find((x) => x.name === selected);
   const mi = stats.byMember[m.name] || 0;
@@ -3171,6 +3380,7 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch
     .sort((a, b) => a.rate - a.target - (b.rate - b.target))[0];
 
   const rows = [
+    { label: "出勤数", cur: (stats.members[m.name] || {}).shukkin || 0, tgt: t.shukkin },
     { label: "対応数", cur: mv("taio"), tgt: t.taio },
     { label: "アポ数", cur: mv("apo"), tgt: t.apo },
     { label: excl ? "有効商談数" : "商談数", cur: base, tgt: t.shodan },
@@ -3182,11 +3392,16 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch
       <header className="mb-8">
         <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">MEMBER ANALYSIS</p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">メンバー別分析</h1>
-        <p className="mt-2 text-sm text-slate-500">{PERIOD.label}の実績と個人目標の対比</p>
+        <p className="mt-2 text-sm text-slate-500">
+          {PERIOD.year}年{month}月の実績と個人目標の対比
+        </p>
       </header>
 
       <div className="mb-6 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <BranchSelect branch={branch} setBranch={setBranch} />
+        <div className="flex flex-wrap items-center gap-3">
+          <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+          <BranchSelect branch={branch} setBranch={setBranch} />
+        </div>
         <ExcludeToggle excl={excl} setExcl={setExcl} />
       </div>
 
@@ -3213,7 +3428,9 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch
               <p className="text-xl font-bold text-slate-900">{m.name}</p>
               <div className="mt-1 flex items-center gap-2">
                 <RoleTag role={m.role} />
-                <span className="text-xs text-slate-400">出勤目標 {t.shukkin} 日</span>
+                <span className="text-xs text-slate-400">
+                  出勤 {(stats.members[m.name] || {}).shukkin || 0} / {t.shukkin} 日
+                </span>
               </div>
             </div>
           </div>
@@ -3246,7 +3463,7 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch
         </Card>
 
         <Card className="p-6 lg:col-span-2">
-          <SectionTitle note={`${PERIOD.label}の目標に対する進捗`}>目標進捗</SectionTitle>
+          <SectionTitle note={`${PERIOD.year}年${month}月の目標に対する進捗`}>目標進捗</SectionTitle>
           <div className="space-y-5">
             {rows.map((r) => (
               <div key={r.label}>
@@ -3301,6 +3518,15 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch
           })}
         </div>
       </section>
+
+      <TrendSection
+        logs={logs}
+        deals={deals}
+        name={m.name}
+        month={month}
+        setMonth={setMonth}
+        title={`${m.name} さんの推移`}
+      />
 
       <section className="mb-12">
         <SectionTitle note="行をタップすると上の詳細が切り替わります">全メンバーの歩留まり</SectionTitle>
@@ -3365,7 +3591,7 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch
           <table className="w-full min-w-[680px] text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
-                {["メンバー", "役割", "売上金額", "対応数", "アポ数", "商談数", "未商談", "有効商談", "商談アポ率", "対目標"].map((h) => (
+                {["メンバー", "役割", "出勤", "売上金額", "対応数", "アポ数", "商談数", "未商談", "有効商談", "商談アポ率", "対目標"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
                 ))}
               </tr>
@@ -3386,6 +3612,10 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch
                   >
                     <td className="px-4 py-3 font-semibold text-slate-800">{x.name}</td>
                     <td className="px-4 py-3"><RoleTag role={x.role} /></td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {(stats.members[x.name] || {}).shukkin || 0}
+                      <span className="text-xs text-slate-400"> / {targets[x.name].shukkin}</span>
+                    </td>
                     <td className="px-4 py-3 text-slate-600">{yen(xs)}</td>
                     <td className="px-4 py-3 text-slate-600">{memberValue(x, "taio", stats)}</td>
                     <td className="px-4 py-3 text-slate-600">{memberValue(x, "apo", stats)}</td>
@@ -4879,6 +5109,8 @@ function App() {
               currentUser={currentUser}
               month={month}
               setMonth={setMonth}
+              logs={logs}
+              deals={deals}
               onGoInput={() => setPage("input")}
             />
           )}
@@ -4945,7 +5177,19 @@ function App() {
             />
           )}
           {page === "aggregate" && <Aggregate excl={excl} setExcl={setExcl} stats={stats} month={month} setMonth={setMonth} goal={goal} branch={branch} setBranch={setBranch} />}
-          {page === "member" && <MemberAnalysis excl={excl} setExcl={setExcl} stats={stats} targets={targets} goal={goal} branch={branch} setBranch={setBranch} />}
+          {page === "member" && <MemberAnalysis
+              excl={excl}
+              setExcl={setExcl}
+              stats={stats}
+              targets={targets}
+              goal={goal}
+              branch={branch}
+              setBranch={setBranch}
+              logs={logs}
+              deals={deals}
+              month={month}
+              setMonth={setMonth}
+            />}
           {page === "closer" && (
             <CloserAnalysis
               stats={stats}

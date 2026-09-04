@@ -1304,7 +1304,7 @@ function weeklyOfMember(logs, deals, name, month) {
 /* ══════════════════════════════════════════
    推移（週別・月別）。マイ成績とメンバー別分析で共用します
    ══════════════════════════════════════════ */
-function TrendSection({ logs, deals, name, month, setMonth, title }) {
+function TrendSection({ logs, deals, name, month, setMonth, title, goal, chart = true }) {
   const weeklyTrend = weeklyOfMember(logs, deals, name, month);
   const monthlyTrend = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     .map((m) => ({ m, ...statsOfMember(logs, deals, name, m) }))
@@ -1322,7 +1322,7 @@ function TrendSection({ logs, deals, name, month, setMonth, title }) {
 
       <Card className="mb-4 p-4 sm:p-6">
         <p className="mb-4 text-sm font-bold text-slate-800">週別（{month}月）</p>
-        <GroupedBarChart
+        {chart && <GroupedBarChart
           data={weeklyTrend.map((w) => ({
             label: w.label,
             short: w.short,
@@ -1331,13 +1331,19 @@ function TrendSection({ logs, deals, name, month, setMonth, title }) {
           }))}
           series={series}
           height={130}
-        />
+        />}
         <div className="mt-5 w-full max-w-full overflow-x-auto">
-          <table className="w-full min-w-[620px] text-sm">
+          <table className="w-full min-w-[820px] text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
-                {["期間", "出勤", "対応", "アプローチ", "アポ", "有効商談", "完工", "アプアポ率"].map((h) => (
+                {["期間", "出勤", "対応", "アプローチ", "アポ", "有効商談", "完工"].map((h) => (
                   <th key={h} className="px-3 py-2.5 text-left font-medium">{h}</th>
+                ))}
+                {FUNNEL.map((f) => (
+                  <th key={f.key} className="px-3 py-2.5 text-left font-medium">
+                    {f.label}
+                    {goal && <span className="ml-1 font-normal text-slate-400">{goal[f.key]}%</span>}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -1351,7 +1357,20 @@ function TrendSection({ logs, deals, name, month, setMonth, title }) {
                   <td className="px-3 py-2.5 text-slate-600">{w.apo || "-"}</td>
                   <td className="px-3 py-2.5 text-slate-600">{w.shodan || "-"}</td>
                   <td className="px-3 py-2.5 text-slate-600">{w.kanko || "-"}</td>
-                  <td className="px-3 py-2.5 font-semibold text-slate-800">{w.apu > 0 ? p1(ratio(w.apo, w.apu)) : "-"}</td>
+                  {FUNNEL.map((f) => {
+                    const from = w[f.from];
+                    const r = from > 0 ? ratio(w[f.to], from) : null;
+                    const ok = goal && r !== null && r >= goal[f.key];
+                    return (
+                      <td key={f.key} className="px-3 py-2.5">
+                        {r === null ? (
+                          <span className="text-slate-300">-</span>
+                        ) : (
+                          <span className={`font-semibold ${ok ? "text-emerald-600" : "text-slate-600"}`}>{p1(r)}</span>
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -1365,7 +1384,7 @@ function TrendSection({ logs, deals, name, month, setMonth, title }) {
           <p className="py-8 text-center text-sm text-slate-400">実績のある月がまだありません。</p>
         ) : (
           <>
-            <GroupedBarChart
+            {chart && <GroupedBarChart
               data={monthlyTrend.map((x) => ({
                 label: `${PERIOD.year}年${x.m}月`,
                 short: `${x.m}`,
@@ -1377,7 +1396,7 @@ function TrendSection({ logs, deals, name, month, setMonth, title }) {
               compact
               activeIndex={monthlyTrend.findIndex((x) => x.m === month)}
               onSelect={(i) => setMonth(monthlyTrend[i].m)}
-            />
+            />}
             <div className="mt-5 w-full max-w-full overflow-x-auto">
               <table className="w-full min-w-[680px] text-sm">
                 <thead>
@@ -1441,11 +1460,14 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
   const mine = valuesOf(currentUser);
   const myTarget = targets[currentUser];
 
-  /* 出勤の進捗と、残り出勤日から見た1日あたりの目標 */
+  /* 出勤の進捗と、残り出勤日から見た1日あたりの目標
+     締まった月（当月以外）は1日単位の目標を表示しません */
+  const isCurrentMonth = month === PERIOD.month;
   const shukkin = (stats.members[currentUser] || {}).shukkin || 0;
   const shukkinTarget = myTarget ? myTarget.shukkin : 0;
   const restDays = Math.max(0, shukkinTarget - shukkin);
   const perDay = (target, current) => {
+    if (!isCurrentMonth) return null;
     const rest = Math.max(0, target - current);
     if (restDays <= 0) return rest > 0 ? null : 0;
     return Math.ceil(rest / restDays);
@@ -1547,16 +1569,20 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
                 </p>
               </div>
               <div className="rounded-lg bg-slate-50 p-4">
-                <p className="text-xs text-slate-500">残り出勤日</p>
+                <p className="text-xs text-slate-500">{isCurrentMonth ? "残り出勤日" : "出勤達成率"}</p>
                 <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-                  {restDays}
-                  <span className="ml-1 text-sm font-medium text-slate-400">日</span>
+                  {isCurrentMonth ? restDays : ratio(shukkin, shukkinTarget).toFixed(0)}
+                  <span className="ml-1 text-sm font-medium text-slate-400">{isCurrentMonth ? "日" : "%"}</span>
                 </p>
               </div>
-              <div className="rounded-lg p-4" style={{ backgroundColor: NAVY_TINT }}>
-                <p className="text-xs" style={{ color: NAVY }}>1日あたりの必要数</p>
+              <div className="rounded-lg p-4" style={{ backgroundColor: isCurrentMonth ? NAVY_TINT : "#f8fafc" }}>
+                <p className="text-xs" style={{ color: isCurrentMonth ? NAVY : "#94a3b8" }}>
+                  {isCurrentMonth ? "1日あたりの必要数" : "締め済みの月"}
+                </p>
                 <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                  下の各項目に「1日◯」として表示しています
+                  {isCurrentMonth
+                    ? "下の各項目に「1日◯」として表示しています"
+                    : "実績の確認と振り返りにお使いください"}
                 </p>
               </div>
             </div>
@@ -1583,7 +1609,7 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
                         {!done && r.tgt > r.cur && (
                           <>
                             <span className="ml-2 text-xs font-semibold text-amber-700">あと {r.tgt - r.cur}</span>
-                            {perDay(r.tgt, r.cur) !== null && restDays > 0 && (
+                            {isCurrentMonth && perDay(r.tgt, r.cur) !== null && restDays > 0 && (
                               <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">
                                 1日 {perDay(r.tgt, r.cur)}
                               </span>
@@ -1599,8 +1625,9 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
             </div>
             <p className="mt-5 text-xs leading-relaxed text-slate-400">
               ※ 個人目標は設定画面で管理者が変更できます。アプローチ数の目標は、対応数の目標に支部の対応アプ率（{goal.taioApuRate}%）を掛けた値です。
-              「1日◯」は、残り出勤日 {restDays} 日で目標に届かせるために必要な1日あたりの件数です。
-              {restDays === 0 && "（出勤目標に達しているため表示していません）"}
+              {isCurrentMonth &&
+                `「1日◯」は、残り出勤日 ${restDays} 日で目標に届かせるために必要な1日あたりの件数です。`}
+              {isCurrentMonth && restDays === 0 && "（出勤目標に達しているため表示していません）"}
             </p>
           </Card>
         </section>
@@ -1675,7 +1702,7 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
         </div>
       </section>
 
-      <TrendSection logs={logs} deals={deals} name={currentUser} month={month} setMonth={setMonth} />
+      <TrendSection logs={logs} deals={deals} name={currentUser} month={month} setMonth={setMonth} goal={goal} />
 
       {/* メンバー比較 */}
       <section>
@@ -3525,6 +3552,8 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch
         name={m.name}
         month={month}
         setMonth={setMonth}
+        goal={goal}
+        chart={false}
         title={`${m.name} さんの推移`}
       />
 

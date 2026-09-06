@@ -498,7 +498,7 @@ function buildDeals(logs) {
       });
     });
   });
-  return out.sort((a, b) => dayNum(a.date) - dayNum(b.date) || a.index - b.index);
+  return out.sort((a, b) => monthOf(a.date) - monthOf(b.date) || dayNum(a.date) - dayNum(b.date) || a.index - b.index);
 }
 
 /* 空の実績 */
@@ -1309,14 +1309,19 @@ const dateOfMD = (md) => {
   return new Date(PERIOD.year, Number(p[0]) - 1, Number(p[1]));
 };
 const mdOf = (dt) => `${dt.getMonth() + 1}/${dt.getDate()}`;
+/* 時刻を切り捨てて日付だけにする（比較のずれを防ぎます） */
+const startOfDay = (dt) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+/* 日付を数値化して比較する（20260829 のような形） */
+const dayKey = (dt) => dt.getFullYear() * 10000 + (dt.getMonth() + 1) * 100 + dt.getDate();
+
 /* その日が属する週の土曜日 */
 const saturdayOf = (dt) => {
-  const x = new Date(dt);
+  const x = startOfDay(dt);
   x.setDate(x.getDate() - ((x.getDay() + 1) % 7));
   return x;
 };
 const addDays = (dt, n) => {
-  const x = new Date(dt);
+  const x = startOfDay(dt);
   x.setDate(x.getDate() + n);
   return x;
 };
@@ -1325,7 +1330,12 @@ const sameDay = (a, b) => a.getMonth() === b.getMonth() && a.getDate() === b.get
 /* 期間（from〜to、両端を含む）の実績をまとめる。
    name を指定すると個人、省略すると全体（branch で支店を絞れます） */
 function collectRange(logs, deals, from, to, name, branch) {
-  const hit = (dt) => dt >= from && dt <= to;
+  const a = dayKey(from);
+  const b = dayKey(to);
+  const hit = (dt) => {
+    const k = dayKey(dt);
+    return k >= a && k <= b;
+  };
   const okName = (n) => (name ? n === name : branch === "all" || !branch || branchOf(n) === branch);
 
   const ls = logs.filter((l) => okName(l.name) && hit(dateOfMD(l.date)));
@@ -1358,7 +1368,7 @@ function recentWeeks(n, anchor) {
 
 /* 直近 n 日 */
 function recentDays(n, anchor) {
-  const base = anchor || NOW;
+  const base = startOfDay(anchor || NOW);
   const out = [];
   for (let i = n - 1; i >= 0; i--) {
     const d = addDays(base, -i);
@@ -1387,9 +1397,13 @@ function Delta({ now, prev, unit = "" }) {
    ══════════════════════════════════════════ */
 function TrendPanel({ logs, deals, name, branch, goal, title }) {
   const [range, setRange] = useState("week");
+  /* 表示する期間をずらす（0が最新） */
+  const [shift, setShift] = useState(0);
 
-  const weeks = recentWeeks(8).map((w) => ({ ...w, ...collectRange(logs, deals, w.from, w.to, name, branch) }));
-  const days = recentDays(14).map((d) => ({
+  const anchor = range === "week" ? addDays(NOW, -7 * 8 * shift) : addDays(NOW, -14 * shift);
+
+  const weeks = recentWeeks(8, anchor).map((w) => ({ ...w, ...collectRange(logs, deals, w.from, w.to, name, branch) }));
+  const days = recentDays(14, anchor).map((d) => ({
     ...d,
     ...collectRange(logs, deals, d.date, d.date, name, branch),
   }));
@@ -1407,27 +1421,64 @@ function TrendPanel({ logs, deals, name, branch, goal, title }) {
 
   const rows = range === "week" ? weeks : days;
   const prevOf = (i) => (range === "week" ? (i > 0 ? rows[i - 1] : null) : prevOfDay(i));
+  const hasData = rows.some((r) => r.taio + r.apu + r.apo + r.shodan > 0);
 
   return (
     <section className="mb-10">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <SectionTitle note={range === "week" ? "直近8週・前週との比較" : "直近14日・前週同曜日との比較"}>
+        <SectionTitle
+          note={
+            shift === 0
+              ? range === "week"
+                ? "直近8週・前週との比較"
+                : "直近14日・前週同曜日との比較"
+              : `${mdOf(rows[0].from || rows[0].date)}〜${mdOf(rows[rows.length - 1].to || rows[rows.length - 1].date)}`
+          }
+        >
           {title || "推移"}
         </SectionTitle>
-        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
-          {[
-            { label: "週別", v: "week" },
-            { label: "日別", v: "day" },
-          ].map((o) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white">
             <button
-              key={o.v}
-              onClick={() => setRange(o.v)}
-              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${range === o.v ? "bg-white shadow-sm" : "text-slate-500"}`}
-              style={range === o.v ? { color: NAVY } : undefined}
+              onClick={() => setShift(shift + 1)}
+              className="rounded-l-lg px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
             >
-              {o.label}
+              ◀ 前
             </button>
-          ))}
+            <button
+              onClick={() => setShift(0)}
+              disabled={shift === 0}
+              className="border-x border-slate-200 px-3 py-1.5 text-xs font-semibold transition hover:bg-slate-50 disabled:opacity-40"
+              style={{ color: NAVY }}
+            >
+              最新
+            </button>
+            <button
+              onClick={() => setShift(Math.max(0, shift - 1))}
+              disabled={shift === 0}
+              className="rounded-r-lg px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+            >
+              次 ▶
+            </button>
+          </div>
+          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+            {[
+              { label: "週別", v: "week" },
+              { label: "日別", v: "day" },
+            ].map((o) => (
+              <button
+                key={o.v}
+                onClick={() => {
+                  setRange(o.v);
+                  setShift(0);
+                }}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${range === o.v ? "bg-white shadow-sm" : "text-slate-500"}`}
+                style={range === o.v ? { color: NAVY } : undefined}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1456,7 +1507,7 @@ function TrendPanel({ logs, deals, name, branch, goal, title }) {
             {rows.map((r, i) => {
               const prev = prevOf(i);
               const empty = r.taio + r.apu + r.apo + r.shodan === 0;
-              const isThis = range === "week" ? i === rows.length - 1 : sameDay(r.date, NOW);
+              const isThis = range === "week" ? i === rows.length - 1 && shift === 0 : sameDay(r.date, NOW);
               return (
                 <tr
                   key={range === "week" ? r.label : r.label + i}
@@ -1500,6 +1551,12 @@ function TrendPanel({ logs, deals, name, branch, goal, title }) {
           </tbody>
         </table>
       </Card>
+      {!hasData && (
+        <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 ring-1 ring-amber-100">
+          この期間に日報の登録がありません。「◀ 前」で過去にさかのぼるか、「週別」に切り替えてご覧ください。
+        </p>
+      )}
+
       <p className="mt-3 text-xs leading-relaxed text-slate-400">
         ※ 週は土曜始まりです。月をまたいで並ぶため、月初でも前月末の週と比較できます。
         「前比」は{range === "week" ? "前週" : "前週の同じ曜日"}との差で、緑が増加、赤が減少です。歩留まりの pt は割合の増減です。
@@ -2196,6 +2253,7 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
   /* 自分の日報だけ修正できます（管理者は全員分） */
   const canEditLog = (l) => isAdmin || l.name === currentUser;
   const [filter, setFilter] = useState("all");
+  const [fMonth, setFMonth] = useState(String(PERIOD.month));
   const [editing, setEditing] = useState(null);
   const [iso, setIso] = useState(TODAY.iso);
   const [values, setValues] = useState({});
@@ -2217,9 +2275,15 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
     setTimeout(() => setFlash(""), 3000);
   };
 
-  const rows = (filter === "all" ? logs : logs.filter((l) => l.name === filter))
+  /* 月をまたいでも新しい順に並ぶよう、月と日の両方で並べ替えます */
+  const rows = logs
+    .filter((l) => filter === "all" || l.name === filter)
+    .filter((l) => fMonth === "all" || monthOf(l.date) === Number(fMonth))
     .slice()
-    .sort((a, b) => dayNum(b.date) - dayNum(a.date));
+    .sort((a, b) => monthOf(b.date) - monthOf(a.date) || dayNum(b.date) - dayNum(a.date));
+
+  /* 履歴のある月 */
+  const logMonths = [...new Set(logs.map((l) => monthOf(l.date)))].sort((a, b) => b - a);
 
   const saveLog = (draft) => {
     onSaveLog({ ...draft, editedBy: currentUser, editedAt: stamp() });
@@ -2353,11 +2417,26 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
       </div>
 
       <section>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <SectionTitle note={isAdmin ? "管理者は全員分を修正できます" : "修正できるのはご自身の日報だけです"}>
             入力履歴
           </SectionTitle>
-          <MemberSelect value={filter} onChange={setFilter} includeAll label="絞り込み" />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="whitespace-nowrap text-xs font-medium text-slate-600">対象月</span>
+              <select
+                value={fMonth}
+                onChange={(e) => setFMonth(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="all">すべて</option>
+                {logMonths.map((m) => (
+                  <option key={m} value={String(m)}>{PERIOD.year}年{m}月</option>
+                ))}
+              </select>
+            </div>
+            <MemberSelect value={filter} onChange={setFilter} includeAll label="絞り込み" />
+          </div>
         </div>
         <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
         <Card className="w-full max-w-full overflow-x-auto">
@@ -2785,7 +2864,7 @@ function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBr
     .filter((d) => monthOf(d.date) === month)
     .filter((d) => branch === "all" || branchOf(d.name) === branch || branchOf(d.closer) === branch)
     .map((d) => ({ ...d, alerts: dealAlerts(d) }))
-    .sort((a, b) => b.alerts.length - a.alerts.length || dayNum(a.date) - dayNum(b.date));
+    .sort((a, b) => b.alerts.length - a.alerts.length || monthOf(a.date) - monthOf(b.date) || dayNum(a.date) - dayNum(b.date));
 
   const rows = targets
     .filter((d) => (only === "alert" ? d.alerts.length > 0 : only === "note" ? !!d.note : true))
@@ -3025,7 +3104,9 @@ function MishodanPage({ deals, onPatchDeal, stats, currentUser, canEdit, editPol
     if (focusName) setFName(focusName);
   }, [focusName]);
 
-  const dates = [...new Set(deals.map((d) => d.date))];
+  const dates = [...new Set(deals.map((d) => d.date))].sort(
+    (a, b) => monthOf(b) - monthOf(a) || dayNum(b) - dayNum(a)
+  );
 
   const rows = deals.filter(
     (d) =>

@@ -1302,6 +1302,213 @@ function weeklyOfMember(logs, deals, name, month) {
 }
 
 /* ══════════════════════════════════════════
+   期間集計（月をまたいで比較するための共通処理）
+   ══════════════════════════════════════════ */
+const dateOfMD = (md) => {
+  const p = String(md || "").split("/");
+  return new Date(PERIOD.year, Number(p[0]) - 1, Number(p[1]));
+};
+const mdOf = (dt) => `${dt.getMonth() + 1}/${dt.getDate()}`;
+/* その日が属する週の土曜日 */
+const saturdayOf = (dt) => {
+  const x = new Date(dt);
+  x.setDate(x.getDate() - ((x.getDay() + 1) % 7));
+  return x;
+};
+const addDays = (dt, n) => {
+  const x = new Date(dt);
+  x.setDate(x.getDate() + n);
+  return x;
+};
+const sameDay = (a, b) => a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+/* 期間（from〜to、両端を含む）の実績をまとめる。
+   name を指定すると個人、省略すると全体（branch で支店を絞れます） */
+function collectRange(logs, deals, from, to, name, branch) {
+  const hit = (dt) => dt >= from && dt <= to;
+  const okName = (n) => (name ? n === name : branch === "all" || !branch || branchOf(n) === branch);
+
+  const ls = logs.filter((l) => okName(l.name) && hit(dateOfMD(l.date)));
+  const ds = deals.filter((d) => okName(d.name) && hit(dateOfMD(d.date)));
+  const live = ds.filter((d) => d.keiyaku > 0 && !d.cancelled);
+
+  return {
+    shukkin: ls.filter((l) => num(l.taio) + num(l.apu) + num(l.apo) + itemsOf(l).length > 0).length,
+    taio: ls.reduce((a, l) => a + num(l.taio), 0),
+    apu: ls.reduce((a, l) => a + num(l.apu), 0),
+    apo: ls.reduce((a, l) => a + num(l.apo), 0),
+    shodan: ds.filter((d) => !d.excluded).length,
+    shodanAll: ds.length,
+    kanko: live.length,
+    sales: live.reduce((a, d) => a + num(d.sales), 0),
+  };
+}
+
+/* 直近 n 週（土曜始まり）。月をまたいで並びます */
+function recentWeeks(n, anchor) {
+  const base = saturdayOf(anchor || NOW);
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const from = addDays(base, -7 * i);
+    const to = addDays(from, 6);
+    out.push({ from, to, label: `${mdOf(from)}〜${mdOf(to)}` });
+  }
+  return out;
+}
+
+/* 直近 n 日 */
+function recentDays(n, anchor) {
+  const base = anchor || NOW;
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = addDays(base, -i);
+    out.push({ date: d, label: `${mdOf(d)}（${DOW[d.getDay()]}）` });
+  }
+  return out;
+}
+
+/* 前の期間との差を矢印で表す */
+function Delta({ now, prev, unit = "" }) {
+  if (prev === null || prev === undefined) return <span className="text-slate-300">-</span>;
+  const diff = now - prev;
+  if (diff === 0) return <span className="text-slate-400">±0</span>;
+  const up = diff > 0;
+  return (
+    <span className={`font-semibold ${up ? "text-emerald-600" : "text-rose-600"}`}>
+      {up ? "▲" : "▼"}
+      {Math.abs(diff).toFixed(unit === "%" ? 1 : 0)}
+      {unit}
+    </span>
+  );
+}
+
+/* ══════════════════════════════════════════
+   週別・日別の推移（月をまたいで前週と比較できます）
+   ══════════════════════════════════════════ */
+function TrendPanel({ logs, deals, name, branch, goal, title }) {
+  const [range, setRange] = useState("week");
+
+  const weeks = recentWeeks(8).map((w) => ({ ...w, ...collectRange(logs, deals, w.from, w.to, name, branch) }));
+  const days = recentDays(14).map((d) => ({
+    ...d,
+    ...collectRange(logs, deals, d.date, d.date, name, branch),
+  }));
+
+  const rateOf = (row, f) => (row[f.from] > 0 ? ratio(row[f.to], row[f.from]) : null);
+
+  /* 日別は「前週の同じ曜日」と比べます */
+  const prevOfDay = (i) => {
+    const d = days[i];
+    const target = addDays(d.date, -7);
+    const found = days.find((x) => sameDay(x.date, target));
+    if (found) return found;
+    return { ...collectRange(logs, deals, target, target, name, branch) };
+  };
+
+  const rows = range === "week" ? weeks : days;
+  const prevOf = (i) => (range === "week" ? (i > 0 ? rows[i - 1] : null) : prevOfDay(i));
+
+  return (
+    <section className="mb-10">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <SectionTitle note={range === "week" ? "直近8週・前週との比較" : "直近14日・前週同曜日との比較"}>
+          {title || "推移"}
+        </SectionTitle>
+        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+          {[
+            { label: "週別", v: "week" },
+            { label: "日別", v: "day" },
+          ].map((o) => (
+            <button
+              key={o.v}
+              onClick={() => setRange(o.v)}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${range === o.v ? "bg-white shadow-sm" : "text-slate-500"}`}
+              style={range === o.v ? { color: NAVY } : undefined}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
+      <Card className="w-full max-w-full overflow-x-auto">
+        <table className="w-full min-w-[900px] text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+              <th className="px-3 py-2.5 text-left font-medium">{range === "week" ? "期間" : "日付"}</th>
+              <th className="px-3 py-2.5 text-left font-medium">対応</th>
+              <th className="px-3 py-2.5 text-left font-medium">前比</th>
+              <th className="px-3 py-2.5 text-left font-medium">アプ</th>
+              <th className="px-3 py-2.5 text-left font-medium">アポ</th>
+              <th className="px-3 py-2.5 text-left font-medium">前比</th>
+              <th className="px-3 py-2.5 text-left font-medium">商談</th>
+              <th className="px-3 py-2.5 text-left font-medium">完工</th>
+              {FUNNEL.map((f) => (
+                <th key={f.key} className="px-3 py-2.5 text-left font-medium">
+                  {f.label}
+                  {goal && <span className="ml-1 font-normal text-slate-400">{goal[f.key]}%</span>}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const prev = prevOf(i);
+              const empty = r.taio + r.apu + r.apo + r.shodan === 0;
+              const isThis = range === "week" ? i === rows.length - 1 : sameDay(r.date, NOW);
+              return (
+                <tr
+                  key={range === "week" ? r.label : r.label + i}
+                  className={`border-b border-slate-50 last:border-0 ${isThis ? "bg-blue-50/50" : ""} ${empty ? "text-slate-300" : ""}`}
+                >
+                  <td className="whitespace-nowrap px-3 py-2.5 font-semibold text-slate-800">
+                    {r.label}
+                    {isThis && <span className="ml-1 text-xs font-normal" style={{ color: NAVY }}>今{range === "week" ? "週" : "日"}</span>}
+                  </td>
+                  <td className="px-3 py-2.5 text-slate-600">{r.taio || "-"}</td>
+                  <td className="px-3 py-2.5 text-xs"><Delta now={r.taio} prev={prev ? prev.taio : null} /></td>
+                  <td className="px-3 py-2.5 text-slate-600">{r.apu || "-"}</td>
+                  <td className="px-3 py-2.5 text-slate-600">{r.apo || "-"}</td>
+                  <td className="px-3 py-2.5 text-xs"><Delta now={r.apo} prev={prev ? prev.apo : null} /></td>
+                  <td className="px-3 py-2.5 text-slate-600">{r.shodan || "-"}</td>
+                  <td className="px-3 py-2.5 text-slate-600">{r.kanko || "-"}</td>
+                  {FUNNEL.map((f) => {
+                    const v = rateOf(r, f);
+                    const pv = prev ? rateOf(prev, f) : null;
+                    const ok = goal && v !== null && v >= goal[f.key];
+                    return (
+                      <td key={f.key} className="px-3 py-2.5">
+                        {v === null ? (
+                          <span className="text-slate-300">-</span>
+                        ) : (
+                          <span className="whitespace-nowrap">
+                            <span className={`font-semibold ${ok ? "text-emerald-600" : "text-slate-600"}`}>{p1(v)}</span>
+                            {pv !== null && (
+                              <span className="ml-1 text-xs">
+                                <Delta now={v} prev={pv} unit="pt" />
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Card>
+      <p className="mt-3 text-xs leading-relaxed text-slate-400">
+        ※ 週は土曜始まりです。月をまたいで並ぶため、月初でも前月末の週と比較できます。
+        「前比」は{range === "week" ? "前週" : "前週の同じ曜日"}との差で、緑が増加、赤が減少です。歩留まりの pt は割合の増減です。
+      </p>
+    </section>
+  );
+}
+
+/* ══════════════════════════════════════════
    推移（週別・月別）。マイ成績とメンバー別分析で共用します
    ══════════════════════════════════════════ */
 function TrendSection({ logs, deals, name, month, setMonth, title, goal, chart = true }) {
@@ -1701,6 +1908,8 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
           ))}
         </div>
       </section>
+
+      <TrendPanel logs={logs} deals={deals} name={currentUser} goal={goal} title="日別・週別の推移" />
 
       <TrendSection logs={logs} deals={deals} name={currentUser} month={month} setMonth={setMonth} goal={goal} />
 
@@ -3148,7 +3357,7 @@ function MishodanPage({ deals, onPatchDeal, stats, currentUser, canEdit, editPol
 /* ══════════════════════════════════════════
    4. 週別・月別集計
    ══════════════════════════════════════════ */
-function Aggregate({ excl, setExcl, stats, month, setMonth, goal, branch, setBranch }) {
+function Aggregate({ excl, setExcl, stats, month, setMonth, goal, branch, setBranch, logs, deals }) {
   const isCurrent = month === PERIOD.month;
   const md = stats.monthly.find((x) => x.m === month);
   const mishodan = stats.total;
@@ -3175,6 +3384,14 @@ function Aggregate({ excl, setExcl, stats, month, setMonth, goal, branch, setBra
           <ExcludeToggle excl={excl} setExcl={setExcl} />
         </div>
       </div>
+
+      <TrendPanel
+        logs={logs}
+        deals={deals}
+        branch={branch}
+        goal={goal}
+        title={`全体の推移（${branch === "all" ? "全社" : branch + "支店"}）`}
+      />
 
       {md.hasData ? (
         <>
@@ -3546,6 +3763,8 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch
         </div>
       </section>
 
+      <TrendPanel logs={logs} deals={deals} name={m.name} goal={goal} title={`${m.name} さんの日別・週別`} />
+
       <TrendSection
         logs={logs}
         deals={deals}
@@ -3554,7 +3773,7 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch
         setMonth={setMonth}
         goal={goal}
         chart={false}
-        title={`${m.name} さんの推移`}
+        title={`${m.name} さんの月別推移`}
       />
 
       <section className="mb-12">
@@ -5205,7 +5424,18 @@ function App() {
               stats={stats}
             />
           )}
-          {page === "aggregate" && <Aggregate excl={excl} setExcl={setExcl} stats={stats} month={month} setMonth={setMonth} goal={goal} branch={branch} setBranch={setBranch} />}
+          {page === "aggregate" && <Aggregate
+              excl={excl}
+              setExcl={setExcl}
+              stats={stats}
+              month={month}
+              setMonth={setMonth}
+              goal={goal}
+              branch={branch}
+              setBranch={setBranch}
+              logs={logs}
+              deals={deals}
+            />}
           {page === "member" && <MemberAnalysis
               excl={excl}
               setExcl={setExcl}

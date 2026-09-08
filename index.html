@@ -1576,10 +1576,12 @@ function TrendPanel({ logs, deals, name, branch, goal, title }) {
   /* 表示する期間をずらす（0が最新） */
   const [shift, setShift] = useState(0);
 
-  const anchor = range === "week" ? addDays(NOW, -7 * 8 * shift) : addDays(NOW, -14 * shift);
+  /* 日別は実績のある日だけを見たいので、期間を広め（28日）に取ります */
+  const DAY_SPAN = 28;
+  const anchor = range === "week" ? addDays(NOW, -7 * 8 * shift) : addDays(NOW, -DAY_SPAN * shift);
 
   const weeks = recentWeeks(8, anchor).map((w) => ({ ...w, ...collectRange(logs, deals, w.from, w.to, name, branch) }));
-  const days = recentDays(14, anchor).map((d) => ({
+  const days = recentDays(DAY_SPAN, anchor).map((d) => ({
     ...d,
     ...collectRange(logs, deals, d.date, d.date, name, branch),
   }));
@@ -1587,17 +1589,16 @@ function TrendPanel({ logs, deals, name, branch, goal, title }) {
   const rateOf = (row, f) => (row[f.from] > 0 ? ratio(row[f.to], row[f.from]) : null);
 
   /* 日別は「前週の同じ曜日」と比べます */
-  const prevOfDay = (i) => {
-    const d = days[i];
-    const target = addDays(d.date, -7);
-    const found = days.find((x) => sameDay(x.date, target));
-    if (found) return found;
-    return { ...collectRange(logs, deals, target, target, name, branch) };
+  const prevOfDay = (row) => {
+    const target = addDays(row.date, -7);
+    return collectRange(logs, deals, target, target, name, branch);
   };
 
-  const rows = range === "week" ? weeks : days;
-  const prevOf = (i) => (range === "week" ? (i > 0 ? rows[i - 1] : null) : prevOfDay(i));
-  const hasData = rows.some((r) => r.taio + r.apu + r.apo + r.shodan > 0);
+  const isEmpty = (r) => r.taio + r.apu + r.apo + r.shodan + r.kanko === 0;
+  /* 日別は出勤していない日（実績のない日）を表示しません */
+  const rows = range === "week" ? weeks : days.filter((d) => !isEmpty(d));
+  const prevOf = (r, i) => (range === "week" ? (i > 0 ? weeks[i - 1] : null) : prevOfDay(r));
+  const hasData = rows.length > 0;
 
   return (
     <section className="mb-10">
@@ -1607,8 +1608,8 @@ function TrendPanel({ logs, deals, name, branch, goal, title }) {
             shift === 0
               ? range === "week"
                 ? "直近8週・前週との比較"
-                : "直近14日・前週同曜日との比較"
-              : `${mdOf(rows[0].from || rows[0].date)}〜${mdOf(rows[rows.length - 1].to || rows[rows.length - 1].date)}`
+                : "直近4週間のうち実績のある日・前週同曜日との比較"
+              : `${mdOf(anchor ? addDays(anchor, range === "week" ? -7 * 7 : -(DAY_SPAN - 1)) : NOW)}〜${mdOf(anchor)}`
           }
         >
           {title || "推移"}
@@ -1681,8 +1682,8 @@ function TrendPanel({ logs, deals, name, branch, goal, title }) {
           </thead>
           <tbody>
             {rows.map((r, i) => {
-              const prev = prevOf(i);
-              const empty = r.taio + r.apu + r.apo + r.shodan === 0;
+              const prev = prevOf(r, i);
+              const empty = isEmpty(r);
               const isThis = range === "week" ? i === rows.length - 1 && shift === 0 : sameDay(r.date, NOW);
               return (
                 <tr
@@ -1736,6 +1737,7 @@ function TrendPanel({ logs, deals, name, branch, goal, title }) {
       <p className="mt-3 text-xs leading-relaxed text-slate-400">
         ※ 週は土曜始まりです。月をまたいで並ぶため、月初でも前月末の週と比較できます。
         「前比」は{range === "week" ? "前週" : "前週の同じ曜日"}との差で、緑が増加、赤が減少です。歩留まりの pt は割合の増減です。
+        {range === "day" && " 日別は実績のある日だけを表示しています。"}
       </p>
     </section>
   );

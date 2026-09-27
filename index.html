@@ -2445,12 +2445,17 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
     ["apo", "アポ数", "件"],
   ];
 
-  const save = () => {
+  const save = async () => {
     const mode = submitLog(author, iso, values, items);
-    setValues({});
-    setItems([]);
-    setFlash(mode === "update" ? `${author} さんの同じ日の日報を上書きしました` : `${author} さんの日報を登録しました`);
-    setTimeout(() => setFlash(""), 3000);
+    try {
+      await mode.promise;
+      setValues({});
+      setItems([]);
+      setFlash(mode.type === "update" ? `${author} さんの同じ日の日報を上書きしました` : `${author} さんの日報を登録しました`);
+      setTimeout(() => setFlash(""), 4000);
+    } catch (e) {
+      setFlash("");
+    }
   };
 
   /* 月をまたいでも新しい順に並ぶよう、月と日の両方で並べ替えます */
@@ -5314,11 +5319,23 @@ function App() {
         if (data) setShared(mergeShared(data));
         setSync({ state: "ok", at: stamp() });
       })
-      .catch(() => setSync({ state: "error", at: "" }))
-      .then(() => {
-        busy.current = false;
-      });
-    return queue.current;
+      .catch((e) => {
+        setSync({ state: "error", at: "", message: e && e.message ? e.message : String(e) });
+        throw e;
+      })
+      .then(
+        () => {
+          busy.current = false;
+        },
+        (e) => {
+          busy.current = false;
+          throw e;
+        }
+      );
+    /* 失敗しても後続の処理が止まらないよう、待ち行列は成功扱いに戻します */
+    const result = queue.current;
+    queue.current = result.catch(() => {});
+    return result;
   };
 
   /* 最新データの取り込み */
@@ -5440,7 +5457,7 @@ function App() {
     const date = `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
     const dow = ["日", "月", "火", "水", "木", "金", "土"][new Date(iso).getDay()];
     const exists = logs.some((l) => l.name === name && l.date === date);
-    run("upsertLog", {
+    const promise = run("upsertLog", {
       id: exists ? logs.find((l) => l.name === name && l.date === date).id : "",
       date,
       dow,
@@ -5454,7 +5471,7 @@ function App() {
       editedBy: exists ? currentUser : "",
       editedAt: exists ? stamp() : "",
     }, token);
-    return exists ? "update" : "add";
+    return { type: exists ? "update" : "add", promise };
   };
 
   const stats = useMemo(() => {
@@ -5623,8 +5640,11 @@ function App() {
               <div>
                 <p className="text-sm font-semibold text-amber-900">サーバーと通信できませんでした</p>
                 <p className="mt-0.5 text-xs text-amber-800">
-                  通信状況を確認して、同期表示をタップし直してください。保存されていない可能性があります。
+                  入力内容は保存されていません。通信状況を確認して、もう一度お試しください。
                 </p>
+                {sync.message && (
+                  <p className="mt-2 break-all rounded bg-white/70 p-2 text-xs text-amber-900">{sync.message}</p>
+                )}
               </div>
             </div>
           )}

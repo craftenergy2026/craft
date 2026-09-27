@@ -3271,6 +3271,7 @@ function ProgressBoard({ deals, onPatchDeal, currentUser, canEdit, branch, setBr
    3. 未商談の判定
    ══════════════════════════════════════════ */
 function MishodanPage({ deals, onPatchDeal, stats, currentUser, canEdit, editPolicy, isAdmin, focusName }) {
+  const [fMonth, setFMonth] = useState(String(PERIOD.month));
   const [fDate, setFDate] = useState("all");
   const [fName, setFName] = useState(focusName || "all");
   const [fState, setFState] = useState("all");
@@ -3282,12 +3283,16 @@ function MishodanPage({ deals, onPatchDeal, stats, currentUser, canEdit, editPol
     if (focusName) setFName(focusName);
   }, [focusName]);
 
-  const dates = [...new Set(deals.map((d) => d.date))].sort(
+  /* 商談のある月 */
+  const dealMonths = [...new Set(deals.map((d) => monthOf(d.date)))].sort((a, b) => b - a);
+  /* 選んだ月の日付だけを候補に出します */
+  const dates = [...new Set(deals.filter((d) => fMonth === "all" || monthOf(d.date) === Number(fMonth)).map((d) => d.date))].sort(
     (a, b) => monthOf(b) - monthOf(a) || dayNum(b) - dayNum(a)
   );
 
   const rows = deals.filter(
     (d) =>
+      (fMonth === "all" || monthOf(d.date) === Number(fMonth)) &&
       (fDate === "all" || d.date === fDate) &&
       (fName === "all" || d.name === fName || d.closer === fName) &&
       (fState === "all" ||
@@ -3374,6 +3379,22 @@ function MishodanPage({ deals, onPatchDeal, stats, currentUser, canEdit, editPol
 
       {/* フィルタ */}
       <Card className="mb-5 flex flex-wrap items-center gap-3 p-4 sm:gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-600">対象月</span>
+          <select
+            value={fMonth}
+            onChange={(e) => {
+              setFMonth(e.target.value);
+              setFDate("all");
+            }}
+            className={selectCls}
+          >
+            <option value="all">すべて</option>
+            {dealMonths.map((m) => (
+              <option key={m} value={String(m)}>{PERIOD.year}年{m}月</option>
+            ))}
+          </select>
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-slate-600">日付</span>
           <select value={fDate} onChange={(e) => setFDate(e.target.value)} className={selectCls}>

@@ -1,8 +1,8 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}
 /* 名簿は営業ログで管理するため、ここでは閲覧のみにします */
-body[data-roster="locked"] #rosterTable input,
-body[data-roster="locked"] #rosterTable select,
-body[data-roster="locked"] #rosterTable button { pointer-events:none; opacity:.55 }
+body[data-roster="locked"] #rosterTable input[data-rf="name"],
+body[data-roster="locked"] #rosterTable button[data-rdel] { pointer-events:none; opacity:.45 }
+body[data-roster="locked"] #addMember { display:none }
 .roster-note{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:12px;line-height:1.7}
 </style></head><body>
 <title>営業目標ナビ</title>
@@ -549,11 +549,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
     </div>
     <div id="sqSummary"></div>
     <div id="sqDetail" style="margin-top:18px"></div>
-    <div id="sqEdit" hidden style="margin-top:22px">
-      <h3 style="font-size:15px;margin-bottom:8px">ランク・世代の設定（管理者のみ）</h3>
-      <p style="color:var(--muted);font-size:12px;margin:0 0 10px">変更するとすぐ保存され、全員に共有されます。メンバーの追加・削除は営業ログ側で行います。</p>
-      <div id="sqEditTable"></div>
-    </div>
+    <p class="note" style="margin-top:14px">ランク・世代の設定は「メンバー設定」タブで行えます。</p>
   </section>
 
   <!-- MANAGER LIST -->
@@ -1502,8 +1498,19 @@ state.roster = []; state.isAdmin = false;
 const rosterById = id => state.roster.find(x => x.id === id);
 function saveRosterSoon(){ clearTimeout(saveRosterSoon.t); saveRosterSoon.t = setTimeout(saveRoster, 600); }
 async function saveRoster(){
-  /* 名簿は営業ログ側（Apps Script の USERS）で管理します */
-  if (state.mode === "api") return;
+  /* 氏名の追加・削除は営業ログ側で行い、ここではランク・世代だけを保存します */
+  if (state.mode === "api"){
+    const map = {};
+    state.roster.forEach(x => {
+      map[x.name] = { rank: x.rank || "", mgmt: x.mgmt || "", gen: x.gen || "" };
+    });
+    ROSTER_META = map;
+    try{
+      await api("saveRosterMeta", map, apiToken());
+      renderSquad(); renderMgr(); renderWhoName();
+    }catch(e){ showBanner("保存できませんでした：" + (e && e.message ? e.message : e)); }
+    return;
+  }
   const body = {members: state.roster.map(x => ({id:x.id, name:x.name||"", rank:x.rank||"", mgmt:x.mgmt||"", gen: num(x.gen) || null})), updatedAt: Date.now()};
   if (state.mode === "db"){
     try{ await db.doc("config/roster").set(body); }
@@ -1545,7 +1552,7 @@ function renderRoster(){
       <td>${can ? `<select data-rf="mgmt" aria-label="管理ランク">${mOpts(x.mgmt)}</select>` : esc((MG[x.mgmt]||{}).nm || "—")}</td>
       <td>${can ? `<select data-rf="gen" aria-label="世代"><option value="">未設定</option>${[1,2,3,4,5,6].map(g => `<option value="${g}" ${num(x.gen)===g?"selected":""}>${genName(g)}</option>`).join("")}</select>` : esc(genName(num(x.gen)))}</td>
       <td class="preview"><span class="badges" style="display:flex;gap:4px;flex-wrap:wrap">${x.rank?rankBadge(x.rank):""}${mgmtBadge(x.mgmt)}${genBadge(num(x.gen))}</span></td>
-      <td>${links[x.id] ? `<span class="tag ok">連携済み</span>` : `<span class="note">未連携</span>`}</td>
+      <td>${state.mode === "api" ? `<span class="tag ok">営業ログ</span>` : (links[x.id] ? `<span class="tag ok">連携済み</span>` : `<span class="note">未連携</span>`)}</td>
       ${can ? `<td><button class="btn ghost danger small" data-rdel="${esc(x.id)}">${pendingRosterDel===x.id?"もう一度押すと削除":"削除"}</button></td>` : ""}
     </tr>`).join("") : `<tr><td colspan="7"><span class="note">まだメンバーがいません。${can?"「＋ メンバーを追加」から登録してください。":""}</span></td></tr>`) + `</tbody>`;
 }
@@ -1598,6 +1605,40 @@ function updateMgrTab(){
 let mgrSort = {k:"rank", dir:1}; const mgrOpen = new Set(); const daysCache = {};
 function rowsForMgr(){
   const m = state.month;
+
+  /* 営業ログと連携しているときは、ログの日報から全員分を集計します */
+  if (state.mode === "api"){
+    const b = base(); const now = Date.now(); const isCur = m === today.slice(0,7);
+    return ROSTER.map(r => {
+      const meta = metaOf(r.name);
+      const a = actualsFromLog(r.name, m);
+      const naviOf = (LOG.navi || {})[r.name] || {};
+      const g = ((naviOf.months || {})[m]) || {};
+      const target = num(g.target) || null, D = num(g.days) || 20;
+      const logged = a.days;
+      const q = target ? a.kan / target : null, el = D ? logged / D : 0;
+      const rate = (x, c) => c > 0 ? x / c : null;
+      const o = {
+        key: r.name, name: r.name, rank: meta.rank || "", mgmt: meta.mgmt || "", gen: num(meta.gen) || 0,
+        link: { uid: r.name, data: naviOf },
+        has: logged > 0 || !!target,
+        target, kan: a.kan, t: a.t, ap: a.ap, apo: a.apo, sho: a.sho, kei: a.kei, logged, D,
+        q, el, late: q != null && q < el * 0.95,
+        dayApo: logged ? a.apo / logged : null,
+        apRate: rate(a.ap, a.t), apoRate: rate(a.apo, a.ap),
+        shoRate: rate(a.sho, a.apo), kanRate: rate(a.kan, a.sho),
+        doRate: ((naviOf.summary || {})[m] || {}).doRate ?? null,
+        issues: (naviOf.issues || []).filter(x => x.status === "実行中" || x.status === "未着手"),
+        upd: naviOf.updatedAt || null
+      };
+      o.stale = isCur && o.has && (!o.upd || now - o.upd > 2 * 86400000);
+      o.apoSt = status(o.dayApo, b.dayApo);
+      o.shoSt = status(o.shoRate, b.shoRate / 100);
+      o.kanSt = status(o.kanRate, b.kanRate / 100);
+      return o;
+    });
+  }
+
   const docs = state.mode === "db" ? state.team.slice() : [{id:"me", data: state.member}];
   if (state.mode === "db" && state.uid && !docs.find(d => d.id === state.uid)) docs.push({id: state.uid, data: state.member});
   const byRoster = {}; const loose = [];
@@ -1803,6 +1844,14 @@ async function renderTeam(){ renderSquad(); }
 /* ---------- boot ---------- */
 let ROSTER = [];
 
+/* 営業ログのメンバーに、保存済みのランク・世代を重ねて名簿を作ります */
+function rebuildRoster(){
+  state.roster = ROSTER.map(r => {
+    const m = metaOf(r.name);
+    return { id: r.name, name: r.name, rank: m.rank || "", mgmt: m.mgmt || "", gen: m.gen || "", branch: r.branch };
+  });
+}
+
 /* ヘッダーに、誰の数字を見ているかを表示します */
 function renderWhoName(){
   const g = document.getElementById("goalWho");
@@ -1948,44 +1997,7 @@ function renderSquad(){
   renderSquadEdit();
 }
 
-function renderSquadEdit(){
-  const box = document.getElementById("sqEdit");
-  if (!box) return;
-  const canEdit = !!(ME && ME.admin);
-  box.hidden = !canEdit;
-  if (!canEdit) return;
-
-  let html = '<div style="overflow-x:auto"><table style="width:100%;min-width:520px;border-collapse:collapse;font-size:13px"><tbody>';
-  ROSTER.forEach(r => {
-    const m = metaOf(r.name);
-    const pick = (id, list, val) =>
-      '<select data-meta="'+id+'" data-name="'+esc(r.name)+'" style="padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">' +
-      '<option value="">未設定</option>' +
-      list.map(x => '<option value="'+x.v+'"'+(String(val)===String(x.v)?" selected":"")+'>'+x.n+'</option>').join("") +
-      '</select>';
-    html += '<tr style="border-bottom:1px solid var(--line)">' +
-      '<td style="padding:7px;font-weight:700;white-space:nowrap">'+esc(r.name)+'</td>' +
-      '<td style="padding:7px;color:var(--muted)">'+esc(r.branch||"")+'</td>' +
-      '<td style="padding:7px">'+pick("rank", RANKS.map(x => ({v:x.k, n:x.nm})), m.rank||"")+'</td>' +
-      '<td style="padding:7px">'+pick("mgmt", MGMT.map(x => ({v:x.k, n:x.nm})), m.mgmt||"")+'</td>' +
-      '<td style="padding:7px">'+pick("gen", [1,2,3,4,5].map(g => ({v:g, n:genName(g)})), m.gen||"")+'</td>' +
-      '</tr>';
-  });
-  html += '</tbody></table></div>';
-  document.getElementById("sqEditTable").innerHTML = html;
-}
-
-/* 設定の変更を保存 */
-document.addEventListener("change", async (e) => {
-  const el = e.target;
-  if (!el || !el.dataset || !el.dataset.meta) return;
-  const name = el.dataset.name, key = el.dataset.meta;
-  ROSTER_META[name] = Object.assign({}, ROSTER_META[name], { [key]: el.value });
-  try{
-    await api("saveRosterMeta", ROSTER_META, apiToken());
-    renderSquad();
-  }catch(err){ showBanner("保存できませんでした。もう一度お試しください。"); }
-});
+function renderSquadEdit(){ /* メンバー設定タブで行います */ }
 
 document.addEventListener("change", (e) => {
   if (e.target && e.target.id === "teamGroup") renderSquad();
@@ -1998,15 +2010,15 @@ function showRosterNote(){
   const p = document.createElement("p");
   p.className = "roster-note";
   p.textContent = ME && ME.admin
-    ? "メンバーと支店は営業ログ側で管理しています。追加・変更は管理者が営業ログの設定から行ってください。"
-    : "メンバーと支店は営業ログ側で管理しています。変更が必要な場合は管理者にご依頼ください。";
+    ? "氏名の追加・削除は営業ログ側で管理しています。この画面では営業ランク・管理ランク・世代を設定でき、変更はすぐ全員に共有されます。"
+    : "ランク・世代の変更は管理者のみ行えます。氏名の追加・削除は営業ログ側で管理しています。";
   sec.insertBefore(p, sec.firstChild);
 }
 
 /* 営業ログから受け取ったデータを取り込みます */
 function applyShared(d){
   LOG = { logs: d.logs || [], targets: d.targets || {}, navi: d.navi || {} };
-  ROSTER_META = d.rosterMeta || ROSTER_META || {};
+  if (d.rosterMeta) ROSTER_META = d.rosterMeta;
   const mine = (LOG.navi || {})[ME ? ME.name : ""] || null;
   /* 編集中の内容を失わないよう、保存済みより新しい手元の変更は残します */
   const incoming = normMember(mine);
@@ -2025,6 +2037,7 @@ function startAutoSync(){
       const d = await api("getData", apiToken());
       if (!d) return;
       applyShared(d);
+      rebuildRoster();
       await loadMonthDays();
       syncCurFromLog();
       renderAll(); renderWho(); renderWhoName();
@@ -2076,7 +2089,7 @@ async function boot(){
         /* 名簿は営業ログの登録メンバーを使います */
         try{ ROSTER = await api("roster", token); }catch(e){ ROSTER = []; }
         ROSTER_META = (res.data || {}).rosterMeta || {};
-        state.roster = ROSTER.map(r => ({ id: r.name, name: r.name, group: r.branch, role: r.role === "closer" ? "クローザー" : "アポインター" }));
+        rebuildRoster();
         try{ await loadMonthDays(); }catch(e){}
         try{ renderAll(); }catch(e){}
         try{ renderWho(); }catch(e){}

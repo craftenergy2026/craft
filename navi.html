@@ -551,7 +551,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
     <div id="sqDetail" style="margin-top:18px"></div>
     <div id="sqEdit" hidden style="margin-top:22px">
       <h3 style="font-size:15px;margin-bottom:8px">ランク・世代の設定（管理者のみ）</h3>
-      <p style="color:var(--muted);font-size:12px;margin:0 0 10px">変更するとすぐ保存され、全員に共有されます。</p>
+      <p style="color:var(--muted);font-size:12px;margin:0 0 10px">変更するとすぐ保存され、全員に共有されます。メンバーの追加・削除は営業ログ側で行います。</p>
       <div id="sqEditTable"></div>
     </div>
   </section>
@@ -1810,55 +1810,32 @@ function renderWhoName(){
   const el = document.getElementById("whoPill");
   if (!el || !ME) return;
   const m = metaOf(ME.name);
+  const r = RANK[m.rank];
   const parts = [ME.name + " さん"];
-  if (m.rank) parts.push(m.rank);
-  if (m.gen) parts.push(m.gen);
+  if (r) parts.push(r.nm);
+  if (m.gen) parts.push(genName(Number(m.gen)));
   el.textContent = parts.join("／");
   el.className = "pill ok";
 }
 let ROSTER_META = {};   /* { 氏名: { rank, gen } } */
 
-/* 営業ランク（下から上の順。上ほど優れています） */
-const RANKS = ["研修生", "ブロンズ", "シルバー", "ゴールド"];
-/* 管理ランク */
-const MGMT = ["ブラザー", "チームリーダー", "アシスタントマネージャー", "マネージャー", "役員"];
-/* 世代 */
-const GENS = ["第一世代", "第二世代", "第三世代"];
-
-/* ランクの見た目（上位ほど華やか） */
-const RANK_STYLE = {
-  "ゴールド":   { bg:"linear-gradient(135deg,#F7D774,#C9962B)", fg:"#3B2A05", ring:"#C9962B", star:"★★★" },
-  "シルバー":   { bg:"linear-gradient(135deg,#E3E8EF,#AAB4C2)", fg:"#2A3340", ring:"#AAB4C2", star:"★★" },
-  "ブロンズ":   { bg:"linear-gradient(135deg,#E6BE9A,#B07443)", fg:"#3A2415", ring:"#B07443", star:"★" },
-  "研修生":     { bg:"#EEF1F6", fg:"#5B6577", ring:"#DCE1EA", star:"" },
-  "未設定":     { bg:"#EEF1F6", fg:"#9AA3B2", ring:"#DCE1EA", star:"" }
-};
-const rankStyle = (r) => RANK_STYLE[r] || RANK_STYLE["未設定"];
-function rankBadge(r){
-  const st = rankStyle(r || "未設定");
-  return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;background:'
-    + st.bg + ';color:' + st.fg + ';box-shadow:inset 0 0 0 1px ' + st.ring + '">'
-    + (st.star ? '<span style="font-size:9px;letter-spacing:-1px">' + st.star + '</span>' : '')
-    + esc(r || "未設定") + '</span>';
-}
-
 /* 初期のランク・世代（管理者が画面から変更できます） */
 const DEFAULT_META = (() => {
   const m = {};
   const put = (names, key, val) => names.forEach(n => { m[n] = Object.assign({}, m[n], { [key]: val }); });
-  put(["保坂", "扇田", "石"], "rank", "研修生");
-  put(["藤代", "鄭", "伊藤"], "rank", "ブロンズ");
-  put(["佐伯", "三瀬"], "rank", "シルバー");
-  put(["山﨑", "坂神", "大川", "沼口", "森野"], "rank", "ゴールド");
+  put(["保坂", "扇田", "石"], "rank", "trainee");
+  put(["藤代", "鄭", "伊藤"], "rank", "bronze");
+  put(["佐伯", "三瀬"], "rank", "silver");
+  put(["山﨑", "坂神", "大川", "沼口", "森野"], "rank", "gold");
 
-  put(["沼口", "佐伯", "山﨑", "三瀬"], "mgmt", "ブラザー");
-  put(["橋本", "熊澤"], "mgmt", "アシスタントマネージャー");
-  put(["森野"], "mgmt", "マネージャー");
-  put(["斉藤"], "mgmt", "役員");
+  put(["沼口", "佐伯", "山﨑", "三瀬"], "mgmt", "brother");
+  put(["橋本", "熊澤"], "mgmt", "am");
+  put(["森野"], "mgmt", "mgr");
+  put(["斉藤"], "mgmt", "exec");
 
-  put(["佐伯", "坂神", "山﨑"], "gen", "第一世代");
-  put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", "第二世代");
-  put(["扇田", "保坂"], "gen", "第三世代");
+  put(["佐伯", "坂神", "山﨑"], "gen", 1);
+  put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", 2);
+  put(["扇田", "保坂"], "gen", 3);
   return m;
 })();
 
@@ -1866,11 +1843,20 @@ function metaOf(name){
   return Object.assign({}, DEFAULT_META[name] || {}, ROSTER_META[name] || {});
 }
 function groupKeyOf(member, mode){
-  if (mode === "rank") return metaOf(member.name).rank || "未設定";
-  if (mode === "mgmt") return metaOf(member.name).mgmt || "一般";
-  if (mode === "gen") return metaOf(member.name).gen || "未設定";
+  const m = metaOf(member.name);
+  if (mode === "rank") return m.rank || "none";
+  if (mode === "mgmt") return m.mgmt || "none";
+  if (mode === "gen") return m.gen ? String(m.gen) : "none";
   if (mode === "branch") return member.branch || "未設定";
   return member.role === "closer" ? "クローザー" : "アポインター";
+}
+
+/* 区分の見出し（ランクはバッジで表示します） */
+function groupLabel(key, mode){
+  if (mode === "rank") return key === "none" ? '<span class="rk none">ランクなし</span>' : rankBadge(key);
+  if (mode === "mgmt") return key === "none" ? '<span style="font-weight:700">一般</span>' : mgmtBadge(key, true);
+  if (mode === "gen") return '<span style="font-weight:700">' + (key === "none" ? "世代未設定" : genName(Number(key))) + "</span>";
+  return '<span style="font-weight:700">' + esc(key) + "</span>";
 }
 
 /* 指定月の実績を全メンバー分まとめます */
@@ -1901,9 +1887,9 @@ function renderSquad(){
   });
 
   /* 上位ランクを先に表示します */
-  const order = mode === "rank" ? RANKS.slice().reverse().concat(["未設定"])
-    : mode === "mgmt" ? MGMT.slice().reverse().concat(["一般"])
-    : mode === "gen" ? GENS.concat(["未設定"])
+  const order = mode === "rank" ? RANKS.map(r => r.k).concat(["none"])
+    : mode === "mgmt" ? MGMT.map(x => x.k).concat(["none"])
+    : mode === "gen" ? ["1", "2", "3", "4", "5", "none"]
     : Object.keys(groups).sort();
   const keys = order.filter(k => groups[k]).concat(Object.keys(groups).filter(k => order.indexOf(k) < 0));
 
@@ -1915,7 +1901,7 @@ function renderSquad(){
     '</tr></thead><tbody>';
   keys.forEach(k => {
     const s2 = sumRows(groups[k]);
-    const head = (mode === "rank") ? rankBadge(k) : '<span style="font-weight:700">'+esc(k)+'</span>';
+    const head = groupLabel(k, mode);
     html += '<tr style="border-bottom:1px solid var(--line)">' +
       '<td style="padding:8px">'+head+'</td>' +
       '<td style="padding:8px">'+s2.n+'</td>' +
@@ -1939,14 +1925,14 @@ function renderSquad(){
   keys.forEach(k => {
     const list = groups[k].slice().sort((a,b) => (b.apo||0) - (a.apo||0));
     d += '<h3 style="font-size:14px;margin:16px 0 6px;display:flex;align-items:center;gap:8px">'
-      + ((mode === "rank") ? rankBadge(k) : '<span>'+esc(k)+'</span>')
+      + groupLabel(k, mode)
       + '<span style="color:var(--muted);font-weight:400;font-size:12px">'+list.length+'名</span></h3>';
     d += '<div style="overflow-x:auto"><table style="width:100%;min-width:700px;border-collapse:collapse;font-size:13px"><tbody>';
     list.forEach(r => {
       d += '<tr style="border-bottom:1px solid var(--line)">' +
         '<td style="padding:7px;font-weight:700;white-space:nowrap">'+esc(r.name)+'</td>' +
         '<td style="padding:7px;white-space:nowrap">'+rankBadge(metaOf(r.name).rank)+'</td>' +
-        '<td style="padding:7px;color:var(--muted);white-space:nowrap;font-size:12px">'+esc(metaOf(r.name).gen||"")+'</td>' +
+        '<td style="padding:7px;white-space:nowrap">'+(metaOf(r.name).gen ? genBadge(Number(metaOf(r.name).gen)) : "")+'</td>' +
         '<td style="padding:7px">出勤 '+r.days+'</td>' +
         '<td style="padding:7px">対応 '+r.t+'</td>' +
         '<td style="padding:7px">アポ '+r.apo+'</td>' +
@@ -1975,14 +1961,14 @@ function renderSquadEdit(){
     const pick = (id, list, val) =>
       '<select data-meta="'+id+'" data-name="'+esc(r.name)+'" style="padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">' +
       '<option value="">未設定</option>' +
-      list.map(x => '<option value="'+x+'"'+(val===x?" selected":"")+'>'+x+'</option>').join("") +
+      list.map(x => '<option value="'+x.v+'"'+(String(val)===String(x.v)?" selected":"")+'>'+x.n+'</option>').join("") +
       '</select>';
     html += '<tr style="border-bottom:1px solid var(--line)">' +
       '<td style="padding:7px;font-weight:700;white-space:nowrap">'+esc(r.name)+'</td>' +
       '<td style="padding:7px;color:var(--muted)">'+esc(r.branch||"")+'</td>' +
-      '<td style="padding:7px">'+pick("rank", RANKS, m.rank||"")+'</td>' +
-      '<td style="padding:7px">'+pick("mgmt", MGMT, m.mgmt||"")+'</td>' +
-      '<td style="padding:7px">'+pick("gen", GENS, m.gen||"")+'</td>' +
+      '<td style="padding:7px">'+pick("rank", RANKS.map(x => ({v:x.k, n:x.nm})), m.rank||"")+'</td>' +
+      '<td style="padding:7px">'+pick("mgmt", MGMT.map(x => ({v:x.k, n:x.nm})), m.mgmt||"")+'</td>' +
+      '<td style="padding:7px">'+pick("gen", [1,2,3,4,5].map(g => ({v:g, n:genName(g)})), m.gen||"")+'</td>' +
       '</tr>';
   });
   html += '</tbody></table></div>';

@@ -1,0 +1,2130 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}
+/* 名簿は営業ログで管理するため、ここでは閲覧のみにします */
+body[data-roster="locked"] #rosterTable input,
+body[data-roster="locked"] #rosterTable select,
+body[data-roster="locked"] #rosterTable button { pointer-events:none; opacity:.55 }
+.roster-note{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:12px;line-height:1.7}
+</style></head><body>
+<title>営業目標ナビ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Roboto+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: sticky header + tab bar; each tab is a two-column work surface (inputs left, analysis right) that stacks on phones. */
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#172033; --muted:#5B6577; --line:#DCE1EA;
+  --accent:#1F5A96; --accent-ink:#FFFFFF; --accent-soft:#E3ECF7;
+  --shu:#C8442F; --shu-soft:#FBE7E3; --ok:#2E7D4F; --ok-soft:#E2F2E8; --warn:#A8670F; --warn-soft:#FBF0DC;
+  --font-body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --font-num:"Roboto Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141C; --surface:#171C26; --ink:#E6EAF2; --muted:#98A2B3; --line:#2A3242;
+  --accent:#86B0E6; --accent-ink:#0E1624; --accent-soft:#1D2A3D;
+  --shu:#E8705B; --shu-soft:#3A1E19; --ok:#62BE89; --ok-soft:#18301F; --warn:#E3AD52; --warn-soft:#33270F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10141C; --surface:#171C26; --ink:#E6EAF2; --muted:#98A2B3; --line:#2A3242;
+  --accent:#86B0E6; --accent-ink:#0E1624; --accent-soft:#1D2A3D;
+  --shu:#E8705B; --shu-soft:#3A1E19; --ok:#62BE89; --ok-soft:#18301F; --warn:#E3AD52; --warn-soft:#33270F; color-scheme:dark}
+*{box-sizing:border-box} [hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.65}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.35}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px}
+header.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding-block:12px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand-mark{width:30px;height:30px;border-radius:50%;border:2px solid var(--shu);color:var(--shu);display:grid;place-items:center;font-weight:700;font-size:13px;transform:rotate(-8deg)}
+.brand h1{font-size:18px}
+.me{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.me img{width:26px;height:26px;border-radius:50%}
+.pill{font-size:12px;padding:2px 10px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.bad{background:var(--shu-soft);color:var(--shu)}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+nav.tabs button{appearance:none;border:0;background:none;color:var(--muted);font:inherit;font-weight:700;padding:10px 14px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{padding-block:20px 48px}
+.sec-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 16px;margin-bottom:16px}
+.sec-head h2{font-size:22px}
+.sec-head p{margin:0;color:var(--muted);font-size:13px;flex-basis:100%}
+.grid2{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:16px;align-items:start}
+.grid-even{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+@media (max-width:880px){.grid2,.grid-even{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.panel h3{font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.label-sm{font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:400}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.fields.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.fields .full{grid-column:1/-1}
+@media (max-width:420px){.fields,.fields.three{grid-template-columns:repeat(2,minmax(0,1fr))}}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+input[type=number]{font-family:var(--font-num);text-align:right}
+textarea{resize:vertical;min-height:64px}
+.unit{display:flex;align-items:center;gap:6px}
+.unit span{font-size:12px;color:var(--muted);white-space:nowrap}
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:13px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{border-color:transparent;background:none;color:var(--accent);padding-inline:6px}
+.btn.small{font-size:12px;padding:4px 10px}
+.btn.danger{color:var(--shu)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.spacer{flex:1}
+.note{font-size:12px;color:var(--muted);margin:0}
+.banner{border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;background:var(--warn-soft);color:var(--warn)}
+details.base summary{cursor:pointer;font-weight:700;font-size:15px;list-style:none;display:flex;align-items:center;gap:8px}
+details.base summary::-webkit-details-marker{display:none}
+details.base summary::before{content:"▸";color:var(--muted);transition:transform .2s}
+details.base[open] summary::before{transform:rotate(90deg)}
+details.base[open] summary{margin-bottom:12px}
+.cur-rates{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-top:12px}
+.cur-rates div{background:var(--bg);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--muted)}
+.cur-rates b{display:block;color:var(--ink);font-family:var(--font-num);font-size:14px}
+
+/* Crisis */
+.crisis{border:2px solid var(--shu);background:var(--shu-soft);border-radius:var(--r);padding:18px 20px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 20px;align-items:center}
+.crisis.calm{border-color:var(--ok);background:var(--ok-soft)}
+.crisis .lead{font-size:13px;margin:0;grid-column:1/-1}
+.crisis .big{font-family:var(--font-num);font-size:44px;font-weight:700;line-height:1.05;color:var(--shu)}
+.crisis.calm .big{color:var(--ok)}
+.crisis .big small{font-family:var(--font-body);font-size:15px;margin-left:4px}
+.crisis .mult{text-align:right}
+.crisis .mult b{display:block;font-family:var(--font-num);font-size:30px;color:var(--shu);line-height:1.1}
+.crisis.calm .mult b{color:var(--ok)}
+.crisis .mult span{font-size:12px}
+.crisis ul{grid-column:1/-1;margin:6px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.crisis li{background:var(--surface);border-radius:6px;padding:6px 10px;font-size:12px}
+.crisis li b{font-family:var(--font-num);font-size:15px;margin-right:2px}
+@media (max-width:480px){.crisis{grid-template-columns:minmax(0,1fr)}.crisis .mult{text-align:left}}
+
+/* Rate cards */
+.rates{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:16px}
+@media (max-width:720px){.rates{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rcard{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;position:relative;background:var(--surface)}
+.rcard .nm{font-size:12px;font-weight:700}
+.rcard .v{font-family:var(--font-num);font-size:22px;font-weight:700;line-height:1.2}
+.rcard .b{font-size:11.5px;color:var(--muted)}
+.rcard .g{font-size:11.5px;font-family:var(--font-num);font-weight:700}
+.rcard.ok{border-color:var(--ok)} .rcard.ok .g{color:var(--ok)}
+.rcard.warn{border-color:var(--warn);background:var(--warn-soft)} .rcard.warn .g{color:var(--warn)}
+.rcard.bad{border-color:var(--shu);background:var(--shu-soft)} .rcard.bad .g{color:var(--shu)}
+.rcard .flag{position:absolute;top:-9px;right:8px;background:var(--shu);color:#fff;font-size:10.5px;padding:1px 7px;border-radius:99px;font-weight:700}
+
+/* Funnel table */
+.fun{display:flex;flex-direction:column}
+.frow{display:grid;grid-template-columns:5.5em minmax(0,1fr) 6.5em 6.5em;gap:10px;align-items:center;padding:6px 0}
+.frow.h{font-size:11.5px;color:var(--muted);font-weight:700;padding-top:0}
+.frow .st{font-weight:700}
+.frow .c{font-family:var(--font-num);text-align:right;font-size:13.5px}
+.bar{height:22px;background:var(--accent-soft);border-radius:6px;position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:6px;transition:width .4s}
+.bar.bad i{background:var(--shu)} .bar.warn i{background:var(--warn)} .bar.ok i{background:var(--ok)}
+.bar b{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;padding-inline:8px;font-family:var(--font-num);font-size:12px;font-weight:700;color:var(--ink)}
+.fconn{display:grid;grid-template-columns:5.5em minmax(0,1fr);gap:10px;font-size:11.5px;color:var(--muted)}
+.fconn span:last-child{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.fconn .chip{font-family:var(--font-num)}
+@media (max-width:520px){.frow{grid-template-columns:4.2em minmax(0,1fr) 4.6em 4.6em;gap:6px}.fconn{grid-template-columns:4.2em minmax(0,1fr);gap:6px}}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t th,table.t td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.t th:first-child,table.t td:first-child{text-align:left}
+table.t th{font-size:11.5px;color:var(--muted);font-weight:700}
+table.t td.num{font-family:var(--font-num)}
+table.t tr.best td{background:var(--ok-soft)}
+.tscroll{overflow-x:auto}
+.tag{font-size:11px;padding:1px 8px;border-radius:99px;font-weight:700;font-family:var(--font-body)}
+.tag.ok{background:var(--ok-soft);color:var(--ok)} .tag.warn{background:var(--warn-soft);color:var(--warn)} .tag.bad{background:var(--shu-soft);color:var(--shu)}
+.callout{background:var(--accent-soft);border-radius:8px;padding:12px 14px;font-size:13px;margin-top:12px}
+.callout b{font-family:var(--font-num)}
+
+/* Simulator */
+.sim{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media (max-width:720px){.sim{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.sim label.f small{font-family:var(--font-num)}
+.simres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}
+@media (max-width:620px){.simres{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:var(--bg);border-radius:8px;padding:10px 12px}
+.tile .label-sm{display:block}
+.tile b{font-family:var(--font-num);font-size:20px;display:block;line-height:1.3}
+.tile.hit b{color:var(--ok)} .tile.miss b{color:var(--shu)}
+
+/* Issues */
+.issues{display:flex;flex-direction:column;gap:10px}
+.issue{border:1px solid var(--line);border-radius:var(--r);padding:14px;background:var(--surface);border-left:4px solid var(--line)}
+.issue.p-high{border-left-color:var(--shu)} .issue.p-mid{border-left-color:var(--warn)} .issue.p-low{border-left-color:var(--muted)}
+.issue.done{opacity:.6}
+.issue h4{margin:0 0 6px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.chip{font-size:11.5px;padding:1px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.issue dl{display:grid;grid-template-columns:6.5em minmax(0,1fr);gap:4px 10px;margin:0;font-size:13px}
+.issue dt{color:var(--muted);font-size:12px}
+.issue dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.issue .row{margin-top:10px}
+.guide{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0;padding:0;list-style:none}
+.guide li{background:var(--bg);border-radius:8px;padding:10px;font-size:12px}
+.guide li b{display:block;font-size:13px;margin-bottom:2px}
+@media (max-width:640px){.guide{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.empty{border:1px dashed var(--line);border-radius:var(--r);padding:22px;text-align:center;color:var(--muted);font-size:13px}
+
+/* PDCA */
+.pdca{list-style:none;margin:0 0 16px;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.pdca li{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--muted)}
+.pdca li b{display:block;color:var(--ink);font-size:14px}
+.pdca li:nth-child(1) b{color:var(--accent)} .pdca li:nth-child(2) b{color:var(--ok)} .pdca li:nth-child(3) b{color:var(--warn)} .pdca li:nth-child(4) b{color:var(--shu)}
+@media (max-width:720px){.pdca{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kgi{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.gaps{display:flex;flex-direction:column;gap:6px}
+.gap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;background:var(--bg);border-radius:8px;padding:8px 10px;font-size:13px}
+.gap small{display:block;color:var(--muted);font-family:var(--font-num);font-size:12px}
+.pc{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.pc.hold{opacity:.65} .pc.done{opacity:.5}
+.pc-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pc-head .no{font-family:var(--font-num);font-weight:700;color:var(--accent-ink);background:var(--accent);border-radius:6px;padding:2px 8px;font-size:12px}
+.pc-head input.ttl{flex:1;min-width:12em;font-weight:700;font-size:15px}
+.ph{border-top:1px dashed var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.ph-l{font-size:12px;font-weight:700;display:flex;gap:6px;align-items:center}
+.ph-l i{font-style:normal;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:5px;color:#fff;font-size:11px}
+.ph-l i.p{background:var(--accent)} .ph-l i.d{background:var(--ok)} .ph-l i.c{background:var(--warn)} .ph-l i.a{background:var(--shu)}
+.kpirow{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:end}
+@media (max-width:560px){.kpirow{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.sol{background:var(--bg);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.sol-h{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.evals{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
+.evals select{width:auto;padding:3px 6px;font-size:12px}
+.score{font-family:var(--font-num);font-weight:700;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent)}
+.do{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;gap:6px;align-items:center;padding-left:10px;border-left:2px solid var(--ok)}
+.do .lbl{font-size:11px;color:var(--ok);font-weight:700}
+.do select,.do input[type=date]{width:auto;padding:4px 6px;font-size:12px}
+.do .dn{font-size:11px;color:var(--ok);white-space:nowrap}
+@media (max-width:560px){.do{grid-template-columns:auto minmax(0,1fr) auto}.do .opt{grid-column:2}}
+input.sm,textarea.sm{padding:5px 8px;font-size:13px;background:var(--surface)}
+.ctiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ctiles .tile b{font-size:18px}
+.diagmsg{border-radius:8px;padding:10px 12px;font-size:13px;background:var(--bg)}
+.diagmsg.ok{background:var(--ok-soft);color:var(--ok)} .diagmsg.warn{background:var(--warn-soft);color:var(--warn)} .diagmsg.bad{background:var(--shu-soft);color:var(--shu)}
+.mbar{height:8px;background:var(--accent-soft);border-radius:99px;overflow:hidden;margin-top:4px}
+.mbar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.mbar.ok i{background:var(--ok)} .mbar.warn i{background:var(--warn)} .mbar.bad i{background:var(--shu)}
+/* today: month progress + DO list */
+.mprog{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:16px}
+@media (max-width:820px){.mprog{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.mprog .tile{background:var(--surface);border:1px solid var(--line)}
+.mprog .tile b{font-size:18px}
+.mprog .tile .note{display:flex;justify-content:space-between;gap:6px}
+.dolist{display:flex;flex-direction:column;gap:6px}
+.dorow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;background:var(--bg);border-radius:8px;padding:8px 10px}
+.dorow p{margin:0;font-size:13px;overflow-wrap:anywhere}
+.dorow p small{display:block;font-size:11px;color:var(--muted)}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{appearance:none;border:0;background:var(--surface);color:var(--muted);font:inherit;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on[data-v="100"]{background:var(--ok);color:#fff} .seg button.on[data-v="50"]{background:var(--warn);color:#fff} .seg button.on[data-v="0"]{background:var(--shu);color:#fff}
+.strip button .db{width:70%;height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:2px}
+.strip button .db i{display:block;height:100%;background:var(--ok)}
+
+/* Ranks */
+.rk{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:2px 9px 2px 6px;border-radius:99px;white-space:nowrap;line-height:1.5;letter-spacing:.02em}
+.rk .st{font-size:10px;letter-spacing:-1px}
+.rk.trainee{background:#E9F6E9;color:#1F6B2E;border:1px solid #7CC48A}
+.rk.bronze{background:linear-gradient(135deg,#7A4A22 0%,#C98B4F 45%,#E8B47E 55%,#8C5A2B 100%);color:#FFF8EF;text-shadow:0 1px 0 rgba(0,0,0,.25)}
+.rk.silver{background:linear-gradient(135deg,#7D8894 0%,#D9DFE6 45%,#F6F8FA 55%,#8E9AA6 100%);color:#26303B}
+.rk.gold{background:linear-gradient(135deg,#9A6B00 0%,#E9BE3C 40%,#FFF1B0 52%,#C9971A 100%);color:#3B2A00;box-shadow:0 0 0 1px #E9BE3C,0 2px 10px rgba(233,190,60,.45)}
+.rk.none{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.wakaba{width:11px;height:13px;flex:none}
+.mg{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:1px 8px;border-radius:4px;white-space:nowrap;line-height:1.6}
+.mg.brother{border:1px solid var(--accent);color:var(--accent)}
+.mg.tl{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent)}
+.mg.am{background:var(--accent);color:var(--accent-ink)}
+.mg.exec{background:linear-gradient(135deg,#5A0F1C,#8E1B2E);color:#F6D77A;box-shadow:inset 0 0 0 1px #F6D77A,0 1px 6px rgba(142,27,46,.35);letter-spacing:.08em}
+.mg.mgr{background:#1B2333;color:#F2C94C;box-shadow:inset 0 0 0 1px #F2C94C}
+.legend{display:flex;flex-direction:column;gap:8px}
+.legend .li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:center;font-size:13px}
+.legend .li span.n{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.ladder{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px;align-items:end}
+.ladder .step{border-radius:10px 10px 4px 4px;padding:10px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border:1px solid var(--line);background:var(--surface)}
+.ladder .step:nth-child(1){min-height:64px} .ladder .step:nth-child(2){min-height:80px} .ladder .step:nth-child(3){min-height:96px} .ladder .step:nth-child(4){min-height:112px;border-color:#E9BE3C}
+.ladder .step b{font-family:var(--font-num);font-size:20px}
+@media (max-width:620px){.ladder{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tsec{margin-bottom:22px}
+.tsec-h{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted)}
+.tsec-h::after{content:"";flex:1;height:1px;background:var(--line)}
+.mcard{--rk:var(--line);border-top:4px solid var(--rk);position:relative}
+.mcard.gold{--rk:#E0B12E;background:linear-gradient(180deg,rgba(233,190,60,.10),transparent 90px),var(--surface)}
+.mcard.silver{--rk:#A9B4BF} .mcard.bronze{--rk:#B87A44} .mcard.trainee{--rk:#5FB06E}
+.mcard .badges{display:flex;gap:6px;flex-wrap:wrap}
+.mcard.empty-card{opacity:.75}
+.mcard.is-me{box-shadow:0 0 0 2px var(--accent)}
+.av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--accent-soft);color:var(--accent);flex:none;object-fit:cover}
+.who-box{display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap}
+.who-box img{width:26px;height:26px;border-radius:50%}
+.who-box select{width:auto;padding:4px 8px;font-size:13px}
+table.roster td,table.roster th{text-align:left}
+table.roster input,table.roster select{padding:5px 8px;font-size:13px}
+table.roster td.preview{min-width:9em}
+
+/* Manager list */
+table.mgr{font-size:12.5px;min-width:1080px}
+table.mgr th{position:sticky;top:0;background:var(--surface);cursor:pointer;user-select:none;padding:10px 8px}
+table.mgr th[data-sort]:hover{color:var(--ink)}
+table.mgr th.sorted{color:var(--accent)}
+table.mgr td{padding:9px 8px;vertical-align:middle}
+table.mgr td.l,table.mgr th.l{text-align:left}
+table.mgr tr.mrow{cursor:pointer}
+table.mgr tr.mrow:hover td{background:var(--bg)}
+table.mgr tr.mrow.open td{background:var(--accent-soft)}
+table.mgr tr.mrow.nodata td{color:var(--muted)}
+table.mgr .nm{display:flex;flex-direction:column;gap:3px}
+table.mgr .nm b{font-size:13.5px}
+table.mgr .nm{min-width:150px;align-items:flex-start}
+table.mgr .nm > span{display:flex;gap:4px;flex-wrap:wrap}
+.cell-ok{color:var(--ok);font-weight:700} .cell-warn{color:var(--warn);font-weight:700} .cell-bad{color:var(--shu);font-weight:700}
+.ach{display:flex;flex-direction:column;align-items:flex-end;gap:3px;min-width:88px}
+.ach .mbar{width:88px;margin:0}
+table.mgr tr.detail td{background:var(--bg);text-align:left;white-space:normal;padding:14px 16px}
+.det{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:820px){.det{grid-template-columns:minmax(0,1fr)}}
+.det h4{margin:0 0 8px;font-size:13px}
+.det .it{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12.5px}
+.det .it .row{gap:10px}
+.det table.t{font-size:12px;background:var(--surface);border-radius:8px}
+.det table.t td{white-space:nowrap}
+.det table.t td.wrap{white-space:normal;text-align:left;min-width:12em}
+
+/* Generations */
+.gen{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:1px 8px 1px 6px;border-radius:4px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:nowrap;line-height:1.6}
+.gen::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--gc,#8A8F98)}
+.gen.g1{--gc:#7B61C9} .gen.g2{--gc:#2C9AA8} .gen.g3{--gc:#D07A2E} .gen.g4{--gc:#8A8F98}
+.gsum{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.gsum b{font-family:var(--font-num);color:var(--ink)}
+table.mgr tr.grow{cursor:pointer} table.mgr tr.grow:hover td{background:var(--bg)}
+/* Today */
+.kpi-in{display:grid;grid-template-columns:4.5em minmax(0,1fr) minmax(0,1fr) 3.6em;gap:8px;align-items:center;font-size:13px}
+.kpi-in .h{font-size:11.5px;color:var(--muted);font-weight:700}
+.kpi-in .rate{font-family:var(--font-num);font-size:12px;text-align:right;color:var(--muted)}
+.kpi-in .rate.hit{color:var(--ok);font-weight:700}
+.day-rates{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:14px}
+@media (max-width:520px){.day-rates{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.day-rates div{background:var(--bg);border-radius:6px;padding:6px 8px;font-size:10.5px;color:var(--muted)}
+.day-rates b{display:block;font-family:var(--font-num);font-size:14px;color:var(--ink)}
+.day-head{position:relative;padding-bottom:44px}
+div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.stamp{position:absolute;right:16px;bottom:-12px;width:68px;height:68px;border:3px solid var(--shu);border-radius:50%;color:var(--shu);display:grid;place-items:center;font-weight:700;font-size:17px;transform:rotate(-14deg);opacity:.9;pointer-events:none;line-height:1.1;text-align:center;background:var(--surface)}
+.stamp small{display:block;font-size:9px;font-family:var(--font-num)}
+.strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px}
+.strip button{appearance:none;font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px}
+.strip button .d{font-family:var(--font-num);font-size:14px;font-weight:700}
+.strip button .x{font-family:var(--font-num);font-size:10px;color:var(--muted)}
+.strip button.has{border-color:var(--accent)}
+.strip button.hit{background:var(--ok-soft);border-color:var(--ok)}
+.strip button.sel{outline:2px solid var(--accent);outline-offset:1px}
+.strip button.sun .w{color:var(--shu)}
+.strip button .w{color:var(--muted)}
+.save-state{font-size:12px;color:var(--muted)}
+
+/* Team */
+.team{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.mcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.mcard .who{display:flex;align-items:center;gap:10px}
+.mcard .who img{width:34px;height:34px;border-radius:50%}
+.mcard .who b{display:block}
+.mcard .theme{font-size:13px;margin:0;color:var(--muted);overflow-wrap:anywhere}
+.mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;text-align:center}
+.mini div{background:var(--bg);border-radius:6px;padding:6px 2px;font-size:10.5px;color:var(--muted)}
+.mini div b{display:block;color:var(--ink);font-family:var(--font-num);font-size:14px}
+.bignum{font-family:var(--font-num);font-size:26px;font-weight:700;line-height:1.1}
+.sum-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+@media (max-width:640px){.sum-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.sum-tiles .tile{background:var(--surface);border:1px solid var(--line)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand"><div class="brand-mark">営</div>
+<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1></div>
+      <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
+      <span class="pill" id="modePill">接続中…</span>
+      <span class="me" id="meBox"></span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="goal" aria-selected="true" id="tab-goal">① 目標と歩留まり</button>
+      <button role="tab" data-tab="issue" aria-selected="false" id="tab-issue">② 課題設定</button>
+      <button role="tab" data-tab="today" aria-selected="false" id="tab-today">③ 1日の目標</button>
+      <button role="tab" data-tab="team" aria-selected="false" id="tab-team">チーム</button>
+      <button role="tab" data-tab="mgr" aria-selected="false" id="tab-mgr" hidden>管理一覧</button>
+      <button role="tab" data-tab="members" aria-selected="false" id="tab-members">メンバー設定</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="banner" id="banner" hidden></div>
+
+  <!-- ① GOAL -->
+  <section data-sec="goal">
+    <div class="sec-head">
+      <h2>目標完工数から逆算する</h2>
+      <span class="pill warn" id="exampleBadge" hidden>例の数値で表示中</span>
+      <p>現状の数字と目標完工数を入れると、どこで歩留まりが起きているか、どこをどれだけ上げれば届くか、現状のままなら何件の対応が必要かを表示します。</p>
+    </div>
+    <div class="grid2">
+      <div class="stack">
+        <div class="panel">
+          <h3>今月の目標</h3>
+          <div class="fields">
+            <label class="f full" for="g-theme">今月のテーマ（一言で）
+              <input id="g-theme" type="text" placeholder="例：アポを商談につなげ切る" maxlength="80"></label>
+            <label class="f" for="g-target">目標完工数
+              <span class="unit"><input id="g-target" type="number" min="1" placeholder="5"><span>件</span></span></label>
+            <label class="f" for="g-days">出勤予定日数
+              <span class="unit"><input id="g-days" type="number" min="1" max="31" placeholder="20"><span>日</span></span></label>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>現状の数字 <span class="spacer"></span><button class="btn small" id="importBtn" title="今月、振り返りを保存した日の実績を合計して入れます">日報から取り込む</button></h3>
+          <p class="note" style="margin-bottom:10px">先月の実績や直近の集計を入れてください。</p>
+          <div class="fields three">
+            <label class="f" for="c-days">出勤日数<span class="unit"><input id="c-days" type="number" min="1" placeholder="20"><span>日</span></span></label>
+            <label class="f" for="c-t">対応数<input id="c-t" type="number" min="0" placeholder="800"></label>
+            <label class="f" for="c-ap">アプ数<input id="c-ap" type="number" min="0" placeholder="160"></label>
+            <label class="f" for="c-apo">アポ数<input id="c-apo" type="number" min="0" placeholder="40"></label>
+            <label class="f" for="c-sho">商談数<input id="c-sho" type="number" min="0" placeholder="8"></label>
+            <label class="f" for="c-kei">契約数<input id="c-kei" type="number" min="0" placeholder="3"></label>
+            <label class="f" for="c-kan">完工数<input id="c-kan" type="number" min="0" placeholder="2"></label>
+          </div>
+          <div class="cur-rates" id="curRates"></div>
+        </div>
+        <div class="panel">
+          <details class="base" id="baseBox">
+            <summary>基準値 <span class="label-sm">チームの目安</span></summary>
+            <div class="fields">
+              <label class="f" for="b-dayApo">出勤アポ率<span class="unit"><input id="b-dayApo" type="number" min="0" step="0.1" placeholder="2.5"><span>件/日</span></span></label>
+              <label class="f" for="b-shoRate">商談アポ率<span class="unit"><input id="b-shoRate" type="number" min="1" max="100" step="0.5" placeholder="25"><span>%</span></span></label>
+              <label class="f" for="b-kanRate">商談完工率<span class="unit"><input id="b-kanRate" type="number" min="1" max="100" step="0.5" placeholder="40"><span>%</span></span></label>
+              <label class="f" for="b-apRate">対応アプ率<span class="unit"><input id="b-apRate" type="number" min="1" max="100" step="0.5" placeholder="未設定"><span>%</span></span></label>
+              <label class="f" for="b-apoRate">アプアポ率<span class="unit"><input id="b-apoRate" type="number" min="1" max="100" step="0.5" placeholder="未設定"><span>%</span></span></label>
+            </div>
+            <p class="note" style="margin-top:8px">空欄の基準は「現状の値」で計算します。</p>
+          </details>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="crisis" id="crisis"></div>
+
+        <div class="panel">
+          <h3>歩留まり診断 <span class="label-sm">現状 vs 基準値</span></h3>
+          <div class="rates" id="rateCards"></div>
+          <div class="fun" id="funnel"></div>
+          <p class="note" style="margin-top:8px">「現状ペース」は現状の1日あたり実績を出勤予定日数に換算した数。「必要数」は基準値の歩留まりで目標完工数に届くための数。バーは充足率です。</p>
+        </div>
+
+        <div class="panel">
+          <h3>どこをどれだけ上げれば届くか</h3>
+          <div class="tscroll"><table class="t" id="leverTable"></table></div>
+          <div class="callout" id="baseCallout"></div>
+        </div>
+
+        <div class="panel">
+          <h3>改善プラン <span class="label-sm">目標とする歩留まりを決める</span>
+            <span class="spacer"></span>
+            <button class="btn small" id="simCur">現状に戻す</button>
+            <button class="btn small" id="simBase">基準値を当てはめる</button></h3>
+          <div class="sim">
+            <label class="f" for="s-tai">1日の対応数<span class="unit"><input id="s-tai" type="number" min="0" step="1"><span>件</span></span><small id="sx-tai"></small></label>
+            <label class="f" for="s-apRate">対応アプ率<span class="unit"><input id="s-apRate" type="number" min="0" max="100" step="0.5"><span>%</span></span><small id="sx-apRate"></small></label>
+            <label class="f" for="s-apoRate">アプアポ率<span class="unit"><input id="s-apoRate" type="number" min="0" max="100" step="0.5"><span>%</span></span><small id="sx-apoRate"></small></label>
+            <label class="f" for="s-shoRate">商談アポ率<span class="unit"><input id="s-shoRate" type="number" min="0" max="100" step="0.5"><span>%</span></span><small id="sx-shoRate"></small></label>
+            <label class="f" for="s-kanRate">商談完工率<span class="unit"><input id="s-kanRate" type="number" min="0" max="100" step="0.5"><span>%</span></span><small id="sx-kanRate"></small></label>
+          </div>
+          <div class="simres" id="simRes"></div>
+          <p class="note" style="margin-top:10px">ここで決めた歩留まりが、「1日の目標」タブの推奨ペースの計算に使われます。</p>
+        </div>
+
+        <div class="panel">
+          <h3>今月の進捗 <span class="label-sm">日報の実績 vs 改善プランでの必要数</span></h3>
+          <div class="tscroll"><table class="t" id="progTable"></table></div>
+          <p class="note" id="progNote" style="margin-top:8px"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② ISSUES (鬼速PDCA) -->
+  <section data-sec="issue" hidden>
+    <div class="sec-head">
+      <h2>鬼速PDCAで課題を回す</h2>
+      <p>ゴール（KGI）とのギャップから課題を最大3つに絞り、KPI（数値）→ 解決案 → DO（行動）まで落とし込みます。日報のチェックでKPI達成率とDO実行率を検証し、調整します。</p>
+    </div>
+    <ol class="pdca">
+      <li><b>P 計画</b>KGI → ギャップ → 課題（最大3つ）→ KPI化</li>
+      <li><b>D 実行</b>解決案 → DO → TODO（毎日／期限付き）</li>
+      <li><b>C 検証</b>KPI達成率 × DO実行率で要因を見る</li>
+      <li><b>A 調整</b>できた要因・できなかった要因 → 調整案</li>
+    </ol>
+    <div class="grid2">
+      <div class="stack">
+        <div class="panel">
+          <h3>KGIとギャップ</h3>
+          <div id="kgiBox"></div>
+        </div>
+        <div class="panel">
+          <h3>ギャップの要因候補 <span class="label-sm">現状 → 改善プランの目標</span></h3>
+          <div class="gaps" id="gapList"></div>
+          <button class="btn" id="newIssueBtn" style="margin-top:12px">＋ 課題を自由に追加</button>
+        </div>
+        <div class="panel">
+          <h3>解決案の優先度</h3>
+          <p class="note">鬼速PDCAでは解決案を「インパクト」「時間（短いほど○）」「気軽さ」の3軸で ○ △ × 評価し、点数の高いものからDOに落とします（○=2・△=1・×=0、6点満点）。</p>
+        </div>
+      </div>
+      <div class="stack">
+        <div id="issueLimit"></div>
+        <div class="issues" id="issueList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ③ TODAY -->
+  <section data-sec="today" hidden>
+    <div class="sec-head">
+      <h2>1日の目標と振り返り</h2>
+      <div class="spacer"></div>
+      <label class="unit" for="dayDate"><span>日付</span><input type="date" id="dayDate" style="width:auto"></label>
+      <p>朝に数値目標を決め、夜に実績とDOの完成度をチェックします。数字は今月の設定数字に対する進捗に、DOは課題ごとの実行率に反映されます。</p>
+    </div>
+    <div class="mprog" id="monthProg"></div>
+    <div class="grid-even">
+      <div class="panel day-head">
+        <div class="stamp" id="stamp" hidden>達成<small id="stampDate"></small></div>
+        <h3>数値：目標と実績 <span class="spacer"></span><button class="btn ghost" id="fillRec">推奨ペースを入れる</button></h3>
+        <p class="note" id="recNote" style="margin-bottom:12px"></p>
+        <div class="kpi-in" style="margin-bottom:14px" id="kpiIn"></div>
+        <div class="day-rates" id="dayRates"></div>
+      </div>
+      <div class="panel">
+        <h3>行動：DOチェック <span class="spacer"></span><span class="pill" id="doRatePill">完成度 –</span></h3>
+        <p class="note" style="margin-bottom:10px">◎できた（100%）／△一部（50%）／×できなかった（0%）。未チェックは0%で計算します。</p>
+        <div class="dolist" id="doList"></div>
+        <label class="f" for="d-todo" style="margin-top:12px">その他の今日のTODO<input id="d-todo" type="text" maxlength="160" placeholder="例：14時までに見積を2件送る"></label>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h3>振り返り</h3>
+      <div class="fields three">
+        <label class="f" for="d-good">できた要因（続けること）<textarea id="d-good" maxlength="600"></textarea></label>
+        <label class="f" for="d-bad">できなかった要因<textarea id="d-bad" maxlength="600"></textarea></label>
+        <label class="f" for="d-next">明日の調整<textarea id="d-next" maxlength="600"></textarea></label>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn primary" id="saveDay">この日を保存</button>
+        <span class="save-state" id="daySaveState"></span>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h3>今月の記録 <span class="label-sm">数字＝アポ数／緑＝アポ目標達成／下のバー＝DO完成度</span></h3>
+      <div class="strip" id="strip"></div>
+    </div>
+  </section>
+
+  <!-- TEAM -->
+  <section data-sec="team" hidden>
+    <div class="sec-head">
+      <h2>チームの進捗</h2>
+      <div class="spacer"></div>
+      <label class="unit" for="teamGroup"><span>まとめ方</span><select id="teamGroup" style="width:auto"><option value="rank">営業ランク別</option><option value="mgmt">管理ランク別</option><option value="gen">世代別</option><option value="branch">支店別</option></select></label>
+      <p>ランク別・世代別に、各メンバーの今月の状況を表示します（日報の実績から集計）。自分以外のシートは閲覧のみです。</p>
+    </div>
+    <div id="sqSummary"></div>
+    <div id="sqDetail" style="margin-top:18px"></div>
+    <div id="sqEdit" hidden style="margin-top:22px">
+      <h3 style="font-size:15px;margin-bottom:8px">ランク・世代の設定（管理者のみ）</h3>
+      <p style="color:var(--muted);font-size:12px;margin:0 0 10px">変更するとすぐ保存され、全員に共有されます。</p>
+      <div id="sqEditTable"></div>
+    </div>
+  </section>
+
+  <!-- MANAGER LIST -->
+  <section data-sec="mgr" hidden>
+    <div class="sec-head">
+      <h2>メンバー進捗一覧</h2>
+      <div class="spacer"></div>
+      <label class="unit" for="mgrRank"><span>ランク</span><select id="mgrRank" style="width:auto">
+        <option value="">すべて</option><option value="gold">ゴールド</option><option value="silver">シルバー</option><option value="bronze">ブロンズ</option><option value="trainee">研修生</option><option value="-">ランクなし</option></select></label>
+      <label class="unit" for="mgrView"><span>表示</span><select id="mgrView" style="width:auto"><option value="person">個人一覧</option><option value="gen">世代別集計</option></select></label>
+      <label class="unit" for="mgrGen"><span>世代</span><select id="mgrGen" style="width:auto"><option value="">すべて</option><option value="1">第一世代</option><option value="2">第二世代</option><option value="3">第三世代</option><option value="4">第四世代</option><option value="0">世代未設定</option></select></label>
+      <label class="unit" for="mgrFlag"><span>絞り込み</span><select id="mgrFlag" style="width:auto">
+        <option value="">なし</option><option value="late">達成ペース遅れ</option><option value="stale">日報2日以上未更新</option><option value="apo">出勤アポ率 基準未達</option><option value="do">DO実行率 80%未満</option><option value="none">未入力</option></select></label>
+      <p>管理ランクのメンバー向けの一覧です。列名を押すと並べ替え、行を押すと課題と直近の日報を確認できます。数字は各メンバーの日報から集計しています。</p>
+    </div>
+    <div class="mprog" id="mgrTiles"></div>
+    <div class="panel" style="padding:0">
+      <div class="tscroll"><table class="t mgr" id="mgrTable"></table></div>
+    </div>
+    <p class="note" style="margin-top:8px">色の目安：緑＝基準・ペース以上／黄＝やや低い（80%以上）／赤＝要フォロー。ペースは「完工の達成率」と「振り返り済み日数 ÷ 出勤予定日数」の比較です。</p>
+  </section>
+
+  <!-- MEMBERS -->
+  <section data-sec="members" hidden>
+    <div class="sec-head">
+      <h2>メンバー設定</h2>
+      <div class="spacer"></div>
+      <button class="btn primary" id="addMember">＋ メンバーを追加</button>
+      <p>営業ランクと管理ランクを設定します。各メンバーは画面右上の「あなたは？」から自分の名前を選ぶと、入力データがこの名簿とつながります。</p>
+    </div>
+    <div class="banner" id="rosterNote" hidden></div>
+    <div class="grid2">
+      <div class="stack">
+        <div class="panel">
+          <h3>営業ランク</h3>
+          <div class="legend" id="rankLegend"></div>
+        </div>
+        <div class="panel">
+          <h3>管理ランク</h3>
+          <div class="legend" id="mgmtLegend"></div>
+        </div>
+        <div class="panel">
+          <h3>世代</h3>
+          <div class="legend" id="genLegend"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>名簿 <span class="label-sm" id="rosterCount"></span></h3>
+        <div class="tscroll"><table class="t roster" id="rosterTable"></table></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+"use strict";
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const pad = n => String(n).padStart(2,"0");
+
+/* ══════════════════════════════════════════
+   営業ログ（スプレッドシート）との連携
+   ══════════════════════════════════════════ */
+const API_URL = "https://script.google.com/macros/s/AKfycbynWR39HbLwEv7y-wv-otaoXSf4ApaLzSLK9loCrCP1rkF0e1C483fO-cnoM1bIocFinA/exec";
+const TOKEN_KEY = "craft-sales-token";
+
+function apiToken(){ try{ return localStorage.getItem(TOKEN_KEY) || ""; }catch(e){ return ""; } }
+
+async function api(fn, ...args){
+  if (!API_URL || API_URL.indexOf("script.google.com") < 0) throw new Error("接続先が設定されていません");
+  const res = await fetch(API_URL, {
+    method:"POST",
+    headers:{ "Content-Type":"text/plain;charset=utf-8" },
+    body: JSON.stringify({ fn, args })
+  });
+  if (!res.ok) throw new Error("サーバーに接続できませんでした");
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.result;
+}
+
+/* 営業ログの共有データ */
+let LOG = { logs:[], deals:[], targets:{}, navi:{} };
+let ME = null;
+
+/* "M/D" を "YYYY-MM-DD" に直す（ログ側は年を持たないため当年とみなします） */
+const LOG_YEAR = new Date().getFullYear();
+function logDateISO(md){
+  const p = String(md||"").split("/");
+  if (p.length < 2) return "";
+  return LOG_YEAR + "-" + pad(Number(p[0])) + "-" + pad(Number(p[1]));
+}
+function itemsOfLog(l){ return Array.isArray(l.items) ? l.items : []; }
+
+/* ログの日報から、指定メンバー・指定月の実績を集計します */
+function actualsFromLog(name, month){
+  const inMonth = iso => iso.slice(0,7) === month;
+  const logs = LOG.logs.filter(l => l.name === name && inMonth(logDateISO(l.date)));
+  const deals = [];
+  LOG.logs.forEach(l => {
+    itemsOfLog(l).forEach(it => {
+      const appointer = it.appointer || l.name;
+      if (appointer !== name) return;
+      if (!inMonth(logDateISO(l.date))) return;
+      deals.push(it);
+    });
+  });
+  const live = deals.filter(d => Number(d.keiyaku||0) > 0 && !Number(d.cancelled||0));
+  const worked = logs.filter(l => (Number(l.taio||0)+Number(l.apu||0)+Number(l.apo||0)+itemsOfLog(l).length) > 0);
+  return {
+    days: worked.length,
+    t:   logs.reduce((a,l)=>a+Number(l.taio||0),0),
+    ap:  logs.reduce((a,l)=>a+Number(l.apu||0),0),
+    apo: logs.reduce((a,l)=>a+Number(l.apo||0),0),
+    sho: deals.filter(d => !(Number(d.mishodan||0) > 0 && !(Number(d.keiyaku||0) > 0 && !Number(d.cancelled||0)))).length,
+    kei: live.length,
+    kan: live.length
+  };
+}
+
+
+const ymd = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const today = ymd(new Date());
+const WD = ["日","月","火","水","木","金","土"];
+const esc = s => String(s??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+const f1 = n => (n==null||!isFinite(n)) ? "–" : (Math.round(n*10)/10).toLocaleString("ja-JP");
+const fi = n => (n==null||!isFinite(n)) ? "–" : Math.ceil(n).toLocaleString("ja-JP");
+const fp = r => (r==null||!isFinite(r)) ? "–" : f1(r*100)+"%";
+
+/* Stages & rates */
+const ST = [
+  {k:"t",   nm:"対応"}, {k:"ap", nm:"アプ"}, {k:"apo", nm:"アポ"},
+  {k:"sho", nm:"商談"}, {k:"kei", nm:"契約"}, {k:"kan", nm:"完工"}
+];
+const RATES = [
+  {k:"apRate",  nm:"対応アプ率", from:"t",   to:"ap"},
+  {k:"apoRate", nm:"アプアポ率", from:"ap",  to:"apo"},
+  {k:"shoRate", nm:"商談アポ率", from:"apo", to:"sho"},
+  {k:"kanRate", nm:"商談完工率", from:"sho", to:"kan"}
+];
+const DEF_BASE = {dayApo:2.5, shoRate:25, kanRate:40, apRate:null, apoRate:null};
+const EX_CUR = {days:20, t:800, ap:160, apo:40, sho:8, kei:3, kan:2};
+const EX_GOAL = {target:5, days:20};
+
+const state = {
+  mode:"loading", uid:null, readOnly:false,
+  month: today.slice(0,7), date: today,
+  member:{base:{}, months:{}, issues:[], summary:{}},
+  days:{}, team:[], editingIssue:null
+};
+let db=null, user=null;
+
+/* ---------- storage ---------- */
+const LS = {
+  get(k,d){ try{ const v = localStorage.getItem("sgn2_"+k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem("sgn2_"+k, JSON.stringify(v)); }catch(e){} }
+};
+let writeChain = Promise.resolve();
+function queueWrite(fn){
+  const p = writeChain.then(fn);
+  writeChain = p.catch(()=>{});
+  return p.catch(err => {
+    if (err && err.code === "invalid_argument") setReadOnly();
+    else if (err && err.code === "quota_exceeded") showBanner("保存容量の上限に達しました。古い日報を整理してください。");
+    else showBanner("保存に失敗しました。通信状態を確認して、もう一度保存してください。");
+    throw err;
+  });
+}
+const memberRef = () => db.doc("team/"+state.uid);
+const dayRef = date => db.doc("team/"+state.uid).collection("days").doc(date);
+let memberTimer=null;
+function saveMemberSoon(){ if (state.readOnly) return; clearTimeout(memberTimer); memberTimer = setTimeout(saveMember, 700); }
+function saveMember(){
+  clearTimeout(memberTimer);
+  if (state.readOnly) return Promise.resolve();
+  state.member.updatedAt = Date.now();
+  const body = JSON.parse(JSON.stringify(state.member));
+  if (state.mode === "api" && ME){
+    return queueWrite(() => api("saveNavi", ME.name, body, apiToken())).catch(()=>{});
+  }
+  LS.set("member", body); return Promise.resolve();
+}
+async function saveDayDoc(date, body){
+  /* 振り返りメモなどはナビ側に保存します（数字は営業ログが正）。 */
+  state.member.dayNotes = state.member.dayNotes || {};
+  state.member.dayNotes[date] = body;
+  const all = LS.get("days", {}); all[date] = body; LS.set("days", all);
+  return saveMember();
+}
+async function loadMonthDays(){
+  const m = state.month; const out = {};
+  const notes = (state.member && state.member.dayNotes) || LS.get("days", {});
+  Object.keys(notes).forEach(k => { if (String(k).slice(0,7) === m) out[k] = notes[k]; });
+
+  /* 営業ログの日報から、その月の日別実績を取り込みます */
+  if (state.mode === "api" && ME){
+    LOG.logs.filter(l => l.name === ME.name).forEach(l => {
+      const iso = logDateISO(l.date);
+      if (iso.slice(0,7) !== m) return;
+      const items = itemsOfLog(l);
+      const live = items.filter(it => Number(it.keiyaku||0) > 0 && !Number(it.cancelled||0));
+      const base = out[iso] || { date: iso, month: m };
+      base.actual = {
+        t: Number(l.taio||0), ap: Number(l.apu||0), apo: Number(l.apo||0),
+        sho: items.length, kei: live.length, kan: live.length
+      };
+      base.reviewed = true;
+      base.fromLog = true;
+      out[iso] = base;
+    });
+  }
+  if (m === state.month) state.days = out;
+}
+
+/* ---------- model ---------- */
+function monthObj(){ return state.member.months[state.month] || {}; }
+function setMonth(patch){
+  const m = state.month;
+  state.member.months = Object.assign({}, state.member.months, {[m]: Object.assign({}, state.member.months[m]||{}, patch)});
+}
+function base(){
+  const b = Object.assign({}, DEF_BASE, state.member.base||{});
+  ["dayApo","shoRate","kanRate","apRate","apoRate"].forEach(k => { if (!(num(b[k])>0)) b[k] = (k==="apRate"||k==="apoRate") ? null : DEF_BASE[k]; });
+  return b;
+}
+/* goal & current with example fallback */
+function inputs(){
+  const mo = monthObj(), c = mo.cur || {};
+  const curHas = num(c.days)>0 && num(c.t)>0 && ["ap","apo","sho","kan"].every(k => num(c[k])!==null && num(c[k])>=0);
+  const goalHas = num(mo.target)>0 && num(mo.days)>0;
+  const cur = curHas ? {days:num(c.days), t:num(c.t)||0, ap:num(c.ap)||0, apo:num(c.apo)||0, sho:num(c.sho)||0, kei:num(c.kei)||0, kan:num(c.kan)||0} : EX_CUR;
+  const W = goalHas ? num(mo.target) : EX_GOAL.target;
+  const D = goalHas ? num(mo.days) : EX_GOAL.days;
+  return {cur, W, D, example: !(curHas && goalHas)};
+}
+function curRates(cur){
+  const r = {};
+  RATES.forEach(x => { r[x.k] = cur[x.from] > 0 ? cur[x.to]/cur[x.from] : null; });
+  r.dayApo = cur.days > 0 ? cur.apo/cur.days : null;
+  r.tai = cur.days > 0 ? cur.t/cur.days : null;
+  r.keiRate = cur.sho > 0 ? cur.kei/cur.sho : null;   // 商談→契約
+  r.kanKei = cur.kei > 0 ? cur.kan/cur.kei : null;    // 契約→完工
+  return r;
+}
+/* backward chain from W with fractional rates {apRate, apoRate, shoRate, kanRate} */
+function chain(W, r, kanKei){
+  const o = {kan:W};
+  o.sho = r.kanRate>0 ? Math.ceil(W / r.kanRate) : null;
+  o.apo = (o.sho!=null && r.shoRate>0) ? Math.ceil(o.sho / r.shoRate) : null;
+  o.ap  = (o.apo!=null && r.apoRate>0) ? Math.ceil(o.apo / r.apoRate) : null;
+  o.t   = (o.ap!=null && r.apRate>0) ? Math.ceil(o.ap / r.apRate) : null;
+  o.kei = kanKei>0 ? Math.ceil(W / kanKei) : null;
+  return o;
+}
+function baseRates(cr){
+  const b = base();
+  return {
+    apRate: b.apRate ? b.apRate/100 : cr.apRate,
+    apoRate: b.apoRate ? b.apoRate/100 : cr.apoRate,
+    shoRate: b.shoRate/100, kanRate: b.kanRate/100, dayApo: b.dayApo,
+    set: {apRate: !!b.apRate, apoRate: !!b.apoRate}
+  };
+}
+/* plan (simulator) values: stored as % / per-day; fallback to current */
+function simVals(cr){
+  const s = monthObj().sim || {};
+  const pick = (k, v) => num(s[k])!=null ? num(s[k]) : v;
+  return {
+    tai: pick("tai", cr.tai!=null ? Math.round(cr.tai) : 0),
+    apRate: pick("apRate", cr.apRate!=null ? Math.round(cr.apRate*1000)/10 : 0),
+    apoRate: pick("apoRate", cr.apoRate!=null ? Math.round(cr.apoRate*1000)/10 : 0),
+    shoRate: pick("shoRate", cr.shoRate!=null ? Math.round(cr.shoRate*1000)/10 : 0),
+    kanRate: pick("kanRate", cr.kanRate!=null ? Math.round(cr.kanRate*1000)/10 : 0)
+  };
+}
+function planRatesFrac(cr){
+  const s = simVals(cr);
+  return {apRate:s.apRate/100, apoRate:s.apoRate/100, shoRate:s.shoRate/100, kanRate:s.kanRate/100, tai:s.tai};
+}
+function actuals(){
+  const t = {t:0,ap:0,apo:0,sho:0,kei:0,kan:0,logged:0};
+  Object.values(state.days).forEach(d => {
+    const r = d.actual || {};
+    ST.forEach(s => t[s.k] += r[s.k]||0);
+    if (d.reviewed) t.logged++;
+  });
+  return t;
+}
+function summarize(){
+  const a = actuals(); const dd = Object.values(state.days).filter(d => d.doRate != null);
+  a.doRate = dd.length ? Math.round(dd.reduce((x,d) => x + d.doRate, 0)/dd.length*1000)/1000 : null;
+  state.member.summary = Object.assign({}, state.member.summary||{}, {[state.month]: a});
+}
+function status(cur, b){ if (cur==null || b==null) return ""; const q = cur/b; return q >= 1 ? "ok" : q >= 0.8 ? "warn" : "bad"; }
+
+/* ---------- UI shell ---------- */
+function showBanner(t){ const b = $("#banner"); b.textContent = t; b.hidden = !t; }
+function setReadOnly(){
+  state.readOnly = true;
+  showBanner("このページでは閲覧のみ可能です。入力内容を保存するには、オーナーに「投稿者（Contributor）」以上の権限を依頼してください。");
+  $$("main input:not(#dayDate), main select, main textarea, main button.btn").forEach(el => el.disabled = true);
+}
+function setMode(){
+  const p = $("#modePill");
+  if (state.mode === "api"){ p.textContent = "営業ログと共有中"; p.className = "pill ok"; }
+  else if (state.mode === "db"){ p.textContent = "チームで共有中"; p.className = "pill ok"; }
+  else if (state.mode === "local"){ p.textContent = "この端末にのみ保存"; p.className = "pill warn"; }
+  else { p.textContent = "接続中…"; p.className = "pill"; }
+}
+function switchTab(name){
+  /* 存在しないタブが指定された場合は、最初のタブに戻します */
+  if (!document.querySelector('main section[data-sec="' + name + '"]')) name = "goal";
+  $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+  $$("main section[data-sec]").forEach(s => s.hidden = s.dataset.sec !== name);
+  try{ localStorage.setItem("sgn2_tab", name); }catch(e){}
+  if (name === "team") renderTeam();
+  if (name === "members") renderRoster();
+  if (name === "mgr") renderMgr();
+  if (name === "today"){ renderDoList(); renderMonthProg(); }
+  if (name === "issue") renderIssues();
+}
+$$("nav.tabs button").forEach(b => b.addEventListener("click", () => {
+  switchTab(b.dataset.tab);
+  if (b.dataset.tab === "team") renderSquad();
+}));
+
+/* ---------- ① inputs ---------- */
+const CUR_F = ["days","t","ap","apo","sho","kei","kan"];
+const BASE_F = ["dayApo","shoRate","kanRate","apRate","apoRate"];
+const SIM_F = ["tai","apRate","apoRate","shoRate","kanRate"];
+function fillGoalForm(){
+  const mo = monthObj(), c = mo.cur || {}, b = state.member.base || {};
+  $("#g-theme").value = mo.theme || ""; $("#g-target").value = mo.target ?? ""; $("#g-days").value = mo.days ?? "";
+  CUR_F.forEach(k => $("#c-"+k).value = c[k] ?? "");
+  BASE_F.forEach(k => $("#b-"+k).value = b[k] ?? "");
+  fillSim();
+}
+function fillSim(){
+  const {cur} = inputs(); const s = simVals(curRates(cur));
+  SIM_F.forEach(k => $("#s-"+k).value = s[k]);
+}
+$("#g-theme").addEventListener("input", e => { setMonth({theme:e.target.value}); saveMemberSoon(); });
+$("#g-target").addEventListener("input", e => { setMonth({target:num(e.target.value)}); renderGoal(); saveMemberSoon(); });
+$("#g-days").addEventListener("input", e => { setMonth({days:num(e.target.value)}); renderGoal(); saveMemberSoon(); });
+CUR_F.forEach(k => $("#c-"+k).addEventListener("input", e => {
+  const c = Object.assign({}, monthObj().cur || {}); c[k] = num(e.target.value);
+  const hadSim = !!monthObj().sim; setMonth({cur:c});
+  if (!hadSim) fillSim();
+  renderGoal(); saveMemberSoon();
+}));
+BASE_F.forEach(k => $("#b-"+k).addEventListener("input", e => {
+  state.member.base = Object.assign({}, state.member.base||{}, {[k]: num(e.target.value)});
+  renderGoal(); saveMemberSoon();
+}));
+SIM_F.forEach(k => $("#s-"+k).addEventListener("input", () => {
+  const s = {}; SIM_F.forEach(j => s[j] = num($("#s-"+j).value) ?? 0);
+  setMonth({sim:s}); renderGoal(); renderRec(); saveMemberSoon();
+}));
+$("#simCur").addEventListener("click", () => { const mo = Object.assign({}, monthObj()); delete mo.sim; state.member.months = Object.assign({}, state.member.months, {[state.month]:mo}); fillSim(); renderGoal(); renderRec(); saveMemberSoon(); });
+$("#simBase").addEventListener("click", () => {
+  const {cur} = inputs(); const cr = curRates(cur); const br = baseRates(cr); const s = simVals(cr);
+  s.shoRate = Math.round(br.shoRate*1000)/10; s.kanRate = Math.round(br.kanRate*1000)/10;
+  if (br.set.apRate) s.apRate = Math.round(br.apRate*1000)/10;
+  if (br.set.apoRate) s.apoRate = Math.round(br.apoRate*1000)/10;
+  // set 1日対応 so that 出勤アポ率 meets base (keeps current 対応→アポ conversion)
+  const conv = (s.apRate/100)*(s.apoRate/100);
+  if (conv > 0) s.tai = Math.max(s.tai, Math.ceil(br.dayApo/conv));
+  setMonth({sim:s}); fillSim(); renderGoal(); renderRec(); saveMemberSoon();
+});
+$("#importBtn").addEventListener("click", () => {
+  const a = actuals();
+  if (!a.logged){ $("#importBtn").textContent = "今月の日報がまだありません"; setTimeout(() => $("#importBtn").textContent = "日報から取り込む", 2500); return; }
+  setMonth({cur:{days:a.logged, t:a.t, ap:a.ap, apo:a.apo, sho:a.sho, kei:a.kei, kan:a.kan}});
+  fillGoalForm(); renderGoal(); saveMemberSoon();
+});
+
+/* ---------- ① render ---------- */
+function renderGoal(){
+  const {cur, W, D, example} = inputs();
+  $("#exampleBadge").hidden = !example;
+  const cr = curRates(cur), br = baseRates(cr);
+
+  // current rate chips
+  $("#curRates").innerHTML = [
+    ["対応アプ率", fp(cr.apRate)], ["アプアポ率", fp(cr.apoRate)], ["出勤アポ率", f1(cr.dayApo)+"件"],
+    ["商談アポ率", fp(cr.shoRate)], ["商談完工率", fp(cr.kanRate)], ["商談契約率", fp(cr.keiRate)], ["契約完工率", fp(cr.kanKei)], ["1日の対応数", f1(cr.tai)+"件"]
+  ].map(([k,v]) => `<div>${k}<b>${v}</b></div>`).join("");
+
+  /* --- crisis: keep current rates --- */
+  const need = chain(W, cr, cr.kanKei);
+  const crisis = $("#crisis");
+  const projected = cr.tai!=null ? cr.tai * D * (cr.apRate||0)*(cr.apoRate||0)*(cr.shoRate||0)*(cr.kanRate||0) : 0;
+  if (need.t == null){
+    const zero = RATES.find(x => !(cr[x.k] > 0));
+    crisis.className = "crisis";
+    crisis.innerHTML = `<p class="lead">現状の数字では「現状のまま」の必要数を計算できません（${zero ? zero.nm+"が0%" : "数字が不足"}）。現状の数字を入力してください。</p>`;
+  } else {
+    const curT = cr.tai * D, mult = curT > 0 ? need.t / curT : null;
+    const calm = mult != null && mult <= 1;
+    crisis.className = "crisis" + (calm ? " calm" : "");
+    crisis.innerHTML = `
+      <p class="lead">現状の歩留まりのままで <b>完工 ${W}件</b> を${D}日で達成するには、</p>
+      <div><div class="big">${fi(need.t)}<small>件の対応が必要</small></div>
+        <p class="note" style="color:inherit">1日あたり <b class="num">${fi(need.t/D)}</b>件（現状 ${f1(cr.tai)}件/日）</p></div>
+      <div class="mult"><b>${mult==null?"–":f1(mult)+"倍"}</b><span>${calm ? "現状ペースで届く見込み" : "今の対応量の"}</span></div>
+      <ul>
+        <li>アプ <b>${fi(need.ap)}</b>件</li>
+        <li>アポ <b>${fi(need.apo)}</b>件（1日${f1(need.apo/D)}）</li>
+        <li>商談 <b>${fi(need.sho)}</b>件</li>
+        ${need.kei!=null ? `<li>契約 <b>${fi(need.kei)}</b>件</li>` : ""}
+        <li>このままの見込み：完工 <b>${f1(projected)}</b>件</li>
+      </ul>`;
+  }
+
+  /* --- rate cards --- */
+  const cards = [
+    {k:"apRate", nm:"対応アプ率", cur:cr.apRate, b: br.set.apRate ? br.apRate : null, pct:true},
+    {k:"apoRate", nm:"アプアポ率", cur:cr.apoRate, b: br.set.apoRate ? br.apoRate : null, pct:true},
+    {k:"dayApo", nm:"出勤アポ率", cur:cr.dayApo, b: br.dayApo, pct:false},
+    {k:"shoRate", nm:"商談アポ率", cur:cr.shoRate, b: br.shoRate, pct:true},
+    {k:"kanRate", nm:"商談完工率", cur:cr.kanRate, b: br.kanRate, pct:true}
+  ];
+  let worst = null;
+  cards.forEach(c => { c.st = status(c.cur, c.b); c.q = (c.cur!=null && c.b) ? c.cur/c.b : null; if (c.q!=null && c.q < 1 && (!worst || c.q < worst.q)) worst = c; });
+  $("#rateCards").innerHTML = cards.map(c => {
+    const v = c.pct ? fp(c.cur) : f1(c.cur)+"件";
+    const bv = c.b==null ? "基準 未設定" : "基準 " + (c.pct ? fp(c.b) : f1(c.b)+"件");
+    let gap = "";
+    if (c.b!=null && c.cur!=null){ const d = c.cur - c.b; gap = (d>=0?"+":"") + (c.pct ? f1(d*100)+"pt" : f1(d)+"件"); }
+    return `<div class="rcard ${c.st}">${worst===c?'<span class="flag">最大の歩留まり</span>':""}<span class="nm">${c.nm}</span><span class="v">${v}</span><span class="b">${bv}</span><span class="g">${gap}</span></div>`;
+  }).join("");
+
+  /* --- funnel: current pace vs need under base --- */
+  const needB = chain(W, br, cr.kanKei);
+  const pace = {}; ST.forEach(s => pace[s.k] = cur.days>0 ? cur[s.k]/cur.days*D : 0);
+  const conn = {
+    t:  {nm:"対応アプ率", c:cr.apRate, b: br.set.apRate ? br.apRate : null},
+    ap: {nm:"アプアポ率", c:cr.apoRate, b: br.set.apoRate ? br.apoRate : null},
+    apo:{nm:"商談アポ率", c:cr.shoRate, b: br.shoRate},
+    sho:{nm:"商談契約率", c:cr.keiRate, b:null, ref:true},
+    kei:{nm:"契約完工率", c:cr.kanKei, b:null, ref:true}
+  };
+  let fh = `<div class="frow h"><span>段階</span><span>充足率（現状ペース ÷ 必要数）</span><span style="text-align:right">現状ペース</span><span style="text-align:right">必要数</span></div>`;
+  ST.forEach((s,i) => {
+    const n = needB[s.k], p = pace[s.k];
+    const q = n>0 ? p/n : null, st = q==null ? "" : q>=1 ? "ok" : q>=0.8 ? "warn" : "bad";
+    fh += `<div class="frow"><span class="st">${s.nm}</span>
+      <div class="bar ${st}"><i style="width:${q==null?0:Math.min(100,q*100)}%"></i><b>${q==null?"–":Math.round(q*100)+"%"}</b></div>
+      <span class="c">${f1(p)}</span><span class="c">${fi(n)}</span></div>`;
+    const cn = conn[s.k];
+    if (cn){
+      const t = status(cn.c, cn.b);
+      fh += `<div class="fconn"><span></span><span>↓ ${cn.nm} <span class="chip">${fp(cn.c)}</span>${cn.b!=null?`<span>基準 ${fp(cn.b)}</span><span class="tag ${t}">${t==="ok"?"基準以上":t==="warn"?"やや低い":"歩留まり"}</span>`:(cn.ref?"<span>参考</span>":"<span>基準未設定（現状値で計算）</span>")}</span></div>`;
+    }
+  });
+  fh += `<div class="fconn" style="margin-top:4px"><span></span><span>商談 → 完工の通し：商談完工率 <span class="chip">${fp(cr.kanRate)}</span> 基準 ${fp(br.kanRate)} <span class="tag ${status(cr.kanRate, br.kanRate)}">${status(cr.kanRate, br.kanRate)==="ok"?"基準以上":status(cr.kanRate, br.kanRate)==="warn"?"やや低い":"歩留まり"}</span></span></div>`;
+  $("#funnel").innerHTML = fh;
+
+  /* --- levers: single-lever requirement --- */
+  const k = projected > 0 ? W / projected : null;
+  const levers = [
+    {nm:"1日の対応数", cur:cr.tai, unit:"件", pct:false},
+    {nm:"対応アプ率", cur:cr.apRate, pct:true},
+    {nm:"アプアポ率", cur:cr.apoRate, pct:true},
+    {nm:"商談アポ率", cur:cr.shoRate, pct:true, b:br.shoRate},
+    {nm:"商談完工率", cur:cr.kanRate, pct:true, b:br.kanRate}
+  ];
+  let lt = `<thead><tr><th>上げる指標（これ1つだけで達成する場合）</th><th>現状</th><th>必要</th><th>上げ幅</th><th>判定</th></tr></thead><tbody>`;
+  if (k == null){
+    lt += `<tr><td colspan="5">現状の数字に0の段階があるため計算できません。</td></tr>`;
+  } else if (k <= 1){
+    lt += `<tr><td colspan="5">現状ペースで目標に届く見込みです（見込み 完工${f1(projected)}件）。目標を上げることも検討しましょう。</td></tr>`;
+  } else {
+    let bestI = -1, bestScore = Infinity;
+    const rows = levers.map((l,i) => {
+      const nv = l.cur * k;
+      let tag, cls;
+      if (l.pct && nv > 1){ tag = "不可能（100%超）"; cls = "bad"; }
+      else if (l.b && nv > l.b * 1.25){ tag = "基準を大きく超える"; cls = "bad"; }
+      else if (k > 1.5){ tag = "大幅な改善が必要"; cls = "warn"; }
+      else { tag = "現実的"; cls = "ok"; }
+      // prefer rates still below base (realistic room) then smallest stretch
+      const score = (cls==="bad"?100:0) + (l.b && l.cur < l.b ? -1 : 0);
+      if (score < bestScore){ bestScore = score; bestI = i; }
+      return {l, nv, tag, cls};
+    });
+    rows.forEach((r,i) => {
+      const d = r.nv - r.l.cur;
+      lt += `<tr class="${i===bestI && r.cls==="ok" ? "best":""}"><td>${r.l.nm}</td><td class="num">${r.l.pct?fp(r.l.cur):f1(r.l.cur)+"件"}</td><td class="num"><b>${r.l.pct?fp(r.nv):fi(r.nv)+"件"}</b></td><td class="num">+${r.l.pct?f1(d*100)+"pt":f1(d)+"件"}（×${f1(k)}）</td><td><span class="tag ${r.cls}">${r.tag}</span></td></tr>`;
+    });
+    const needApoDay = need.apo != null ? need.apo / D : null;
+    lt += `<tr><td>出勤アポ率（参考）</td><td class="num">${f1(cr.dayApo)}件</td><td class="num"><b>${f1(needApoDay)}件</b></td><td class="num">+${f1(needApoDay - cr.dayApo)}件</td><td><span class="tag ${needApoDay <= br.dayApo ? "ok" : "warn"}">基準 ${f1(br.dayApo)}件</span></td></tr>`;
+  }
+  lt += `</tbody>`;
+  $("#leverTable").innerHTML = lt;
+
+  // base scenario
+  const apoB = Math.max(cr.dayApo||0, br.dayApo) * D;
+  const kanB = apoB * br.shoRate * br.kanRate;
+  const apoNeedB = needB.apo;
+  const gapApo = apoNeedB != null ? Math.max(0, apoNeedB/D) : null;
+  $("#baseCallout").innerHTML = `基準値（出勤アポ率 <b>${f1(br.dayApo)}</b>・商談アポ率 <b>${fp(br.shoRate)}</b>・商談完工率 <b>${fp(br.kanRate)}</b>）まで改善できれば、${D}日で完工 <b>${f1(kanB)}</b>件の見込み。` +
+    (kanB >= W ? ` 目標 ${W}件に<b style="color:var(--ok)">届きます</b>。` : ` 目標 ${W}件にはさらに 1日あたりアポ <b>${f1(gapApo)}</b>件（基準+${f1(gapApo - br.dayApo)}件）が必要です。`);
+
+  renderSimRes(cr, W, D);
+  renderProgress();
+}
+function renderSimRes(cr, W, D){
+  const s = planRatesFrac(cr);
+  const conv = s.apRate*s.apoRate*s.shoRate*s.kanRate;
+  const pred = s.tai * D * conv;
+  const needTai = conv > 0 ? W/(D*conv) : null;
+  const dayApo = s.tai * s.apRate * s.apoRate;
+  $("#simRes").innerHTML = `
+    <div class="tile ${pred>=W?"hit":"miss"}"><span class="label-sm">予測完工数</span><b>${f1(pred)}件</b><span class="note">目標 ${W}件</span></div>
+    <div class="tile"><span class="label-sm">出勤アポ率</span><b>${f1(dayApo)}件</b><span class="note">基準 ${f1(base().dayApo)}件</span></div>
+    <div class="tile"><span class="label-sm">目標に必要な1日対応数</span><b>${fi(needTai)}件</b><span class="note">この歩留まりの場合</span></div>
+    <div class="tile"><span class="label-sm">1日の必要アポ</span><b>${conv>0?f1(W/D/(s.shoRate*s.kanRate)):"–"}件</b><span class="note">商談 ${conv>0?f1(W/D/s.kanRate):"–"}件/日</span></div>`;
+  const cv = {tai:cr.tai, apRate:cr.apRate, apoRate:cr.apoRate, shoRate:cr.shoRate, kanRate:cr.kanRate};
+  SIM_F.forEach(k => { $("#sx-"+k).textContent = "現状 " + (k==="tai" ? f1(cv[k])+"件" : fp(cv[k])); });
+}
+function planNeed(){
+  const {cur, W, D} = inputs(); const cr = curRates(cur); const p = planRatesFrac(cr);
+  return {need: chain(W, p, cr.kanKei), W, D};
+}
+function renderProgress(){
+  const {need, D} = planNeed(); const a = actuals();
+  const rem = Math.max(1, Math.round(D) - a.logged);
+  $("#progTable").innerHTML = `<thead><tr><th>指標</th><th>実績</th><th>必要数</th><th>進捗</th><th>今後の1日目標</th></tr></thead><tbody>` +
+    ST.map(s => {
+      const n = need[s.k], v = a[s.k];
+      const left = n!=null ? Math.max(0, n - v) : null;
+      const pr = n>0 ? Math.round(v/n*100) : null;
+      return `<tr><td>${s.nm}</td><td class="num">${v}</td><td class="num">${fi(n)}</td><td class="num">${pr==null?"–":pr+"%"}</td><td class="num">${left==null?"–":f1(left/rem)}</td></tr>`;
+    }).join("") + `</tbody>`;
+  $("#progNote").textContent = `振り返り済み ${a.logged}日 ／ 残り ${rem}日（出勤予定 ${D}日）・今月の出勤アポ率 ${a.logged ? f1(a.apo/a.logged) : "–"}件`;
+}
+
+/* ---------- ② issues (鬼速PDCA) ---------- */
+const mkid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+const METRICS = {
+  tai:     {nm:"1日の対応数", pct:false, unit:"件", val:a => a.logged ? a.t/a.logged : null,   cur:cr => cr.tai},
+  apRate:  {nm:"対応アプ率", pct:true,  val:a => a.t   ? a.ap/a.t   : null, cur:cr => cr.apRate},
+  apoRate: {nm:"アプアポ率", pct:true,  val:a => a.ap  ? a.apo/a.ap : null, cur:cr => cr.apoRate},
+  dayApo:  {nm:"出勤アポ率", pct:false, unit:"件", val:a => a.logged ? a.apo/a.logged : null, cur:cr => cr.dayApo},
+  shoRate: {nm:"商談アポ率", pct:true,  val:a => a.apo ? a.sho/a.apo : null, cur:cr => cr.shoRate},
+  kanRate: {nm:"商談完工率", pct:true,  val:a => a.sho ? a.kan/a.sho : null, cur:cr => cr.kanRate},
+  other:   {nm:"その他（手入力）", pct:false, unit:""}
+};
+const MARK = {"":"–", "2":"○", "1":"△", "0":"×"};
+function normIssue(x){
+  x = x || {};
+  let sols = (x.solutions||[]).map(s => Object.assign({id:mkid("s"), text:"", imp:"", time:"", ease:""}, s,
+    {dos:(s.dos||[]).map(d => Object.assign({id:mkid("d"), text:"", freq:"daily", due:"", done:""}, d))}));
+  if (!sols.length && x.action) sols = [{id:mkid("s"), text:x.action, imp:"", time:"", ease:"", dos:[]}];
+  const st = x.status === "未着手" ? "実行中" : (x.status || "実行中");
+  return Object.assign({id:mkid("i"), title:"", metric:"other", kpiNow:null, kpiTarget:null, kpiName:"", kpiUnit:"", kpiActual:null, created:today},
+    x, {status:st, solutions:sols, check:Object.assign({good:"", bad:"", adjust:""}, x.check||{})});
+}
+const issues = () => state.member.issues || [];
+const findIssue = id => issues().find(x => x.id === id);
+const fmtM = (m, v) => v==null ? "–" : (METRICS[m] && METRICS[m].pct ? f1(v*100)+"%" : f1(v)+((METRICS[m]||{}).unit||""));
+/* targets for each metric (display units: % numbers or counts) */
+function metricTargets(){
+  const {cur} = inputs(); const cr = curRates(cur); const br = baseRates(cr); const s = simVals(cr); const hasSim = !!monthObj().sim;
+  const pick = (k, bv) => hasSim ? s[k] : bv;
+  return {
+    cr,
+    t: {
+      tai: hasSim ? s.tai : (cr.tai!=null ? Math.round(cr.tai) : null),
+      apRate: br.set.apRate ? br.apRate*100 : pick("apRate", null),
+      apoRate: br.set.apoRate ? br.apoRate*100 : pick("apoRate", null),
+      dayApo: br.dayApo,
+      shoRate: pick("shoRate", br.shoRate*100),
+      kanRate: pick("kanRate", br.kanRate*100)
+    }
+  };
+}
+function kpiOf(it, a){
+  a = a || actuals();
+  if (it.metric === "other"){
+    const t = num(it.kpiTarget), v = num(it.kpiActual);
+    return {actual:v, target:t, q:(t>0 && v!=null) ? v/t : null, label:(v==null?"–":f1(v))+(it.kpiUnit||"")};
+  }
+  const M = METRICS[it.metric]; const v = M.val(a); const tRaw = num(it.kpiTarget);
+  const t = tRaw==null ? null : (M.pct ? tRaw/100 : tRaw);
+  return {actual:v, target:t, q:(t>0 && v!=null) ? v/t : null, label:fmtM(it.metric, v)};
+}
+function doStats(it, days){
+  const ids = new Set(); const once = [];
+  it.solutions.forEach(s => s.dos.forEach(d => { ids.add(d.id); if (d.freq === "once") once.push(d); }));
+  let sum = 0, n = 0;
+  Object.values(days || state.days).forEach(day => {
+    const c = day.doChecks || {};
+    Object.keys(c).forEach(k => { if (ids.has(k)){ sum += c[k]; n++; } });
+  });
+  return {rate: n ? sum/n/100 : null, checks:n, onceDone: once.filter(d => d.done).length, onceTotal: once.length, total: ids.size};
+}
+function diagnose(kq, dq){
+  if (dq == null) return {cls:"", t:"まだDOのチェックがありません。「1日の目標」タブでDOの完成度を記録すると検証できます。"};
+  const dOk = dq >= 0.8;
+  if (kq == null) return dOk ? {cls:"ok", t:"DOは実行できています。日報の数字がたまるとKPIとの関係を検証できます。"} : {cls:"bad", t:"DOが実行できていません。TODOを細かくし、やる時間をカレンダーで先に押さえましょう。"};
+  const kOk = kq >= 1;
+  if (dOk && kOk) return {cls:"ok", t:"DOもKPIも順調です。この解決案を継続し、余力があれば次の課題へ。"};
+  if (dOk && !kOk) return {cls:"warn", t:"DOは実行できているのにKPIが動いていません。解決案が的外れの可能性があります。解決案を見直しましょう（A：調整）。"};
+  if (!dOk && kOk) return {cls:"warn", t:"KPIは達成していますがDOは未達です。何が効いたのかを言語化し、再現できる形にしましょう。"};
+  return {cls:"bad", t:"DOもKPIも未達です。まずDOを実行できる状態に。TODOの粒度を細かくし、毎日の行動に組み込みましょう。"};
+}
+const qcls = q => q==null ? "" : q >= 1 ? "ok" : q >= 0.8 ? "warn" : "bad";
+const qtxt = q => q==null ? "–" : Math.round(q*100)+"%";
+
+function renderKgi(){
+  const {cur, W, D} = inputs(); const cr = curRates(cur); const a = actuals();
+  const projected = cr.tai!=null ? cr.tai*D*(cr.apRate||0)*(cr.apoRate||0)*(cr.shoRate||0)*(cr.kanRate||0) : 0;
+  const gap = Math.max(0, W - projected);
+  const act = issues().filter(x => x.status === "実行中");
+  const rates = act.map(it => doStats(it).rate).filter(r => r!=null);
+  const doAvg = rates.length ? rates.reduce((s,v) => s+v, 0)/rates.length : null;
+  $("#kgiBox").innerHTML = `<div class="kgi">
+    <div class="tile"><span class="label-sm">KGI（目標完工数）</span><b>${W}件</b><span class="note">${D}日</span></div>
+    <div class="tile"><span class="label-sm">現状のままの見込み</span><b>${f1(projected)}件</b><span class="note">現状の数字から算出</span></div>
+    <div class="tile ${gap>0?"miss":"hit"}"><span class="label-sm">ギャップ</span><b>${gap>0?"−"+f1(gap):"0"}件</b><span class="note">${gap>0?"課題で埋める差":"現状で届く見込み"}</span></div>
+    <div class="tile"><span class="label-sm">今月の完工実績</span><b>${a.kan}件</b><div class="mbar ${qcls(W?a.kan/W:null)}"><i style="width:${W?Math.min(100,a.kan/W*100):0}%"></i></div></div>
+    <div class="tile" style="grid-column:1/-1"><span class="label-sm">実行中の課題のDO実行率（平均）</span><b>${qtxt(doAvg)}</b><div class="mbar ${doAvg==null?"":doAvg>=0.8?"ok":doAvg>=0.5?"warn":"bad"}"><i style="width:${doAvg==null?0:doAvg*100}%"></i></div></div>
+  </div>`;
+}
+function renderGaps(){
+  const {cr, t} = metricTargets();
+  const rows = ["tai","apRate","apoRate","dayApo","shoRate","kanRate"].map(k => {
+    const M = METRICS[k], c = M.cur(cr), tg = t[k];
+    const cv = c==null ? null : (M.pct ? c*100 : c);
+    return {k, M, cv, tg, below: cv!=null && tg!=null && cv < tg - 1e-9, q: (cv!=null && tg) ? cv/tg : null};
+  });
+  const used = new Set(issues().filter(x => x.status === "実行中").map(x => x.metric));
+  const list = rows.filter(r => r.below).sort((a,b) => a.q - b.q);
+  $("#gapList").innerHTML = list.length ? list.map(r => `<div class="gap"><span>${r.M.nm}<small>${f1(r.cv)}${r.M.pct?"%":r.M.unit} → ${f1(r.tg)}${r.M.pct?"%":r.M.unit}（達成度 ${Math.round(r.q*100)}%）</small></span>
+      ${used.has(r.k) ? `<span class="tag ok">課題化済み</span>` : `<button class="btn small" data-gap="${r.k}">課題にする</button>`}</div>`).join("")
+    : `<p class="note">現状の数字が目標の歩留まりをすべて満たしています。対応量を増やすか、目標を上げることを検討しましょう。</p>`;
+  $$("#gapList [data-gap]").forEach(b => b.addEventListener("click", () => {
+    const r = rows.find(x => x.k === b.dataset.gap);
+    addIssue({metric:r.k, title:`${r.M.nm}を ${f1(r.cv)}${r.M.pct?"%":r.M.unit} → ${f1(r.tg)}${r.M.pct?"%":r.M.unit} に上げる`,
+      kpiNow: Math.round(r.cv*10)/10, kpiTarget: Math.round(r.tg*10)/10});
+  }));
+}
+function addIssue(preset){
+  const it = normIssue(Object.assign({id:mkid("i")}, preset||{}));
+  if (!it.solutions.length) it.solutions = [{id:mkid("s"), text:"", imp:"", time:"", ease:"", dos:[{id:mkid("d"), text:"", freq:"daily", due:"", done:""}]}];
+  state.member.issues = [it].concat(issues()).slice(0, 30);
+  renderIssues(); saveMember();
+  const el = $(`#issueList [data-iid="${it.id}"] input.ttl`); if (el){ el.scrollIntoView({block:"center"}); if (!preset || !preset.title) el.focus(); }
+}
+$("#newIssueBtn").addEventListener("click", () => addIssue(null));
+let pendingDelete = null;
+function issueCard(it, idx){
+  const M = METRICS[it.metric] || METRICS.other;
+  const k = kpiOf(it), ds = doStats(it), dg = diagnose(k.q, ds.rate);
+  const unit = it.metric === "other" ? esc(it.kpiUnit||"") : (M.pct ? "%" : M.unit);
+  const metricOpts = Object.entries(METRICS).map(([key, m]) => `<option value="${key}" ${key===it.metric?"selected":""}>${m.nm}</option>`).join("");
+  const sel3 = (sid, f, v) => `<select data-sid="${sid}" data-f="${f}" aria-label="${f}">${["","2","1","0"].map(o => `<option value="${o}" ${String(v??"")===o?"selected":""}>${MARK[o]}</option>`).join("")}</select>`;
+  const sols = it.solutions.map((s, si) => {
+    const sc = ["imp","time","ease"].map(f => s[f]).filter(v => v!=="" && v!=null);
+    const score = sc.length === 3 ? sc.reduce((a,b) => a + Number(b), 0) : null;
+    const dos = s.dos.map(d => `<div class="do"><span class="lbl">DO</span>
+        <input class="sm" data-sid="${s.id}" data-did="${d.id}" data-f="text" value="${esc(d.text)}" maxlength="120" placeholder="例：毎朝、アポ確定の電話で決裁者の同席を確認する">
+        <select data-sid="${s.id}" data-did="${d.id}" data-f="freq" aria-label="頻度"><option value="daily" ${d.freq==="daily"?"selected":""}>毎日</option><option value="once" ${d.freq==="once"?"selected":""}>期限付き</option></select>
+        <span class="opt">${d.freq==="once" ? `<input type="date" data-sid="${s.id}" data-did="${d.id}" data-f="due" value="${esc(d.due)}" aria-label="期限"> ${d.done?`<span class="dn">完了 ${esc(d.done.slice(5))}</span>`:""}` : ""}</span>
+        <button class="btn ghost danger small" data-act="del-do" data-sid="${s.id}" data-did="${d.id}" aria-label="DOを削除">×</button></div>`).join("");
+    return `<div class="sol"><div class="sol-h"><input class="sm" data-sid="${s.id}" data-f="text" value="${esc(s.text)}" maxlength="120" placeholder="解決案 ${si+1}：例）アポ時に決裁者の同席を必ず確認する">
+        <button class="btn ghost danger small" data-act="del-sol" data-sid="${s.id}">削除</button></div>
+      <div class="evals">インパクト ${sel3(s.id,"imp",s.imp)} 時間 ${sel3(s.id,"time",s.time)} 気軽さ ${sel3(s.id,"ease",s.ease)} <span class="score">${score==null?"評価待ち":score+"/6点"}</span></div>
+      ${dos}<div><button class="btn ghost small" data-act="add-do" data-sid="${s.id}">＋ DOを追加</button></div></div>`;
+  }).join("");
+  const stCls = it.status === "保留" ? "hold" : it.status === "完了" ? "done" : "";
+  return `<article class="pc ${stCls}" data-iid="${it.id}">
+    <div class="pc-head"><span class="no">課題${idx+1}</span>
+      <input class="ttl" data-f="title" value="${esc(it.title)}" maxlength="80" placeholder="課題：例）アポが商談につながらない" aria-label="課題">
+      <select data-f="status" style="width:auto" aria-label="状態">${["実行中","保留","完了"].map(s => `<option ${s===it.status?"selected":""}>${s}</option>`).join("")}</select>
+      <button class="btn ghost danger small" data-act="del-issue">${pendingDelete===it.id?"もう一度押すと削除":"削除"}</button></div>
+    <div class="ph"><span class="ph-l"><i class="p">P</i>KPI（課題を数値化）</span>
+      <div class="kpirow">
+        <label class="f">指標<select data-f="metric">${metricOpts}</select></label>
+        ${it.metric==="other" ? `<label class="f">指標名<input class="sm" data-f="kpiName" value="${esc(it.kpiName)}" maxlength="30" placeholder="例：紹介依頼数"></label>` : `<label class="f">設定時の現状<span class="unit"><input type="number" class="sm" data-f="kpiNow" value="${it.kpiNow??""}" step="0.1"><span>${unit}</span></span></label>`}
+        <label class="f">KPI目標<span class="unit"><input type="number" class="sm" data-f="kpiTarget" value="${it.kpiTarget??""}" step="0.1"><span>${unit}</span></span></label>
+        ${it.metric==="other" ? `<label class="f">実績（手入力）<span class="unit"><input type="number" class="sm" data-f="kpiActual" value="${it.kpiActual??""}" step="0.1"><input class="sm" data-f="kpiUnit" value="${esc(it.kpiUnit)}" maxlength="6" placeholder="単位" style="width:4em"></span></label>` : `<div class="f"><span>今月の実績（日報）</span><b class="num" style="font-size:16px;color:var(--ink)">${k.label}</b></div>`}
+      </div></div>
+    <div class="ph"><span class="ph-l"><i class="d">D</i>解決案 → DO</span>${sols}
+      <div><button class="btn small" data-act="add-sol">＋ 解決案を追加</button></div></div>
+    <div class="ph"><span class="ph-l"><i class="c">C</i>検証（今月）</span>
+      <div class="ctiles">
+        <div class="tile"><span class="label-sm">KPI達成率</span><b>${qtxt(k.q)}</b><div class="mbar ${qcls(k.q)}"><i style="width:${k.q==null?0:Math.min(100,k.q*100)}%"></i></div></div>
+        <div class="tile"><span class="label-sm">DO実行率</span><b>${qtxt(ds.rate)}</b><div class="mbar ${ds.rate==null?"":ds.rate>=0.8?"ok":ds.rate>=0.5?"warn":"bad"}"><i style="width:${ds.rate==null?0:ds.rate*100}%"></i></div></div>
+        <div class="tile"><span class="label-sm">期限付きDO</span><b>${ds.onceDone}/${ds.onceTotal}</b><span class="note">完了数</span></div>
+      </div>
+      <div class="diagmsg ${dg.cls}">${dg.t}</div></div>
+    <div class="ph"><span class="ph-l"><i class="a">A</i>調整</span>
+      <div class="fields three">
+        <label class="f">できた要因<textarea class="sm" data-f="check.good" maxlength="400">${esc(it.check.good)}</textarea></label>
+        <label class="f">できなかった要因<textarea class="sm" data-f="check.bad" maxlength="400">${esc(it.check.bad)}</textarea></label>
+        <label class="f">調整案（次の一手）<textarea class="sm" data-f="check.adjust" maxlength="400">${esc(it.check.adjust)}</textarea></label>
+      </div></div>
+  </article>`;
+}
+function renderIssues(){
+  const order = {"実行中":0,"保留":1,"完了":2};
+  const list = issues().slice().sort((a,b) => (order[a.status]??0) - (order[b.status]??0));
+  const nAct = list.filter(x => x.status === "実行中").length;
+  $("#issueLimit").innerHTML = nAct > 3 ? `<div class="banner" style="margin:0">実行中の課題が${nAct}つあります。鬼速PDCAでは同時に追う課題は3つまでに絞ります。優先度の低いものを「保留」にしましょう。</div>` : "";
+  $("#issueList").innerHTML = list.length ? list.map(issueCard).join("")
+    : `<div class="empty">まだ課題がありません。<br>左の「ギャップの要因候補」から「課題にする」を押すと、KPIが入った状態で課題が作られます。</div>`;
+  renderKgi(); renderGaps();
+  if (state.readOnly) $$("#issueList input, #issueList select, #issueList textarea, #issueList button").forEach(x => x.disabled = true);
+}
+function locate(el){
+  const card = el.closest("[data-iid]"); if (!card) return {};
+  const it = findIssue(card.dataset.iid); if (!it) return {};
+  const s = el.dataset.sid ? it.solutions.find(x => x.id === el.dataset.sid) : null;
+  const d = (s && el.dataset.did) ? s.dos.find(x => x.id === el.dataset.did) : null;
+  return {it, s, d};
+}
+const STRUCT_F = new Set(["metric","status","kpiTarget","kpiActual","imp","time","ease","freq","due"]);
+function onIssueEdit(e){
+  const el = e.target; const f = el.dataset.f; if (!f) return;
+  const {it, s, d} = locate(el); if (!it) return;
+  const tgt = d || s || it;
+  let v = el.value;
+  if (["kpiNow","kpiTarget","kpiActual"].includes(f)) v = num(v);
+  if (f.startsWith("check.")) it.check[f.slice(6)] = v; else tgt[f] = v;
+  if (f === "metric" && v !== "other"){
+    const {cr, t} = metricTargets(); const M = METRICS[v]; const c = M.cur(cr);
+    it.kpiNow = c==null ? null : Math.round((M.pct ? c*100 : c)*10)/10;
+    it.kpiTarget = t[v]==null ? null : Math.round(t[v]*10)/10;
+  }
+  if (e.type === "change" && STRUCT_F.has(f)){ renderIssues(); }
+  saveMemberSoon();
+}
+$("#issueList").addEventListener("input", e => { if (e.target.tagName !== "SELECT") onIssueEdit(e); });
+$("#issueList").addEventListener("change", e => { if (e.target.tagName === "SELECT" || e.target.type === "number" || e.target.type === "date") onIssueEdit(e); });
+$("#issueList").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const {it, s} = locate(b); if (!it) return;
+  const act = b.dataset.act; let focusSel = null;
+  if (act === "add-sol"){ const ns = {id:mkid("s"), text:"", imp:"", time:"", ease:"", dos:[{id:mkid("d"), text:"", freq:"daily", due:"", done:""}]}; it.solutions.push(ns); focusSel = `[data-sid="${ns.id}"][data-f="text"]:not([data-did])`; }
+  else if (act === "del-sol"){ it.solutions = it.solutions.filter(x => x !== s); }
+  else if (act === "add-do" && s){ const nd = {id:mkid("d"), text:"", freq:"daily", due:"", done:""}; s.dos.push(nd); focusSel = `[data-did="${nd.id}"][data-f="text"]`; }
+  else if (act === "del-do" && s){ s.dos = s.dos.filter(x => x.id !== b.dataset.did); }
+  else if (act === "del-issue"){
+    if (pendingDelete !== it.id){ pendingDelete = it.id; renderIssues(); setTimeout(() => { if (pendingDelete === it.id){ pendingDelete = null; renderIssues(); } }, 4000); return; }
+    pendingDelete = null; state.member.issues = issues().filter(x => x.id !== it.id);
+  }
+  renderIssues(); saveMember();
+  if (focusSel){ const el = $("#issueList " + focusSel); if (el) el.focus(); }
+});
+
+/* ---------- ③ today ---------- */
+$("#kpiIn").innerHTML = `<span class="h">指標</span><span class="h">目標（朝）</span><span class="h">実績（夜）</span><span class="h" style="text-align:right">達成</span>` +
+  ST.map(s => `<span>${s.nm}</span><input type="number" min="0" id="p-${s.k}" aria-label="${s.nm}の目標"><input type="number" min="0" id="r-${s.k}" aria-label="${s.nm}の実績"><span class="rate" id="rt-${s.k}">–</span>`).join("");
+let dayChecks = {};
+function todaysDos(){
+  const out = [];
+  issues().filter(x => x.status === "実行中").forEach((it, ii) => it.solutions.forEach(s => s.dos.forEach(d => {
+    if (!d.text.trim()) return;
+    if (d.freq === "once" && d.done && d.done !== state.date) return;
+    out.push({it, s, d});
+  })));
+  return out;
+}
+function renderDoList(){
+  const list = todaysDos();
+  const el = $("#doList");
+  if (!list.length){ el.innerHTML = `<div class="empty">課題設定タブで解決案とDOを登録すると、ここにチェックリストが出ます。</div>`; }
+  else el.innerHTML = list.map(({it, d}) => {
+    const v = dayChecks[d.id];
+    const due = d.freq === "once" ? `期限付き${d.due ? "・"+esc(d.due.slice(5)) : ""}${d.due && d.due < state.date ? "（超過）" : ""}` : "毎日";
+    return `<div class="dorow"><p>${esc(d.text)}<small>${esc(it.title || "（無題の課題）")}・${due}</small></p>
+      <div class="seg" role="group" aria-label="完成度">${[[100,"◎"],[50,"△"],[0,"×"]].map(([n,l]) => `<button type="button" data-do="${d.id}" data-v="${n}" class="${v===n?"on":""}" aria-pressed="${v===n}">${l}</button>`).join("")}</div></div>`;
+  }).join("");
+  const r = dayDoRate(list);
+  const p = $("#doRatePill");
+  p.textContent = r.total ? `完成度 ${Math.round(r.rate*100)}%${r.unchecked ? `（未チェック${r.unchecked}）` : ""}` : "完成度 –";
+  p.className = "pill " + (!r.total ? "" : r.rate >= 0.8 ? "ok" : r.rate >= 0.5 ? "warn" : "bad");
+  if (state.readOnly) $$("#doList button").forEach(x => x.disabled = true);
+}
+function dayDoRate(list){
+  list = list || todaysDos();
+  let sum = 0, unchecked = 0;
+  list.forEach(({d}) => { const v = dayChecks[d.id]; if (v == null) unchecked++; else sum += v; });
+  return {total:list.length, rate: list.length ? sum/list.length/100 : null, unchecked};
+}
+$("#doList").addEventListener("click", e => {
+  const b = e.target.closest("[data-do]"); if (!b) return;
+  const id = b.dataset.do, v = Number(b.dataset.v);
+  if (dayChecks[id] === v) delete dayChecks[id]; else dayChecks[id] = v;
+  markDirty(); renderDoList();
+});
+function recommended(){
+  const {need, D} = planNeed(); const a = actuals();
+  const d0 = state.days[state.date];
+  const own = (d0 && d0.reviewed) ? (d0.actual||{}) : {};
+  const logged = a.logged - (d0 && d0.reviewed ? 1 : 0);
+  const rem = Math.max(1, Math.round(D) - logged);
+  const r = {rem};
+  ST.forEach(s => {
+    const n = need[s.k];
+    const v = n==null ? null : Math.max(0, n - (a[s.k] - (own[s.k]||0))) / rem;
+    r[s.k] = v==null ? null : (s.k==="kei"||s.k==="kan") ? Math.round(v*10)/10 : Math.ceil(v);
+  });
+  return r;
+}
+function renderRec(){
+  const r = recommended();
+  $("#recNote").textContent = `改善プランから逆算した今日の推奨：対応 ${r.t??"–"}・アプ ${r.ap??"–"}・アポ ${r.apo??"–"}・商談 ${r.sho??"–"}・完工 ${r.kan??"–"}（残り${r.rem}日）`;
+}
+function renderMonthProg(){
+  const {need, W, D} = planNeed(); const a = actuals();
+  const elapsed = D ? a.logged / D : 0;
+  const days = Object.values(state.days).filter(d => d.doRate != null);
+  const doAvg = days.length ? days.reduce((s,d) => s + d.doRate, 0)/days.length : null;
+  const tile = (label, v, n) => {
+    const q = n>0 ? v/n : null; const late = q!=null && q < elapsed*0.95;
+    return `<div class="tile"><span class="label-sm">${label}</span><b>${q==null?"–":Math.round(q*100)+"%"}</b>
+      <div class="mbar ${q==null?"":late?"bad":"ok"}"><i style="width:${q==null?0:Math.min(100,q*100)}%"></i></div>
+      <span class="note"><span>${v} / ${fi(n)}件</span><span>${q==null?"":late?"遅れ":"順調"}</span></span></div>`;
+  };
+  $("#monthProg").innerHTML =
+    tile("完工の進捗", a.kan, W) + tile("商談の進捗", a.sho, need.sho) + tile("アポの進捗", a.apo, need.apo) + tile("対応の進捗", a.t, need.t) +
+    `<div class="tile"><span class="label-sm">DO実行率（今月）</span><b>${qtxt(doAvg)}</b>
+      <div class="mbar ${doAvg==null?"":doAvg>=0.8?"ok":doAvg>=0.5?"warn":"bad"}"><i style="width:${doAvg==null?0:doAvg*100}%"></i></div>
+      <span class="note"><span>経過 ${a.logged}/${D}日（${Math.round(elapsed*100)}%）</span></span></div>`;
+}
+function fillDayForm(){
+  const d = state.days[state.date] || {};
+  const p = d.plan||{}, r = d.actual||{};
+  ST.forEach(s => { $("#p-"+s.k).value = p[s.k] ?? ""; $("#r-"+s.k).value = r[s.k] ?? ""; });
+  dayChecks = Object.assign({}, d.doChecks || {});
+  $("#d-todo").value = d.todo || "";
+  $("#d-good").value = d.good||""; $("#d-bad").value = d.bad||""; $("#d-next").value = d.next||"";
+  $("#dayDate").value = state.date;
+  $("#daySaveState").textContent = d.savedAt ? "保存済み "+new Date(d.savedAt).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}) : "未保存";
+  dirty = false; renderDayRates(); renderRec(); renderDoList(); renderMonthProg();
+}
+function renderDayRates(){
+  ST.forEach(s => {
+    const p = num($("#p-"+s.k).value), r = num($("#r-"+s.k).value), el = $("#rt-"+s.k);
+    if (p>0 && r!==null){ const v = Math.round(r/p*100); el.textContent = v+"%"; el.classList.toggle("hit", v>=100); }
+    else { el.textContent = "–"; el.classList.remove("hit"); }
+  });
+  const g = k => num($("#r-"+k).value) || 0;
+  const rr = (a,b) => b>0 ? f1(a/b*100)+"%" : "–";
+  const b = base();
+  $("#dayRates").innerHTML = [
+    ["対応アプ率", rr(g("ap"), g("t"))], ["アプアポ率", rr(g("apo"), g("ap"))],
+    ["出勤アポ", g("apo") + "件 / 基準" + f1(b.dayApo)], ["商談アポ率", rr(g("sho"), g("apo"))], ["商談完工率", rr(g("kan"), g("sho"))]
+  ].map(([k,v]) => `<div>${k}<b>${v}</b></div>`).join("");
+  const pApo = num($("#p-apo").value), rApo = num($("#r-apo").value);
+  $("#stamp").hidden = !(rApo!=null && rApo > 0 && rApo >= (pApo>0 ? pApo : b.dayApo));
+  $("#stampDate").textContent = state.date.slice(5).replace("-","/");
+}
+let dirty = false;
+const markDirty = () => { dirty = true; $("#daySaveState").textContent = "未保存の変更があります"; };
+ST.forEach(s => ["p-","r-"].forEach(pf => $("#"+pf+s.k).addEventListener("input", () => { markDirty(); renderDayRates(); })));
+["d-todo","d-good","d-bad","d-next"].forEach(id => $("#"+id).addEventListener("input", markDirty));
+$("#fillRec").addEventListener("click", () => {
+  const r = recommended();
+  ST.forEach(s => { if (r[s.k]!=null) $("#p-"+s.k).value = r[s.k]; });
+  markDirty(); renderDayRates();
+});
+$("#saveDay").addEventListener("click", saveDay);
+async function saveDay(){
+  const plan = {}, act = {};
+  ST.forEach(s => { const p = num($("#p-"+s.k).value), r = num($("#r-"+s.k).value); if (p!==null) plan[s.k]=p; if (r!==null) act[s.k]=r; });
+  const list = todaysDos(); const dr = dayDoRate(list);
+  const checks = {}; list.forEach(({d}) => { if (dayChecks[d.id] != null) checks[d.id] = dayChecks[d.id]; });
+  // 期限付きDO: ◎で完了、外したら戻す
+  list.forEach(({d}) => { if (d.freq === "once"){ if (checks[d.id] === 100) d.done = state.date; else if (d.done === state.date) d.done = ""; } });
+  const body = {
+    date: state.date, month: state.date.slice(0,7), plan, actual: act,
+    reviewed: Object.keys(act).length > 0,
+    doChecks: checks, doRate: dr.total ? dr.rate : null, doTotal: dr.total,
+    todo: $("#d-todo").value, good: $("#d-good").value, bad: $("#d-bad").value, next: $("#d-next").value, savedAt: Date.now()
+  };
+  const btn = $("#saveDay"); btn.disabled = true; $("#daySaveState").textContent = "保存中…";
+  try{
+    await saveDayDoc(state.date, body);
+    state.days[state.date] = body; dirty = false;
+    summarize(); await saveMember();
+    $("#daySaveState").textContent = "保存しました";
+    renderProgress(); renderStrip(); renderRec(); renderMonthProg(); renderDoList(); renderIssues();
+  }catch(e){ $("#daySaveState").textContent = "保存できませんでした"; }
+  finally{ if (!state.readOnly) btn.disabled = false; }
+}
+function renderStrip(){
+  const [y,m] = state.month.split("-").map(Number);
+  const n = new Date(y, m, 0).getDate(); const dayApo = base().dayApo;
+  let h = "";
+  for (let i=1;i<=n;i++){
+    const ds = `${state.month}-${pad(i)}`, dt = new Date(y, m-1, i), d = state.days[ds];
+    const apo = d && d.actual ? d.actual.apo : null;
+    const goal = d && d.plan && d.plan.apo > 0 ? d.plan.apo : dayApo;
+    const hit = apo!=null && apo > 0 && apo >= goal;
+    const dr = d && d.doRate != null ? d.doRate : null;
+    const cls = [d?"has":"", hit?"hit":"", ds===state.date?"sel":"", dt.getDay()===0?"sun":""].join(" ");
+    h += `<button class="${cls}" data-day="${ds}" title="${ds}${apo!=null?" アポ "+apo+"件":""}${dr!=null?" DO "+Math.round(dr*100)+"%":""}"><span class="d">${i}</span><span class="w">${WD[dt.getDay()]}</span><span class="x">${apo!=null?apo:"·"}</span><span class="db"><i style="width:${dr==null?0:dr*100}%"></i></span></button>`;
+  }
+  $("#strip").innerHTML = h;
+  $$("#strip [data-day]").forEach(b => b.addEventListener("click", () => setDate(b.dataset.day)));
+}
+async function setDate(ds){
+  if (!ds) return;
+  state.date = ds;
+  if (ds.slice(0,7) !== state.month){ state.month = ds.slice(0,7); $("#monthSel").value = state.month; await loadMonthDays(); fillGoalForm(); renderGoal(); renderIssues(); }
+  fillDayForm(); renderStrip();
+}
+$("#dayDate").addEventListener("change", e => setDate(e.target.value));
+$("#monthSel").addEventListener("change", async e => {
+  if (!e.target.value) return;
+  state.month = e.target.value;
+  state.date = state.month === today.slice(0,7) ? today : state.month+"-01";
+  await loadMonthDays(); fillGoalForm(); renderGoal(); renderIssues(); fillDayForm(); renderStrip(); renderTeam(); mgrOpen.clear(); renderMgr();
+});
+
+/* ---------- members / ranks ---------- */
+const RANKS = [
+  {k:"gold", nm:"ゴールド", stars:3}, {k:"silver", nm:"シルバー", stars:2},
+  {k:"bronze", nm:"ブロンズ", stars:1}, {k:"trainee", nm:"研修生", stars:0}
+];
+const RANK = Object.fromEntries(RANKS.map(r => [r.k, r]));
+const MGMT = [
+  {k:"exec", nm:"役員", ab:"役員"}, {k:"mgr", nm:"マネージャー", ab:"MGR"}, {k:"am", nm:"アシスタントマネージャー", ab:"AM"},
+  {k:"tl", nm:"チームリーダー", ab:"TL"}, {k:"brother", nm:"ブラザー", ab:"BR"}
+];
+const MG = Object.fromEntries(MGMT.map(m => [m.k, m]));
+const KAN = ["","一","二","三","四","五","六","七","八","九","十"];
+const genName = g => g ? `第${KAN[g]||g}世代` : "世代未設定";
+const genBadge = g => g ? `<span class="gen g${Math.min(g,4)}">${genName(g)}</span>` : "";
+const WAKABA = `<svg class="wakaba" viewBox="0 0 22 26" aria-hidden="true"><path d="M11 6 L2 1 V18 L11 25 Z" fill="#F2C200"/><path d="M11 6 L20 1 V18 L11 25 Z" fill="#2E9B47"/></svg>`;
+function rankBadge(k){
+  const r = RANK[k];
+  if (!r) return `<span class="rk none">ランクなし</span>`;
+  if (k === "trainee") return `<span class="rk trainee">${WAKABA}${r.nm}</span>`;
+  return `<span class="rk ${k}"><span class="st">${"★".repeat(r.stars)}</span>${r.nm}</span>`;
+}
+function mgmtBadge(k, long){ const m = MG[k]; return m ? `<span class="mg ${k}" title="${m.nm}">${long ? m.nm : m.ab}</span>` : ""; }
+state.roster = []; state.isAdmin = false;
+const rosterById = id => state.roster.find(x => x.id === id);
+function saveRosterSoon(){ clearTimeout(saveRosterSoon.t); saveRosterSoon.t = setTimeout(saveRoster, 600); }
+async function saveRoster(){
+  /* 名簿は営業ログ側（Apps Script の USERS）で管理します */
+  if (state.mode === "api") return;
+  const body = {members: state.roster.map(x => ({id:x.id, name:x.name||"", rank:x.rank||"", mgmt:x.mgmt||"", gen: num(x.gen) || null})), updatedAt: Date.now()};
+  if (state.mode === "db"){
+    try{ await db.doc("config/roster").set(body); }
+    catch(e){ showBanner("メンバー設定を保存できませんでした。名簿の編集にはこのページの編集者以上の権限が必要です。"); }
+  } else LS.set("roster", body);
+}
+function renderLegends(){
+  const by = k => state.roster.filter(x => (x.rank||"") === k).map(x => x.name).join("、") || "—";
+  const byM = k => state.roster.filter(x => x.mgmt === k).map(x => x.name).join("、") || "—";
+  $("#rankLegend").innerHTML = RANKS.map(r => `<div class="li">${rankBadge(r.k)}<span class="n">${esc(by(r.k))}</span></div>`).join("");
+  $("#mgmtLegend").innerHTML = MGMT.map(m => `<div class="li">${mgmtBadge(m.k, true)}<span class="n">${esc(byM(m.k))}</span></div>`).join("");
+  const gens = [...new Set(state.roster.map(x => num(x.gen)).filter(Boolean))].sort((a,b) => a-b);
+  const noGen = state.roster.filter(x => !num(x.gen)).map(x => x.name).join("、");
+  $("#genLegend").innerHTML = gens.map(g => `<div class="li">${genBadge(g)}<span class="n">${esc(state.roster.filter(x => num(x.gen) === g).map(x => x.name).join("、"))}</span></div>`).join("") +
+    (noGen ? `<div class="li"><span class="gen">世代未設定</span><span class="n">${esc(noGen)}</span></div>` : "");
+}
+let pendingRosterDel = null;
+function linkedUids(){
+  const map = {};
+  if (state.mode === "db") state.team.forEach(t => { if (t.data.rosterId) map[t.data.rosterId] = t.id; });
+  else if (state.member.rosterId) map[state.member.rosterId] = "me";
+  return map;
+}
+function renderRoster(){
+  renderLegends();
+  const can = state.isAdmin; const links = linkedUids();
+  $("#addMember").hidden = !can;
+  const note = $("#rosterNote");
+  note.hidden = can; note.textContent = can ? "" : "名簿の編集はオーナー・編集者のみ可能です。表示のみです。";
+  $("#rosterCount").textContent = state.roster.length + "名";
+  const rOpts = v => `<option value="" ${!v?"selected":""}>ランクなし</option>` + RANKS.slice().reverse().map(r => `<option value="${r.k}" ${v===r.k?"selected":""}>${r.nm}</option>`).join("");
+  const mOpts = v => `<option value="" ${!v?"selected":""}>—</option>` + MGMT.slice().reverse().map(m => `<option value="${m.k}" ${v===m.k?"selected":""}>${m.nm}</option>`).join("");
+  const order = {gold:0, silver:1, bronze:2, trainee:3, "":4};
+  const list = state.roster.slice().sort((a,b) => (order[a.rank||""]-order[b.rank||""]));
+  $("#rosterTable").innerHTML = `<thead><tr><th>名前</th><th>営業ランク</th><th>管理ランク</th><th>世代</th><th>表示</th><th>アカウント</th>${can?"<th></th>":""}</tr></thead><tbody>` +
+    (list.length ? list.map(x => `<tr data-rid="${esc(x.id)}">
+      <td>${can ? `<input data-rf="name" value="${esc(x.name)}" maxlength="20" aria-label="名前" style="width:8em">` : esc(x.name)}</td>
+      <td>${can ? `<select data-rf="rank" aria-label="営業ランク">${rOpts(x.rank)}</select>` : esc((RANK[x.rank]||{}).nm || "ランクなし")}</td>
+      <td>${can ? `<select data-rf="mgmt" aria-label="管理ランク">${mOpts(x.mgmt)}</select>` : esc((MG[x.mgmt]||{}).nm || "—")}</td>
+      <td>${can ? `<select data-rf="gen" aria-label="世代"><option value="">未設定</option>${[1,2,3,4,5,6].map(g => `<option value="${g}" ${num(x.gen)===g?"selected":""}>${genName(g)}</option>`).join("")}</select>` : esc(genName(num(x.gen)))}</td>
+      <td class="preview"><span class="badges" style="display:flex;gap:4px;flex-wrap:wrap">${x.rank?rankBadge(x.rank):""}${mgmtBadge(x.mgmt)}${genBadge(num(x.gen))}</span></td>
+      <td>${links[x.id] ? `<span class="tag ok">連携済み</span>` : `<span class="note">未連携</span>`}</td>
+      ${can ? `<td><button class="btn ghost danger small" data-rdel="${esc(x.id)}">${pendingRosterDel===x.id?"もう一度押すと削除":"削除"}</button></td>` : ""}
+    </tr>`).join("") : `<tr><td colspan="7"><span class="note">まだメンバーがいません。${can?"「＋ メンバーを追加」から登録してください。":""}</span></td></tr>`) + `</tbody>`;
+}
+$("#rosterTable").addEventListener("input", e => {
+  const f = e.target.dataset.rf; if (!f) return;
+  const tr = e.target.closest("[data-rid]"); const x = rosterById(tr.dataset.rid); if (!x) return;
+  x[f] = f === "gen" ? (num(e.target.value) || null) : e.target.value; saveRosterSoon();
+  if (e.target.tagName === "SELECT"){ renderRoster(); renderWho(); }
+});
+$("#rosterTable").addEventListener("change", e => { if (e.target.dataset.rf === "name"){ renderLegends(); renderWho(); } });
+$("#rosterTable").addEventListener("click", e => {
+  const b = e.target.closest("[data-rdel]"); if (!b) return;
+  const id = b.dataset.rdel;
+  if (pendingRosterDel !== id){ pendingRosterDel = id; renderRoster(); setTimeout(() => { if (pendingRosterDel===id){ pendingRosterDel=null; renderRoster(); } }, 4000); return; }
+  pendingRosterDel = null; state.roster = state.roster.filter(x => x.id !== id); renderRoster(); saveRoster();
+});
+$("#addMember").addEventListener("click", () => {
+  const x = {id: mkid("m"), name:"", rank:"trainee", mgmt:""};
+  state.roster.push(x); renderRoster(); saveRoster();
+  const el = $(`#rosterTable [data-rid="${x.id}"] input`); if (el) el.focus();
+});
+
+/* who am I */
+let myAvatar = "";
+function renderWho(){
+  const box = $("#meBox");
+  const me = rosterById(state.member.rosterId);
+  const taken = new Set(Object.keys(linkedUids()).filter(id => id !== state.member.rosterId));
+  const opts = `<option value="">あなたは？（名前を選択）</option>` + state.roster.slice().sort((a,b) => a.name.localeCompare(b.name, "ja"))
+    .map(x => `<option value="${esc(x.id)}" ${x.id===state.member.rosterId?"selected":""} ${taken.has(x.id)?"disabled":""}>${esc(x.name)}${taken.has(x.id)?"（連携済み）":""}</option>`).join("");
+  box.className = "who-box";
+  box.innerHTML = (myAvatar ? `<img alt="" src="${esc(myAvatar)}">` : "") +
+    (me ? `<b>${esc(me.name)}</b>${me.rank?rankBadge(me.rank):""}${mgmtBadge(me.mgmt)}` : "") +
+    (state.roster.length ? `<select id="whoSel" aria-label="自分の名前" ${me?'style="width:2.4em" title="名前を変更"':""}>${opts}</select>` : "");
+  const sel = $("#whoSel");
+  if (sel) sel.addEventListener("change", () => { state.member.rosterId = sel.value || ""; saveMember(); renderWho(); renderTeam(); });
+  updateMgrTab();
+}
+
+/* ---------- manager list ---------- */
+function isManager(){
+  if (state.mode !== "db") return true;
+  if (state.isAdmin) return true;
+  const me = rosterById(state.member.rosterId); return !!(me && me.mgmt);
+}
+function updateMgrTab(){
+  const ok = isManager(); $("#tab-mgr").hidden = !ok;
+  if (!ok && !$("section[data-sec=mgr]").hidden) switchTab("team");
+}
+let mgrSort = {k:"rank", dir:1}; const mgrOpen = new Set(); const daysCache = {};
+function rowsForMgr(){
+  const m = state.month;
+  const docs = state.mode === "db" ? state.team.slice() : [{id:"me", data: state.member}];
+  if (state.mode === "db" && state.uid && !docs.find(d => d.id === state.uid)) docs.push({id: state.uid, data: state.member});
+  const byRoster = {}; const loose = [];
+  docs.forEach(d => { const data = d.id === state.uid ? state.member : d.data; const rid = data.rosterId;
+    if (rid && rosterById(rid) && !byRoster[rid]) byRoster[rid] = {uid:d.id, data}; else if (data.months && Object.keys(data.months).length) loose.push({uid:d.id, data}); });
+  const list = state.roster.map(x => ({key:x.id, name:x.name||"（名前未設定）", rank:x.rank||"", mgmt:x.mgmt||"", gen:num(x.gen)||0, link: byRoster[x.id] || null}));
+  loose.forEach((l,i) => list.push({key:"loose"+i, name:"名簿と未連携", rank:"", mgmt:"", gen:0, link:l}));
+  const b = base(); const now = Date.now(); const isCur = m === today.slice(0,7);
+  return list.map(r => {
+    const d = r.link && r.link.data;
+    const g = d ? ((d.months||{})[m] || {}) : {}, s = d ? ((d.summary||{})[m] || {}) : {};
+    const target = num(g.target) || null, D = num(g.days) || 20, logged = s.logged || 0;
+    const q = target ? (s.kan||0)/target : null, el = D ? logged/D : 0;
+    const rate = (a, c) => c > 0 ? a/c : null;
+    const o = Object.assign(r, {
+      has: !!d && (!!target || logged > 0), target, kan:s.kan||0, t:s.t||0, ap:s.ap||0, apo:s.apo||0, sho:s.sho||0, kei:s.kei||0, logged, D,
+      q, el, late: q!=null && q < el*0.95,
+      dayApo: logged ? (s.apo||0)/logged : null, apRate: rate(s.ap||0, s.t||0), apoRate: rate(s.apo||0, s.ap||0),
+      shoRate: rate(s.sho||0, s.apo||0), kanRate: rate(s.kan||0, s.sho||0), doRate: s.doRate ?? null,
+      issues: d ? (d.issues||[]).filter(x => x.status === "実行中" || x.status === "未着手") : [],
+      upd: d && d.updatedAt ? d.updatedAt : null
+    });
+    o.stale = isCur && o.has && (!o.upd || now - o.upd > 2*86400000);
+    o.apoSt = status(o.dayApo, b.dayApo); o.shoSt = status(o.shoRate, b.shoRate/100); o.kanSt = status(o.kanRate, b.kanRate/100);
+    return o;
+  });
+}
+const RANK_ORDER = {gold:0, silver:1, bronze:2, trainee:3, "":4};
+const MG_ORDER = {exec:-1, mgr:0, am:1, tl:2, brother:3, "":4};
+const MCOLS = [
+  {k:"rank", nm:"メンバー", l:true, v:r => RANK_ORDER[r.rank]*10 + MG_ORDER[r.mgmt]},
+  {k:"gen", nm:"世代", l:true, v:r => r.gen || 99},
+  {k:"q", nm:"完工 達成率", v:r => r.q ?? -1},
+  {k:"t", nm:"対応", v:r => r.t}, {k:"ap", nm:"アプ", v:r => r.ap}, {k:"apo", nm:"アポ", v:r => r.apo},
+  {k:"sho", nm:"商談", v:r => r.sho}, {k:"kei", nm:"契約", v:r => r.kei},
+  {k:"apRate", nm:"対応アプ率", v:r => r.apRate ?? -1}, {k:"apoRate", nm:"アプアポ率", v:r => r.apoRate ?? -1},
+  {k:"dayApo", nm:"出勤アポ率", v:r => r.dayApo ?? -1}, {k:"shoRate", nm:"商談アポ率", v:r => r.shoRate ?? -1},
+  {k:"kanRate", nm:"商談完工率", v:r => r.kanRate ?? -1}, {k:"doRate", nm:"DO実行率", v:r => r.doRate ?? -1},
+  {k:"logged", nm:"日報", v:r => r.logged}, {k:"issues", nm:"実行中の課題", l:true, v:r => r.issues.length}, {k:"upd", nm:"最終更新", v:r => r.upd || 0}
+];
+function renderMgr(){
+  if ($("section[data-sec=mgr]").hidden) return;
+  let rows = rowsForMgr();
+  const all = rows;
+  const rf = $("#mgrRank").value, ff = $("#mgrFlag").value;
+  if (rf) rows = rows.filter(r => rf === "-" ? !r.rank : r.rank === rf);
+  const gf = $("#mgrGen").value; if (gf !== "") rows = rows.filter(r => r.gen === Number(gf));
+  if (ff === "late") rows = rows.filter(r => r.late);
+  if (ff === "stale") rows = rows.filter(r => r.stale);
+  if (ff === "apo") rows = rows.filter(r => r.apoSt === "bad" || r.apoSt === "warn");
+  if (ff === "do") rows = rows.filter(r => r.doRate != null && r.doRate < 0.8);
+  if (ff === "none") rows = rows.filter(r => !r.has);
+  const col = MCOLS.find(c => c.k === mgrSort.k) || MCOLS[0];
+  rows.sort((a,b) => (col.v(a) - col.v(b)) * mgrSort.dir || (b.q??-1) - (a.q??-1));
+
+  const act = all.filter(r => r.has);
+  const doAvg = act.filter(r => r.doRate != null); const avgDo = doAvg.length ? doAvg.reduce((s,r) => s + r.doRate, 0)/doAvg.length : null;
+  const tile = (k, v, sub, cls) => `<div class="tile"><span class="label-sm">${k}</span><b class="${cls||""}">${v}</b><span class="note">${sub}</span></div>`;
+  $("#mgrTiles").innerHTML =
+    tile("入力メンバー", `${act.length} / ${all.length}名`, "今月の目標か日報がある人") +
+    tile("達成ペース遅れ", `${all.filter(r => r.late).length}名`, "完工が日数の進みより遅い", all.some(r => r.late) ? "cell-bad" : "") +
+    tile("日報2日以上未更新", `${all.filter(r => r.stale).length}名`, "声かけ対象", all.some(r => r.stale) ? "cell-warn" : "") +
+    tile("出勤アポ率 基準未達", `${all.filter(r => r.apoSt === "bad" || r.apoSt === "warn").length}名`, `基準 ${f1(base().dayApo)}件/日`) +
+    tile("平均DO実行率", qtxt(avgDo), "行動の実行度");
+
+  const pc = v => v==null ? "–" : f1(v*100)+"%";
+  const cc = st => st ? "cell-"+st : "";
+  const doCls = v => v==null ? "" : v >= 0.8 ? "cell-ok" : v >= 0.5 ? "cell-warn" : "cell-bad";
+  if ($("#mgrView").value === "gen"){ $("#mgrTable").innerHTML = genTable(rows, pc, cc, doCls); return; }
+  let h = `<thead><tr>${MCOLS.map(c => `<th data-sort="${c.k}" class="${c.l?"l":""} ${mgrSort.k===c.k?"sorted":""}">${c.nm}${mgrSort.k===c.k?(mgrSort.dir>0?" ▲":" ▼"):""}</th>`).join("")}</tr></thead><tbody>`;
+  if (!rows.length) h += `<tr><td colspan="${MCOLS.length}" class="l"><span class="note">該当するメンバーはいません。</span></td></tr>`;
+  rows.forEach(r => {
+    const open = mgrOpen.has(r.key);
+    const qc = r.q==null ? "" : r.late ? (r.q < r.el*0.8 ? "bad" : "warn") : "ok";
+    const updTxt = r.upd ? new Date(r.upd).toLocaleDateString("ja-JP",{month:"numeric",day:"numeric"}) : "–";
+    h += `<tr class="mrow ${open?"open":""} ${r.has?"":"nodata"}" data-key="${esc(r.key)}" tabindex="0" aria-expanded="${open}">
+      <td class="l"><div class="nm"><b>${esc(r.name)}</b><span>${r.rank?rankBadge(r.rank):""}${mgmtBadge(r.mgmt)}</span></div></td>
+      <td class="l">${r.gen ? genBadge(r.gen) : `<span class="note">—</span>`}</td>
+      <td>${r.has ? `<div class="ach"><span class="${cc(qc)}">${r.q==null?"目標未設定":Math.round(r.q*100)+"%"}</span><div class="mbar ${qc}"><i style="width:${r.q==null?0:Math.min(100,r.q*100)}%"></i></div><span class="note">${r.kan} / ${r.target??"–"}件</span></div>` : `<span class="note">未入力</span>`}</td>
+      <td class="num">${r.t}</td><td class="num">${r.ap}</td><td class="num">${r.apo}</td><td class="num">${r.sho}</td><td class="num">${r.kei}</td>
+      <td class="num">${pc(r.apRate)}</td><td class="num">${pc(r.apoRate)}</td>
+      <td class="num ${cc(r.apoSt)}">${r.dayApo==null?"–":f1(r.dayApo)}</td>
+      <td class="num ${cc(r.shoSt)}">${pc(r.shoRate)}</td><td class="num ${cc(r.kanSt)}">${pc(r.kanRate)}</td>
+      <td class="num ${doCls(r.doRate)}">${qtxt(r.doRate)}</td>
+      <td class="num">${r.logged}/${r.D}日</td>
+      <td class="l" style="white-space:normal;min-width:12em">${r.issues.length ? `<b>${r.issues.length}件</b> <span class="note">${esc(r.issues[0].title||"無題")}</span>` : `<span class="note">なし</span>`}</td>
+      <td class="num ${r.stale && r.has ? "cell-warn" : ""}">${updTxt}</td></tr>`;
+    if (open) h += `<tr class="detail"><td colspan="${MCOLS.length}" id="det-${esc(r.key)}">${detailHtml(r)}</td></tr>`;
+  });
+  $("#mgrTable").innerHTML = h + `</tbody>`;
+}
+function genTable(rows, pc, cc, doCls){
+  const b = base();
+  const gens = [...new Set(rows.map(r => r.gen))].sort((a,b) => (a||99) - (b||99));
+  const agg = gens.map(g => {
+    const rs = rows.filter(r => r.gen === g), act = rs.filter(r => r.has);
+    const sum = k => act.reduce((s,r) => s + (r[k]||0), 0);
+    const target = act.reduce((s,r) => s + (r.target||0), 0), kan = sum("kan"), t = sum("t"), ap = sum("ap"), apo = sum("apo"), sho = sum("sho"), logged = sum("logged");
+    const dr = act.filter(r => r.doRate != null);
+    const q = target ? kan/target : null;
+    const el = act.length ? act.reduce((s,r) => s + r.el, 0)/act.length : 0;
+    return {g, n:rs.length, inN:act.length, names: rs.map(r => r.name).join("、"), target, kan, t, apo, sho, q, late: q!=null && q < el*0.95, el,
+      apRate: t ? ap/t : null, apoRate: ap ? apo/ap : null, dayApo: logged ? apo/logged : null, shoRate: apo ? sho/apo : null, kanRate: sho ? kan/sho : null,
+      doRate: dr.length ? dr.reduce((s,r) => s + r.doRate, 0)/dr.length : null, lateN: rs.filter(r => r.late).length, staleN: rs.filter(r => r.stale).length};
+  });
+  const head = ["世代","人数（入力）","完工 達成率","対応","アポ","商談","対応アプ率","アプアポ率","出勤アポ率","商談アポ率","商談完工率","平均DO実行率","ペース遅れ","2日以上未更新"];
+  let h = `<thead><tr>${head.map((x,i) => `<th class="${i===0?"l":""}" style="cursor:default">${x}</th>`).join("")}</tr></thead><tbody>`;
+  if (!agg.length) h += `<tr><td colspan="${head.length}" class="l"><span class="note">該当するメンバーはいません。</span></td></tr>`;
+  agg.forEach(a => {
+    const qc = a.q==null ? "" : a.late ? (a.q < a.el*0.8 ? "bad" : "warn") : "ok";
+    h += `<tr class="grow" data-gen="${a.g}" tabindex="0" title="押すとこの世代の個人一覧を表示">
+      <td class="l"><div class="nm">${a.g ? genBadge(a.g) : `<span class="gen">世代未設定</span>`}<span class="note" style="white-space:normal">${esc(a.names)}</span></div></td>
+      <td class="num">${a.n}名（${a.inN}）</td>
+      <td>${a.inN ? `<div class="ach"><span class="cell-${qc}">${a.q==null?"目標未設定":Math.round(a.q*100)+"%"}</span><div class="mbar ${qc}"><i style="width:${a.q==null?0:Math.min(100,a.q*100)}%"></i></div><span class="note">${a.kan} / ${a.target||"–"}件</span></div>` : `<span class="note">未入力</span>`}</td>
+      <td class="num">${a.t}</td><td class="num">${a.apo}</td><td class="num">${a.sho}</td>
+      <td class="num">${pc(a.apRate)}</td><td class="num">${pc(a.apoRate)}</td>
+      <td class="num ${cc(status(a.dayApo, b.dayApo))}">${a.dayApo==null?"–":f1(a.dayApo)}</td>
+      <td class="num ${cc(status(a.shoRate, b.shoRate/100))}">${pc(a.shoRate)}</td><td class="num ${cc(status(a.kanRate, b.kanRate/100))}">${pc(a.kanRate)}</td>
+      <td class="num ${doCls(a.doRate)}">${qtxt(a.doRate)}</td>
+      <td class="num ${a.lateN?"cell-bad":""}">${a.lateN}名</td><td class="num ${a.staleN?"cell-warn":""}">${a.staleN}名</td></tr>`;
+  });
+  return h + `</tbody>`;
+}
+function detailHtml(r){
+  if (!r.link) return `<span class="note">まだこのページで入力していません（右上の「あなたは？」で名前を選んでもらう必要があります）。</span>`;
+  const ck = r.link.uid + "/" + state.month; const days = (state.mode !== "db" || r.link.uid === state.uid) ? state.days : daysCache[ck];
+  const s = (r.link.data.summary||{})[state.month] || {t:0,ap:0,apo:0,sho:0,kei:0,kan:0,logged:0};
+  const iss = r.issues.map(it => {
+    const k = kpiOf(it, s), ds = days ? doStats(it, days) : null;
+    const M = METRICS[it.metric] || METRICS.other;
+    const tgt = it.kpiTarget==null ? "–" : f1(it.kpiTarget) + (it.metric==="other" ? (it.kpiUnit||"") : (M.pct ? "%" : M.unit));
+    return `<div class="it"><b>${esc(it.title||"無題の課題")}</b>
+      <div class="row"><span class="note">KPI：${esc(it.metric==="other" ? (it.kpiName||"その他") : M.nm)} 目標 ${tgt}／実績 ${k.label}</span>
+      <span class="${k.q==null?"":k.q>=1?"cell-ok":k.q>=0.8?"cell-warn":"cell-bad"}">達成 ${qtxt(k.q)}</span>
+      <span class="${ds&&ds.rate!=null?(ds.rate>=0.8?"cell-ok":ds.rate>=0.5?"cell-warn":"cell-bad"):""}">DO ${ds ? qtxt(ds.rate) : "…"}</span></div>
+      ${it.solutions.length ? `<div class="note">解決案：${it.solutions.map(x => esc(x.text||"—")).join(" ／ ")}</div>` : ""}</div>`;
+  }).join("") || `<p class="note">実行中の課題はありません。</p>`;
+  let recent = `<p class="note">日報を読み込み中…</p>`;
+  if (days){
+    const list = Object.values(days).filter(d => d.savedAt).sort((a,b) => b.date < a.date ? -1 : 1).slice(0, 7);
+    recent = list.length ? `<div class="tscroll"><table class="t"><thead><tr><th>日付</th><th>対応</th><th>アポ</th><th>商談</th><th>完工</th><th>DO</th><th class="l">できなかった要因／明日の調整</th></tr></thead><tbody>` +
+      list.map(d => { const a = d.actual || {}; return `<tr><td>${esc(d.date.slice(5).replace("-","/"))}</td><td class="num">${a.t??"–"}</td><td class="num">${a.apo??"–"}</td><td class="num">${a.sho??"–"}</td><td class="num">${a.kan??"–"}</td><td class="num">${d.doRate==null?"–":Math.round(d.doRate*100)+"%"}</td><td class="wrap">${esc([d.bad, d.next].filter(Boolean).join(" → ") || "—")}</td></tr>`; }).join("") + `</tbody></table></div>`
+      : `<p class="note">今月の日報はまだありません。</p>`;
+  }
+  return `<div class="det"><div><h4>実行中の課題（鬼速PDCA）</h4>${iss}</div><div><h4>直近の日報</h4>${recent}</div></div>`;
+}
+async function loadDaysFor(r){
+  if (!r.link) return;
+  const ck = r.link.uid + "/" + state.month; if (daysCache[ck]) return;
+  if (state.mode !== "db" || r.link.uid === state.uid){ daysCache[ck] = Object.assign({}, state.days); return; }
+  try{
+    const snap = await db.collection("team/" + r.link.uid + "/days").where("month","==",state.month).get();
+    const o = {}; snap.docs.forEach(d => o[d.id] = d.data()); daysCache[ck] = o;
+  }catch(e){ daysCache[ck] = {}; }
+}
+$("#mgrTable").addEventListener("click", async e => {
+  const th = e.target.closest("th[data-sort]");
+  if (th){ const k = th.dataset.sort; mgrSort = {k, dir: mgrSort.k === k ? -mgrSort.dir : (k==="rank" ? 1 : -1)}; renderMgr(); return; }
+  const gr = e.target.closest("tr.grow");
+  if (gr){ $("#mgrGen").value = gr.dataset.gen; $("#mgrView").value = "person"; renderMgr(); return; }
+  const tr = e.target.closest("tr.mrow"); if (!tr) return;
+  const key = tr.dataset.key;
+  if (mgrOpen.has(key)){ mgrOpen.delete(key); renderMgr(); return; }
+  mgrOpen.add(key); renderMgr();
+  const r = rowsForMgr().find(x => x.key === key);
+  if (r){ await loadDaysFor(r); if (mgrOpen.has(key)) renderMgr(); }
+});
+$("#mgrTable").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr.mrow, tr.grow")){ e.preventDefault(); e.target.click(); } });
+["mgrRank","mgrFlag","mgrGen"].forEach(id => $("#"+id).addEventListener("change", renderMgr));
+$("#mgrView").addEventListener("change", () => { try{ localStorage.setItem("sgn2_mgrView", $("#mgrView").value); }catch(e){} renderMgr(); });
+$("#teamGroup").addEventListener("change", () => { try{ localStorage.setItem("sgn2_teamGroup", $("#teamGroup").value); }catch(e){} renderTeam(); });
+try{ const v = localStorage.getItem("sgn2_teamGroup"); if (v) $("#teamGroup").value = v; const w = localStorage.getItem("sgn2_mgrView"); if (w) $("#mgrView").value = w; }catch(e){}
+
+/* ---------- team ---------- */
+function statsOf(data, m){
+  const g = (data.months||{})[m] || {}, s = (data.summary||{})[m] || {};
+  const target = num(g.target)||0, kan = s.kan||0;
+  return {g, s, target, kan, r: target ? Math.round(kan/target*100) : 0, dayApo: s.logged ? s.apo/s.logged : null};
+}
+function memberCard(o){
+  const {name, rank, mgmt, data, isMe, avatar, gen} = o;
+  const badges = `<div class="badges">${rankBadge(rank)}${mgmtBadge(mgmt, true)}${genBadge(gen)}</div>`;
+  const av = avatar ? `<img class="av" alt="" src="${esc(avatar)}">` : `<span class="av">${esc((name||"?").slice(0,1))}</span>`;
+  if (!data){
+    return `<div class="mcard ${rank||""} empty-card">${badges}<div class="who">${av}<div><b>${esc(name)}</b><span class="note">まだ入力がありません</span></div></div></div>`;
+  }
+  const st = statsOf(data, state.month);
+  const issues = (data.issues||[]).filter(x => x.status === "実行中" || x.status === "未着手");
+  const ds = status(st.dayApo, base().dayApo);
+  const upd = data.updatedAt ? new Date(data.updatedAt).toLocaleDateString("ja-JP",{month:"numeric",day:"numeric"}) : "";
+  return `<div class="mcard ${rank||""} ${isMe?"is-me":""}">${badges}
+    <div class="who">${av}<div><b>${esc(name)}${isMe?"（あなた）":""}</b><span class="note">${upd?"更新 "+upd:""}</span></div></div>
+    ${st.g.theme?`<p class="theme">「${esc(st.g.theme)}」</p>`:""}
+    <div><span class="bignum">${st.r}%</span> <span class="note">完工 ${st.kan} / ${st.target||"未設定"}件</span></div>
+    <div class="bar" style="height:10px"><i style="width:${Math.min(100,st.r)}%"></i></div>
+    <div class="row"><span class="note">出勤アポ率</span><span class="num" style="font-weight:700">${f1(st.dayApo)}件</span>${ds?`<span class="tag ${ds}">${ds==="ok"?"基準以上":ds==="warn"?"やや低い":"基準未達"}</span>`:""}
+      <span class="spacer"></span><span class="note">DO実行率</span><span class="num" style="font-weight:700">${st.s.doRate==null?"–":Math.round(st.s.doRate*100)+"%"}</span></div>
+    <div class="mini"><div><b>${st.s.t||0}</b>対応</div><div><b>${st.s.apo||0}</b>アポ</div><div><b>${st.s.sho||0}</b>商談</div><div><b>${st.kan}</b>完工</div></div>
+    <p class="note">${issues.length?"実行中の課題（"+issues.length+"）："+esc(issues[0].title||"無題"):"実行中の課題なし"}</p></div>`;
+}
+async function renderTeam(){ renderSquad(); }
+
+/* ---------- boot ---------- */
+let ROSTER = [];
+let ROSTER_META = {};   /* { 氏名: { rank, gen } } */
+
+/* 営業ランク（下から上の順。上ほど優れています） */
+const RANKS = ["研修生", "ブロンズ", "シルバー", "ゴールド"];
+/* 管理ランク */
+const MGMT = ["ブラザー", "チームリーダー", "アシスタントマネージャー", "マネージャー", "役員"];
+/* 世代 */
+const GENS = ["第一世代", "第二世代", "第三世代"];
+
+/* ランクの見た目（上位ほど華やか） */
+const RANK_STYLE = {
+  "ゴールド":   { bg:"linear-gradient(135deg,#F7D774,#C9962B)", fg:"#3B2A05", ring:"#C9962B", star:"★★★" },
+  "シルバー":   { bg:"linear-gradient(135deg,#E3E8EF,#AAB4C2)", fg:"#2A3340", ring:"#AAB4C2", star:"★★" },
+  "ブロンズ":   { bg:"linear-gradient(135deg,#E6BE9A,#B07443)", fg:"#3A2415", ring:"#B07443", star:"★" },
+  "研修生":     { bg:"#EEF1F6", fg:"#5B6577", ring:"#DCE1EA", star:"" },
+  "未設定":     { bg:"#EEF1F6", fg:"#9AA3B2", ring:"#DCE1EA", star:"" }
+};
+const rankStyle = (r) => RANK_STYLE[r] || RANK_STYLE["未設定"];
+function rankBadge(r){
+  const st = rankStyle(r || "未設定");
+  return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;background:'
+    + st.bg + ';color:' + st.fg + ';box-shadow:inset 0 0 0 1px ' + st.ring + '">'
+    + (st.star ? '<span style="font-size:9px;letter-spacing:-1px">' + st.star + '</span>' : '')
+    + esc(r || "未設定") + '</span>';
+}
+
+/* 初期のランク・世代（管理者が画面から変更できます） */
+const DEFAULT_META = (() => {
+  const m = {};
+  const put = (names, key, val) => names.forEach(n => { m[n] = Object.assign({}, m[n], { [key]: val }); });
+  put(["保坂", "扇田", "石"], "rank", "研修生");
+  put(["藤代", "鄭", "伊藤"], "rank", "ブロンズ");
+  put(["佐伯", "三瀬"], "rank", "シルバー");
+  put(["山﨑", "坂神", "大川", "沼口", "森野"], "rank", "ゴールド");
+
+  put(["沼口", "佐伯", "山﨑", "三瀬"], "mgmt", "ブラザー");
+  put(["橋本", "熊澤"], "mgmt", "アシスタントマネージャー");
+  put(["森野"], "mgmt", "マネージャー");
+  put(["斉藤"], "mgmt", "役員");
+
+  put(["佐伯", "坂神", "山﨑"], "gen", "第一世代");
+  put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", "第二世代");
+  put(["扇田", "保坂"], "gen", "第三世代");
+  return m;
+})();
+
+function metaOf(name){
+  return Object.assign({}, DEFAULT_META[name] || {}, ROSTER_META[name] || {});
+}
+function groupKeyOf(member, mode){
+  if (mode === "rank") return metaOf(member.name).rank || "未設定";
+  if (mode === "mgmt") return metaOf(member.name).mgmt || "一般";
+  if (mode === "gen") return metaOf(member.name).gen || "未設定";
+  if (mode === "branch") return member.branch || "未設定";
+  return member.role === "closer" ? "クローザー" : "アポインター";
+}
+
+/* 指定月の実績を全メンバー分まとめます */
+function squadRows(month){
+  return ROSTER.map(r => ({ ...r, ...actualsFromLog(r.name, month) }));
+}
+
+function sumRows(rows){
+  const k = ["days","t","ap","apo","sho","kei","kan"];
+  const out = {}; k.forEach(x => out[x] = rows.reduce((a,r) => a + (r[x]||0), 0));
+  out.n = rows.length;
+  return out;
+}
+
+const rateTxt = (to, from) => (from > 0 ? (Math.round((to/from)*1000)/10) + "%" : "–");
+
+function renderSquad(){
+  if (!document.getElementById("sqSummary")) return;
+  const month = state.month;
+  const sel = document.getElementById("teamGroup");
+  const mode = sel ? sel.value : "rank";
+
+  const rows = squadRows(month);
+  const groups = {};
+  rows.forEach(r => {
+    const key = groupKeyOf(r, mode);
+    (groups[key] = groups[key] || []).push(r);
+  });
+
+  /* 上位ランクを先に表示します */
+  const order = mode === "rank" ? RANKS.slice().reverse().concat(["未設定"])
+    : mode === "mgmt" ? MGMT.slice().reverse().concat(["一般"])
+    : mode === "gen" ? GENS.concat(["未設定"])
+    : Object.keys(groups).sort();
+  const keys = order.filter(k => groups[k]).concat(Object.keys(groups).filter(k => order.indexOf(k) < 0));
+
+  /* 区分ごとのまとめ */
+  let html = '<div style="overflow-x:auto"><table style="width:100%;min-width:760px;border-collapse:collapse;font-size:13px">';
+  html += '<thead><tr style="background:var(--accent-soft);color:var(--accent)">' +
+    ["区分","人数","出勤","対応","アプ","アポ","商談","契約","対応アプ率","アプアポ率","アポ商談率","商談契約率"]
+      .map(h => '<th style="padding:8px;text-align:left;white-space:nowrap">'+h+'</th>').join("") +
+    '</tr></thead><tbody>';
+  keys.forEach(k => {
+    const s2 = sumRows(groups[k]);
+    const head = (mode === "rank") ? rankBadge(k) : '<span style="font-weight:700">'+esc(k)+'</span>';
+    html += '<tr style="border-bottom:1px solid var(--line)">' +
+      '<td style="padding:8px">'+head+'</td>' +
+      '<td style="padding:8px">'+s2.n+'</td>' +
+      '<td style="padding:8px">'+s2.days+'</td>' +
+      '<td style="padding:8px">'+s2.t+'</td>' +
+      '<td style="padding:8px">'+s2.ap+'</td>' +
+      '<td style="padding:8px">'+s2.apo+'</td>' +
+      '<td style="padding:8px">'+s2.sho+'</td>' +
+      '<td style="padding:8px">'+s2.kei+'</td>' +
+      '<td style="padding:8px">'+rateTxt(s2.ap, s2.t)+'</td>' +
+      '<td style="padding:8px">'+rateTxt(s2.apo, s2.ap)+'</td>' +
+      '<td style="padding:8px">'+rateTxt(s2.sho, s2.apo)+'</td>' +
+      '<td style="padding:8px">'+rateTxt(s2.kei, s2.sho)+'</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table></div>';
+  document.getElementById("sqSummary").innerHTML = html;
+
+  /* 区分ごとのメンバー内訳 */
+  let d = "";
+  keys.forEach(k => {
+    const list = groups[k].slice().sort((a,b) => (b.apo||0) - (a.apo||0));
+    d += '<h3 style="font-size:14px;margin:16px 0 6px;display:flex;align-items:center;gap:8px">'
+      + ((mode === "rank") ? rankBadge(k) : '<span>'+esc(k)+'</span>')
+      + '<span style="color:var(--muted);font-weight:400;font-size:12px">'+list.length+'名</span></h3>';
+    d += '<div style="overflow-x:auto"><table style="width:100%;min-width:700px;border-collapse:collapse;font-size:13px"><tbody>';
+    list.forEach(r => {
+      d += '<tr style="border-bottom:1px solid var(--line)">' +
+        '<td style="padding:7px;font-weight:700;white-space:nowrap">'+esc(r.name)+'</td>' +
+        '<td style="padding:7px;white-space:nowrap">'+rankBadge(metaOf(r.name).rank)+'</td>' +
+        '<td style="padding:7px;color:var(--muted);white-space:nowrap;font-size:12px">'+esc(metaOf(r.name).gen||"")+'</td>' +
+        '<td style="padding:7px">出勤 '+r.days+'</td>' +
+        '<td style="padding:7px">対応 '+r.t+'</td>' +
+        '<td style="padding:7px">アポ '+r.apo+'</td>' +
+        '<td style="padding:7px">商談 '+r.sho+'</td>' +
+        '<td style="padding:7px">契約 '+r.kei+'</td>' +
+        '<td style="padding:7px;color:var(--muted)">アプアポ '+rateTxt(r.apo, r.ap)+'</td>' +
+        '</tr>';
+    });
+    d += '</tbody></table></div>';
+  });
+  document.getElementById("sqDetail").innerHTML = d;
+
+  renderSquadEdit();
+}
+
+function renderSquadEdit(){
+  const box = document.getElementById("sqEdit");
+  if (!box) return;
+  const canEdit = !!(ME && ME.admin);
+  box.hidden = !canEdit;
+  if (!canEdit) return;
+
+  let html = '<div style="overflow-x:auto"><table style="width:100%;min-width:520px;border-collapse:collapse;font-size:13px"><tbody>';
+  ROSTER.forEach(r => {
+    const m = metaOf(r.name);
+    const pick = (id, list, val) =>
+      '<select data-meta="'+id+'" data-name="'+esc(r.name)+'" style="padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">' +
+      '<option value="">未設定</option>' +
+      list.map(x => '<option value="'+x+'"'+(val===x?" selected":"")+'>'+x+'</option>').join("") +
+      '</select>';
+    html += '<tr style="border-bottom:1px solid var(--line)">' +
+      '<td style="padding:7px;font-weight:700;white-space:nowrap">'+esc(r.name)+'</td>' +
+      '<td style="padding:7px;color:var(--muted)">'+esc(r.branch||"")+'</td>' +
+      '<td style="padding:7px">'+pick("rank", RANKS, m.rank||"")+'</td>' +
+      '<td style="padding:7px">'+pick("mgmt", MGMT, m.mgmt||"")+'</td>' +
+      '<td style="padding:7px">'+pick("gen", GENS, m.gen||"")+'</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table></div>';
+  document.getElementById("sqEditTable").innerHTML = html;
+}
+
+/* 設定の変更を保存 */
+document.addEventListener("change", async (e) => {
+  const el = e.target;
+  if (!el || !el.dataset || !el.dataset.meta) return;
+  const name = el.dataset.name, key = el.dataset.meta;
+  ROSTER_META[name] = Object.assign({}, ROSTER_META[name], { [key]: el.value });
+  try{
+    await api("saveRosterMeta", ROSTER_META, apiToken());
+    renderSquad();
+  }catch(err){ showBanner("保存できませんでした。もう一度お試しください。"); }
+});
+
+document.addEventListener("change", (e) => {
+  if (e.target && e.target.id === "teamGroup") renderSquad();
+});
+
+/* メンバー画面に、編集はログ側で行う旨を表示します */
+function showRosterNote(){
+  const sec = document.querySelector("section[data-sec=members]");
+  if (!sec || sec.querySelector(".roster-note")) return;
+  const p = document.createElement("p");
+  p.className = "roster-note";
+  p.textContent = ME && ME.admin
+    ? "メンバーと支店は営業ログ側で管理しています。追加・変更は管理者が営業ログの設定から行ってください。"
+    : "メンバーと支店は営業ログ側で管理しています。変更が必要な場合は管理者にご依頼ください。";
+  sec.insertBefore(p, sec.firstChild);
+}
+
+/* 営業ログから受け取ったデータを取り込みます */
+function applyShared(d){
+  LOG = { logs: d.logs || [], targets: d.targets || {}, navi: d.navi || {} };
+  ROSTER_META = d.rosterMeta || ROSTER_META || {};
+  const mine = (LOG.navi || {})[ME ? ME.name : ""] || null;
+  /* 編集中の内容を失わないよう、保存済みより新しい手元の変更は残します */
+  const incoming = normMember(mine);
+  if (!state.member || !state.member.updatedAt || (incoming.updatedAt || 0) >= (state.member.updatedAt || 0)) {
+    state.member = incoming;
+  }
+}
+
+/* 30秒ごとに他の人の入力を取り込みます */
+let autoSyncTimer = null;
+function startAutoSync(){
+  if (autoSyncTimer) clearInterval(autoSyncTimer);
+  autoSyncTimer = setInterval(async () => {
+    if (document.hidden) return;
+    try{
+      const d = await api("getData", apiToken());
+      if (!d) return;
+      applyShared(d);
+      await loadMonthDays();
+      syncCurFromLog();
+      renderAll(); renderWho(); renderTeam();
+      if (!document.querySelector("section[data-sec=team]").hidden) renderSquad();
+    }catch(e){}
+  }, 30000);
+}
+
+/* 営業ログの実績を、ナビの「現状」に反映します */
+function syncCurFromLog(){
+  if (state.mode !== "api" || !ME) return;
+  const a = actualsFromLog(ME.name, state.month);
+  if (!a.days && !a.t && !a.apo) return;
+  setMonth({ cur: a, curFromLog: true });
+  renderAll();
+}
+
+function normMember(m){ const o = Object.assign({base:{}, months:{}, issues:[], summary:{}}, m||{}); o.issues = (o.issues||[]).map(normIssue); return o; }
+function renderAll(){ setMode(); fillGoalForm(); renderGoal(); renderIssues(); fillDayForm(); renderStrip(); }
+$("#monthSel").value = state.month;
+try{ const t = localStorage.getItem("sgn2_tab"); if (t) switchTab(t); }catch(e){}
+state.member = normMember(LS.get("member", null));
+renderAll();
+
+async function startLocal(){
+  state.mode = "local"; state.member = normMember(LS.get("member", null));
+  state.roster = ((LS.get("roster", null)||{}).members || []).map(x => Object.assign({}, x)); state.isAdmin = true;
+  await loadMonthDays(); renderAll(); renderWho(); renderRoster(); renderTeam();
+}
+async function boot(){
+  /* 営業ログと同じログイン情報で接続します */
+  const token = apiToken();
+  if (token){
+    try{
+      const res = await api("resume", token);
+      if (res && res.ok){
+        ME = res.me;
+        applyShared(res.data || {});
+        state.mode = "api";
+        state.uid = ME.name;
+        state.isAdmin = !!ME.admin;
+        /* 名簿は営業ログの登録メンバーを使います */
+        try{ ROSTER = await api("roster", token); }catch(e){ ROSTER = []; }
+        ROSTER_META = (res.data || {}).rosterMeta || {};
+        state.roster = ROSTER.map(r => ({ id: r.name, name: r.name, group: r.branch, role: r.role === "closer" ? "クローザー" : "アポインター" }));
+        try{ await loadMonthDays(); }catch(e){}
+        try{ renderAll(); }catch(e){}
+        try{ renderWho(); }catch(e){}
+        try{ renderRoster(); }catch(e){}
+        try{ syncCurFromLog(); }catch(e){}
+        try{ renderSquad(); }catch(e){}
+        startAutoSync();
+        document.body.setAttribute("data-roster", "locked");
+        showRosterNote();
+        setMode();
+        return;
+      }
+    }catch(e){}
+  }
+  /* ログインしていない場合は入口ページへ戻します */
+  location.href = "./index.html?next=navi";
+  return;
+}
+
+async function bootFallback(){
+  if (!window.claude || !window.claude.use) return startLocal();
+  try{ [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]); }catch(e){ db = null; }
+  if (!db || !user) return startLocal();
+  try{ state.uid = await user.id(); }catch(e){ state.uid = null; }
+  if (!state.uid) return startLocal();
+  state.mode = "db";
+  try{
+    const me = await user.me(); myAvatar = me.avatarUrl || "";
+  }catch(e){}
+  try{ const snap = await memberRef().get(); state.member = normMember(snap.exists ? snap.data() : null); }
+  catch(e){ showBanner("データを読み込めませんでした。ページを開き直してください。"); }
+  await loadMonthDays(); renderAll();
+  let canW = null; try{ canW = await user.can("data.write"); }catch(e){}
+  if (canW === false) setReadOnly();
+  try{ state.isAdmin = !!(await user.canEdit()); }catch(e){ state.isAdmin = false; }
+  renderWho(); renderRoster();
+  db.doc("config/roster").onSnapshot(snap => {
+    const d = snap.exists ? snap.data() : null;
+    if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#rosterTable")) return;
+    state.roster = (d && Array.isArray(d.members)) ? d.members.map(x => Object.assign({}, x)) : [];
+    renderWho(); renderRoster(); renderMgr(); if (!$("section[data-sec=team]").hidden) renderTeam();
+  }, () => {});
+  db.collection("team").onSnapshot(snap => {
+    state.team = snap.docs.map(d => ({id:d.id, data:d.data()||{}}));
+    renderWho();
+    if (!$("section[data-sec=team]").hidden) renderTeam();
+    if (!$("section[data-sec=members]").hidden) renderRoster();
+    renderMgr();
+  }, () => {});
+}
+boot().catch((e) => {
+  try{ showBanner("読み込みに失敗しました：" + (e && e.message ? e.message : e)); }
+  catch(x){ document.body.insertAdjacentHTML("afterbegin", '<p style="padding:16px;color:#C8442F">読み込みに失敗しました</p>'); }
+});
+
+/* 月を切り替えたら、その月の実績を取り込み直します */
+document.addEventListener("change", (e) => {
+  if (e.target && e.target.id === "monthPick") setTimeout(syncCurFromLog, 50);
+});
+})();
+</script>
+
+</body></html>

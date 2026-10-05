@@ -1967,6 +1967,13 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
           <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
             目標達成 {okCount} / {FUNNEL.length}
           </span>
+          <a
+            href="./navi.html"
+            className="rounded-lg border px-4 py-2 text-sm font-semibold transition hover:bg-slate-50"
+            style={{ borderColor: NAVY, color: NAVY }}
+          >
+            目標ナビ
+          </a>
           <button
             onClick={onGoInput}
             className="rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
@@ -5637,7 +5644,17 @@ function App() {
           })}
         </nav>
 
-        <div className="m-5 rounded-lg p-4" style={{ backgroundColor: NAVY_SOFT }}>
+        <div className="mx-5 mb-2">
+          <a
+            href="./navi.html"
+            className="flex items-center justify-center gap-2 rounded-lg bg-white py-2.5 text-sm font-bold shadow-sm transition hover:opacity-90"
+            style={{ color: NAVY }}
+          >
+            <Target size={16} /> 営業目標ナビへ
+          </a>
+        </div>
+
+        <div className="m-5 mt-3 rounded-lg p-4" style={{ backgroundColor: NAVY_SOFT }}>
           <p className="text-xs text-blue-100/80">ログイン中</p>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
             {currentUser}
@@ -5669,9 +5686,9 @@ function App() {
           </div>
           <div className="flex items-center justify-between px-6 pb-2">
             <SyncBadge sync={sync} onRefresh={pull} dark intervalMs={syncMs} />
-            <a href="./index.html" className="text-xs text-blue-100/70 transition hover:text-white">
-              メニュー
-            </a>
+            <button onClick={doLogout} className="text-xs text-blue-100/70 transition hover:text-white">
+              ログアウト
+            </button>
           </div>
           <div className="flex gap-2 overflow-x-auto px-4 pb-3">
             {NAV_ITEMS.map(({ id, label }) => (

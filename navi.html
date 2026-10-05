@@ -373,6 +373,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
   <section data-sec="goal">
     <div class="sec-head">
       <h2>目標完工数から逆算する<span id="goalWho" style="font-size:13px;font-weight:400;color:var(--muted);margin-left:10px"></span></h2>
+      <p id="proxyNote" hidden style="margin:6px 0 0;padding:8px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:12px"></p>
       <span class="pill warn" id="exampleBadge" hidden>例の数値で表示中</span>
       <p>現状の数字と目標完工数を入れると、どこで歩留まりが起きているか、どこをどれだけ上げれば届くか、現状のままなら何件の対応が必要かを表示します。</p>
     </div>
@@ -578,7 +579,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
       <h2>メンバー設定</h2>
       <div class="spacer"></div>
       <button class="btn primary" id="addMember">＋ メンバーを追加</button>
-      <p>営業ランクと管理ランクを設定します。各メンバーは画面右上の「あなたは？」から自分の名前を選ぶと、入力データがこの名簿とつながります。</p>
+      <p>営業ランク・管理ランク・世代を設定します（管理者のみ）。氏名の追加・削除は営業ログ側で管理しています。</p>
     </div>
     <div class="banner" id="rosterNote" hidden></div>
     <div class="grid2">
@@ -729,8 +730,8 @@ function saveMember(){
   if (state.readOnly) return Promise.resolve();
   state.member.updatedAt = Date.now();
   const body = JSON.parse(JSON.stringify(state.member));
-  if (state.mode === "api" && ME){
-    return queueWrite(() => api("saveNavi", ME.name, body, apiToken())).catch(()=>{});
+  if (state.mode === "api" && TARGET){
+    return queueWrite(() => api("saveNavi", TARGET, body, apiToken())).catch(()=>{});
   }
   LS.set("member", body); return Promise.resolve();
 }
@@ -747,8 +748,8 @@ async function loadMonthDays(){
   Object.keys(notes).forEach(k => { if (String(k).slice(0,7) === m) out[k] = notes[k]; });
 
   /* 営業ログの日報から、その月の日別実績を取り込みます */
-  if (state.mode === "api" && ME){
-    LOG.logs.filter(l => l.name === ME.name).forEach(l => {
+  if (state.mode === "api" && TARGET){
+    LOG.logs.filter(l => l.name === TARGET).forEach(l => {
       const iso = logDateISO(l.date);
       if (iso.slice(0,7) !== m) return;
       const items = itemsOfLog(l);
@@ -1579,6 +1580,26 @@ $("#addMember").addEventListener("click", () => {
 let myAvatar = "";
 function renderWho(){
   const box = $("#meBox");
+  if (state.mode === "api"){
+    const m = metaOf(TARGET);
+    const badges = (m.rank ? rankBadge(m.rank) : "") + mgmtBadge(m.mgmt) + genBadge(num(m.gen));
+    box.className = "who-box";
+
+    if (ME && ME.admin){
+      /* 管理者は編集するメンバーを選べます */
+      const opts = ROSTER.slice().sort((a,b) => a.name.localeCompare(b.name, "ja"))
+        .map(x => `<option value="${esc(x.name)}" ${x.name===TARGET?"selected":""}>${esc(x.name)}${x.name===ME.name?"（自分）":""}</option>`).join("");
+      box.innerHTML = `<span class="label-sm">編集対象</span>` +
+        `<select id="whoSel" aria-label="編集するメンバー" style="min-width:7em">${opts}</select>` + badges;
+      const sel = $("#whoSel");
+      if (sel) sel.addEventListener("change", () => switchTarget(sel.value));
+    } else {
+      box.innerHTML = `<b>${esc(TARGET)}</b>` + badges;
+    }
+    updateMgrTab();
+    return;
+  }
+
   const me = rosterById(state.member.rosterId);
   const taken = new Set(Object.keys(linkedUids()).filter(id => id !== state.member.rosterId));
   const opts = `<option value="">あなたは？（名前を選択）</option>` + state.roster.slice().sort((a,b) => a.name.localeCompare(b.name, "ja"))
@@ -1763,7 +1784,7 @@ function genTable(rows, pc, cc, doCls){
   return h + `</tbody>`;
 }
 function detailHtml(r){
-  if (!r.link) return `<span class="note">まだこのページで入力していません（右上の「あなたは？」で名前を選んでもらう必要があります）。</span>`;
+  if (!r.link) return `<span class="note">まだ目標が設定されていません。</span>`;
   const ck = r.link.uid + "/" + state.month; const days = (state.mode !== "db" || r.link.uid === state.uid) ? state.days : daysCache[ck];
   const s = (r.link.data.summary||{})[state.month] || {t:0,ap:0,apo:0,sho:0,kei:0,kan:0,logged:0};
   const iss = r.issues.map(it => {
@@ -1843,6 +1864,19 @@ async function renderTeam(){ renderSquad(); }
 
 /* ---------- boot ---------- */
 let ROSTER = [];
+/* いま編集しているメンバー（管理者は切り替えられます） */
+let TARGET = "";
+
+async function switchTarget(name){
+  if (!name) return;
+  await saveMember();                       /* 直前の変更を確定してから切り替えます */
+  TARGET = name;
+  state.uid = name;
+  state.member = normMember((LOG.navi || {})[name] || null);
+  try{ await loadMonthDays(); }catch(e){}
+  renderAll(); renderWho(); renderWhoName();
+  syncCurFromLog();
+}
 
 /* 営業ログのメンバーに、保存済みのランク・世代を重ねて名簿を作ります */
 function rebuildRoster(){
@@ -1854,13 +1888,19 @@ function rebuildRoster(){
 
 /* ヘッダーに、誰の数字を見ているかを表示します */
 function renderWhoName(){
+  const pn = document.getElementById("proxyNote");
+  if (pn){
+    const proxy = ME && TARGET && TARGET !== ME.name;
+    pn.hidden = !proxy;
+    if (proxy) pn.textContent = TARGET + " さんの目標を代理で編集しています。保存すると本人の画面にも反映されます。";
+  }
   const g = document.getElementById("goalWho");
-  if (g && ME) g.textContent = ME.name + " さんの数字";
+  if (g && TARGET) g.textContent = TARGET + " さんの数字" + (ME && TARGET !== ME.name ? "（代理編集中）" : "");
   const el = document.getElementById("whoPill");
-  if (!el || !ME) return;
-  const m = metaOf(ME.name);
+  if (!el || !TARGET) return;
+  const m = metaOf(TARGET);
   const r = RANK[m.rank];
-  const parts = [ME.name + " さん"];
+  const parts = [TARGET + " さん"];
   if (r) parts.push(r.nm);
   if (m.gen) parts.push(genName(Number(m.gen)));
   el.textContent = parts.join("／");
@@ -2019,7 +2059,7 @@ function showRosterNote(){
 function applyShared(d){
   LOG = { logs: d.logs || [], targets: d.targets || {}, navi: d.navi || {} };
   if (d.rosterMeta) ROSTER_META = d.rosterMeta;
-  const mine = (LOG.navi || {})[ME ? ME.name : ""] || null;
+  const mine = (LOG.navi || {})[TARGET || (ME ? ME.name : "")] || null;
   /* 編集中の内容を失わないよう、保存済みより新しい手元の変更は残します */
   const incoming = normMember(mine);
   if (!state.member || !state.member.updatedAt || (incoming.updatedAt || 0) >= (state.member.updatedAt || 0)) {
@@ -2048,8 +2088,8 @@ function startAutoSync(){
 
 /* 営業ログの実績を、ナビの「現状」に反映します */
 function syncCurFromLog(){
-  if (state.mode !== "api" || !ME) return;
-  const a = actualsFromLog(ME.name, state.month);
+  if (state.mode !== "api" || !TARGET) return;
+  const a = actualsFromLog(TARGET, state.month);
   if (!a.days && !a.t && !a.apo) return;
   setMonth({ cur: a, curFromLog: true });
   renderAll();
@@ -2081,10 +2121,11 @@ async function boot(){
       const res = await api("resume", token);
       if (res && res.ok){
         ME = res.me;
+        TARGET = ME.name;
         state.mode = "api";
         setMode();
         try{ applyShared(res.data || {}); }catch(e){}
-        state.uid = ME.name;
+        state.uid = TARGET;
         state.isAdmin = !!ME.admin;
         /* 名簿は営業ログの登録メンバーを使います */
         try{ ROSTER = await api("roster", token); }catch(e){ ROSTER = []; }

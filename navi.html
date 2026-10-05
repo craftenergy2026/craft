@@ -350,7 +350,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
       <div class="brand"><div class="brand-mark">営</div>
 <a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1></div>
       <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
-      <span class="pill" id="modePill">接続中…</span>
+      <span class="pill" id="whoPill" style="margin-right:8px"></span><span class="pill" id="modePill">接続中…</span>
       <span class="me" id="meBox"></span>
     </div>
     <nav class="tabs" role="tablist">
@@ -370,7 +370,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
   <!-- ① GOAL -->
   <section data-sec="goal">
     <div class="sec-head">
-      <h2>目標完工数から逆算する</h2>
+      <h2>目標完工数から逆算する<span id="goalWho" style="font-size:13px;font-weight:400;color:var(--muted);margin-left:10px"></span></h2>
       <span class="pill warn" id="exampleBadge" hidden>例の数値で表示中</span>
       <p>現状の数字と目標完工数を入れると、どこで歩留まりが起きているか、どこをどれだけ上げれば届くか、現状のままなら何件の対応が必要かを表示します。</p>
     </div>
@@ -403,7 +403,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
         </div>
         <div class="panel">
           <details class="base" id="baseBox">
-            <summary>基準値 <span class="label-sm">チームの目安</span></summary>
+            <summary>基準値 <span class="label-sm">あなた専用の目安（この端末の人だけに適用）</span></summary>
             <div class="fields">
               <label class="f" for="b-dayApo">出勤アポ率<span class="unit"><input id="b-dayApo" type="number" min="0" step="0.1" placeholder="2.5"><span>件/日</span></span></label>
               <label class="f" for="b-shoRate">商談アポ率<span class="unit"><input id="b-shoRate" type="number" min="1" max="100" step="0.5" placeholder="25"><span>%</span></span></label>
@@ -411,7 +411,10 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
               <label class="f" for="b-apRate">対応アプ率<span class="unit"><input id="b-apRate" type="number" min="1" max="100" step="0.5" placeholder="未設定"><span>%</span></span></label>
               <label class="f" for="b-apoRate">アプアポ率<span class="unit"><input id="b-apoRate" type="number" min="1" max="100" step="0.5" placeholder="未設定"><span>%</span></span></label>
             </div>
-            <p class="note" style="margin-top:8px">空欄の基準は「現状の値」で計算します。</p>
+            <p class="note" style="margin-top:8px">
+              空欄の基準は「現状の値」で計算します。ここで設定した基準値は、あなた個人の目標計算にだけ使われ、他のメンバーには影響しません。
+              チーム共通の目安は 出勤アポ率 2.5件／商談アポ率 25%／商談完工率 40% です。
+            </p>
           </details>
         </div>
       </div>
@@ -1797,6 +1800,20 @@ async function renderTeam(){ renderSquad(); }
 
 /* ---------- boot ---------- */
 let ROSTER = [];
+
+/* ヘッダーに、誰の数字を見ているかを表示します */
+function renderWhoName(){
+  const g = document.getElementById("goalWho");
+  if (g && ME) g.textContent = ME.name + " さんの数字";
+  const el = document.getElementById("whoPill");
+  if (!el || !ME) return;
+  const m = metaOf(ME.name);
+  const parts = [ME.name + " さん"];
+  if (m.rank) parts.push(m.rank);
+  if (m.gen) parts.push(m.gen);
+  el.textContent = parts.join("／");
+  el.className = "pill ok";
+}
 let ROSTER_META = {};   /* { 氏名: { rank, gen } } */
 
 /* 営業ランク（下から上の順。上ほど優れています） */
@@ -2022,7 +2039,7 @@ function startAutoSync(){
       applyShared(d);
       await loadMonthDays();
       syncCurFromLog();
-      renderAll(); renderWho(); renderTeam();
+      renderAll(); renderWho(); renderWhoName();
       if (!document.querySelector("section[data-sec=team]").hidden) renderSquad();
     }catch(e){}
   }, 30000);
@@ -2050,6 +2067,12 @@ async function startLocal(){
   await loadMonthDays(); renderAll(); renderWho(); renderRoster(); renderTeam();
 }
 async function boot(){
+  /* 対象月を先に決めておきます（通信に失敗しても画面が使えるように） */
+  try{
+    const mp = document.getElementById("monthPick");
+    if (mp && !mp.value) mp.value = state.month;
+  }catch(e){}
+
   /* 営業ログと同じログイン情報で接続します */
   const token = apiToken();
   if (token){
@@ -2057,8 +2080,9 @@ async function boot(){
       const res = await api("resume", token);
       if (res && res.ok){
         ME = res.me;
-        applyShared(res.data || {});
         state.mode = "api";
+        setMode();
+        try{ applyShared(res.data || {}); }catch(e){}
         state.uid = ME.name;
         state.isAdmin = !!ME.admin;
         /* 名簿は営業ログの登録メンバーを使います */
@@ -2071,13 +2095,20 @@ async function boot(){
         try{ renderRoster(); }catch(e){}
         try{ syncCurFromLog(); }catch(e){}
         try{ renderSquad(); }catch(e){}
+        try{ renderWhoName(); }catch(e){}
         startAutoSync();
         document.body.setAttribute("data-roster", "locked");
         showRosterNote();
         setMode();
         return;
       }
-    }catch(e){}
+      /* ログインの有効期限が切れている場合 */
+      try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
+    }catch(e){
+      showBanner("営業ログに接続できませんでした：" + (e && e.message ? e.message : e));
+      setMode();
+      return;
+    }
   }
   /* ログインしていない場合は入口ページへ戻します */
   location.href = "./index.html?next=navi";

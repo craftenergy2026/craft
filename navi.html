@@ -416,7 +416,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
             </div>
             <p class="note" style="margin-top:8px">
               空欄の基準は「現状の値」で計算します。ここで設定した基準値は、あなた個人の目標計算にだけ使われ、他のメンバーには影響しません。
-              チーム共通の目安は 出勤アポ率 2.5件／商談アポ率 25%／商談完工率 40% です。
+              チーム共通の目安は 対応アプ率 15%／アプアポ率 40%／出勤アポ率 2.5件／商談アポ率 25%／商談完工率 40% です。
             </p>
           </details>
         </div>
@@ -693,7 +693,7 @@ const RATES = [
   {k:"shoRate", nm:"商談アポ率", from:"apo", to:"sho"},
   {k:"kanRate", nm:"商談完工率", from:"sho", to:"kan"}
 ];
-const DEF_BASE = {dayApo:2.5, shoRate:25, kanRate:40, apRate:null, apoRate:null};
+const DEF_BASE = {dayApo:2.5, shoRate:25, kanRate:40, apRate:15, apoRate:40};
 const EX_CUR = {days:20, t:800, ap:160, apo:40, sho:8, kei:3, kan:2};
 const EX_GOAL = {target:5, days:20};
 
@@ -775,7 +775,7 @@ function setMonth(patch){
 }
 function base(){
   const b = Object.assign({}, DEF_BASE, state.member.base||{});
-  ["dayApo","shoRate","kanRate","apRate","apoRate"].forEach(k => { if (!(num(b[k])>0)) b[k] = (k==="apRate"||k==="apoRate") ? null : DEF_BASE[k]; });
+  ["dayApo","shoRate","kanRate","apRate","apoRate"].forEach(k => { if (!(num(b[k])>0)) b[k] = DEF_BASE[k]; });
   return b;
 }
 /* goal & current with example fallback */
@@ -1912,7 +1912,7 @@ let ROSTER_META = {};   /* { 氏名: { rank, gen } } */
 const DEFAULT_META = (() => {
   const m = {};
   const put = (names, key, val) => names.forEach(n => { m[n] = Object.assign({}, m[n], { [key]: val }); });
-  put(["保坂", "扇田", "石"], "rank", "trainee");
+  put(["保坂", "扇田", "石", "小林", "廣世"], "rank", "trainee");
   put(["藤代", "鄭", "伊藤"], "rank", "bronze");
   put(["佐伯", "三瀬"], "rank", "silver");
   put(["山﨑", "坂神", "大川", "沼口", "森野"], "rank", "gold");
@@ -1924,7 +1924,7 @@ const DEFAULT_META = (() => {
 
   put(["佐伯", "坂神", "山﨑"], "gen", 1);
   put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", 2);
-  put(["扇田", "保坂"], "gen", 3);
+  put(["扇田", "保坂", "小林", "廣世"], "gen", 3);
   return m;
 })();
 

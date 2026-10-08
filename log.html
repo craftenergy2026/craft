@@ -315,6 +315,7 @@ const MEMBERS = [
   { name: "藤代", branch: "東京", role: "アポインター", target: { shukkin: 8, taio: 480, apo: 16, shodan: 5, kanko: 3, rate: 31 } },
   { name: "山﨑", branch: "東京", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
   { name: "三瀬", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "廣世", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
   { name: "大川", branch: "東京", role: "クローザー", target: { shukkin: 4, taio: 200, apo: 16, shodan: 4, kanko: 2, rate: 25 } },
   { name: "森野", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
   { name: "斉藤", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
@@ -324,10 +325,13 @@ const MEMBERS = [
   { name: "扇田", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
   { name: "保坂", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
   { name: "熊澤", branch: "静岡", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 15, shodan: 8, kanko: 4, rate: 30 } },
+
+  /* ── その他支店 ── */
+  { name: "小林", branch: "その他", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
 ];
 
 /* 支店 */
-const BRANCHES = ["東京", "静岡"];
+const BRANCHES = ["東京", "静岡", "その他"];
 const branchOf = (name) => (MEMBERS.find((m) => m.name === name) || {}).branch || "";
 /* 名簿から外れた人（退職者など）かどうか */
 const isFormer = (name) => !MEMBERS.some((m) => m.name === name);

@@ -349,7 +349,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
     <div class="topbar">
       <div class="brand"><div class="brand-mark">営</div>
 <a href="./log.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">営業ログへ</a>
-<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1></div>
+<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v66</span></div>
       <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
       <span class="pill" id="whoPill" style="margin-right:8px"></span><span class="pill" id="modePill">接続中…</span>
       <span class="me" id="meBox"></span>
@@ -391,8 +391,8 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
           </div>
         </div>
         <div class="panel">
-          <h3>現状の数字 <span class="spacer"></span><button class="btn small" id="importBtn" title="今月、振り返りを保存した日の実績を合計して入れます">日報から取り込む</button></h3>
-          <p class="note" style="margin-bottom:10px">先月の実績や直近の集計を入れてください。</p>
+          <h3>現状の数字 <span class="spacer"></span><select id="importRange" style="width:auto;padding:4px 6px;font-size:12px;margin-right:6px" title="日報を集計する期間"><option value="7">直近1週間</option><option value="30">直近1か月</option><option value="90">直近3か月</option></select><button class="btn small" id="importBtn" title="選んだ期間の日報の実績を合計して入れます">日報から取り込む</button></h3>
+          <p class="note" id="curNote" style="margin-bottom:10px">先月の実績や直近の集計を入れてください。</p>
           <div class="fields three">
             <label class="f" for="c-days">出勤日数<span class="unit"><input id="c-days" type="number" min="1" placeholder="20"><span>日</span></span></label>
             <label class="f" for="c-t">対応数<input id="c-t" type="number" min="0" placeholder="800"></label>
@@ -646,16 +646,15 @@ function logDateISO(md){
 }
 function itemsOfLog(l){ return Array.isArray(l.items) ? l.items : []; }
 
-/* ログの日報から、指定メンバー・指定月の実績を集計します */
-function actualsFromLog(name, month){
-  const inMonth = iso => iso.slice(0,7) === month;
-  const logs = LOG.logs.filter(l => l.name === name && inMonth(logDateISO(l.date)));
+/* ログの日報から、指定メンバー・指定期間の実績を集計します（期間は関数で指定） */
+function actualsFromLogBy(name, inRange){
+  const logs = LOG.logs.filter(l => l.name === name && inRange(logDateISO(l.date)));
   const deals = [];
   LOG.logs.forEach(l => {
+    if (!inRange(logDateISO(l.date))) return;
     itemsOfLog(l).forEach(it => {
       const appointer = it.appointer || l.name;
       if (appointer !== name) return;
-      if (!inMonth(logDateISO(l.date))) return;
       deals.push(it);
     });
   });
@@ -674,6 +673,14 @@ function actualsFromLog(name, month){
     kanDone: live.filter(d => Number(d.kanko||0) > 0).length,
     sales: live.reduce((a,d) => a + Number(d.sales||0), 0)
   };
+}
+/* 指定メンバー・指定月（YYYY-MM）の実績 */
+function actualsFromLog(name, month){
+  return actualsFromLogBy(name, iso => !!iso && iso.slice(0,7) === month);
+}
+/* 指定メンバー・指定期間（YYYY-MM-DD 〜 YYYY-MM-DD）の実績 */
+function actualsFromLogRange(name, fromISO, toISO){
+  return actualsFromLogBy(name, iso => !!iso && iso >= fromISO && iso <= toISO);
 }
 
 
@@ -903,9 +910,11 @@ $("#g-target").addEventListener("input", e => { setMonth({target:num(e.target.va
 $("#g-days").addEventListener("input", e => { setMonth({days:num(e.target.value)}); renderGoal(); saveMemberSoon(); });
 CUR_F.forEach(k => $("#c-"+k).addEventListener("input", e => {
   const c = Object.assign({}, monthObj().cur || {}); c[k] = num(e.target.value);
-  const hadSim = !!monthObj().sim; setMonth({cur:c});
+  const hadSim = !!monthObj().sim;
+  /* 手で直したら、自動取り込みで上書きしないようにします */
+  setMonth({cur:c, curFromLog:false, curRange:null, curFrom:null, curTo:null});
   if (!hadSim) fillSim();
-  renderGoal(); saveMemberSoon();
+  renderGoal(); renderCurNote(); saveMemberSoon();
 }));
 BASE_F.forEach(k => $("#b-"+k).addEventListener("input", e => {
   state.member.base = Object.assign({}, state.member.base||{}, {[k]: num(e.target.value)});
@@ -926,12 +935,90 @@ $("#simBase").addEventListener("click", () => {
   if (conv > 0) s.tai = Math.max(s.tai, Math.ceil(br.dayApo/conv));
   setMonth({sim:s}); fillSim(); renderGoal(); renderRec(); saveMemberSoon();
 });
-$("#importBtn").addEventListener("click", () => {
-  const a = actuals();
-  if (!a.logged){ $("#importBtn").textContent = "今月の日報がまだありません"; setTimeout(() => $("#importBtn").textContent = "日報から取り込む", 2500); return; }
-  setMonth({cur:{days:a.logged, t:a.t, ap:a.ap, apo:a.apo, sho:a.sho, kei:a.kei, kan:a.kan}});
-  fillGoalForm(); renderGoal(); saveMemberSoon();
+/* ---------- 日報の取り込み（期間を選べます） ---------- */
+const IMPORT_RANGES = [
+  {v:7,  label:"直近1週間"},
+  {v:30, label:"直近1か月"},
+  {v:90, label:"直近3か月"}
+];
+/* 選ばれている期間（日数）。前回の選択はこの端末に覚えておきます */
+function importDays(){
+  const el = document.getElementById("importRange");
+  const n = Number(el && el.value);
+  return IMPORT_RANGES.some(r => r.v === n) ? n : 30;
+}
+/* 今日までの N 日間（今日を含む） */
+function importRange(n){
+  const to = new Date(); const from = new Date();
+  from.setDate(from.getDate() - (Math.max(1, n) - 1));
+  return { span:n, from: ymd(from), to: ymd(to) };
+}
+const mdLabel = iso => iso ? Number(iso.slice(5,7)) + "/" + Number(iso.slice(8,10)) : "";
+const rangeLabel = r => mdLabel(r.from) + "〜" + mdLabel(r.to);
+/* 営業ログに繋がっていないときは、この端末の振り返り記録から集計します */
+function actualsFromDays(fromISO, toISO){
+  const o = {days:0, t:0, ap:0, apo:0, sho:0, kei:0, kan:0};
+  const all = Object.assign({}, LS.get("days", {}), (state.member && state.member.dayNotes) || {}, state.days || {});
+  Object.keys(all).forEach(k => {
+    if (k < fromISO || k > toISO) return;
+    const d = all[k] || {}, r = d.actual || {};
+    ST.forEach(s => { o[s.k] += Number(r[s.k]) || 0; });
+    if (d.reviewed || (Number(r.t)||0) + (Number(r.apo)||0) > 0) o.days++;
+  });
+  return o;
+}
+/* 選んだ期間の実績を集計します */
+function collectImport(n){
+  const r = importRange(n);
+  const a = (state.mode === "api" && TARGET)
+    ? actualsFromLogRange(TARGET, r.from, r.to)
+    : actualsFromDays(r.from, r.to);
+  return Object.assign({}, a, r);
+}
+function flashBtn(txt){
+  const b = $("#importBtn"); if (!b) return;
+  b.textContent = txt;
+  setTimeout(() => { b.textContent = "日報から取り込む"; }, 2500);
+}
+function renderCurNote(){
+  const el = $("#curNote"); if (!el) return;
+  const mo = monthObj();
+  const sel = $("#importRange");
+  if (sel && IMPORT_RANGES.some(r => r.v === Number(mo.curRange))) sel.value = String(Number(mo.curRange));
+  if (mo.curFrom && mo.curTo){
+    const lb = (IMPORT_RANGES.find(r => r.v === Number(mo.curRange)) || {}).label || "期間";
+    el.textContent = `${lb}（${mdLabel(mo.curFrom)}〜${mdLabel(mo.curTo)}）の日報を取り込んでいます。手で直すこともできます。`;
+  } else {
+    el.textContent = "先月の実績や直近の集計を入れてください。";
+  }
+}
+function applyImport(n, quiet){
+  const a = collectImport(n);
+  if (!a.days && !a.t && !a.apo){
+    if (!quiet) flashBtn("この期間の日報がありません");
+    return false;
+  }
+  const cur = {days:a.days, t:a.t, ap:a.ap, apo:a.apo, sho:a.sho, kei:a.kei, kan:a.kan};
+  const mo = monthObj();
+  const same = mo.cur && Number(mo.curRange) === n && mo.curFrom === a.from && mo.curTo === a.to
+    && Object.keys(cur).every(k => Number(mo.cur[k]||0) === Number(cur[k]||0));
+  if (quiet && same) return false;
+  setMonth({ cur, curFromLog: true, curRange: n, curFrom: a.from, curTo: a.to });
+  fillGoalForm(); renderGoal(); renderCurNote(); saveMemberSoon();
+  if (!quiet) flashBtn(rangeLabel(a) + " を取り込みました");
+  return true;
+}
+try{
+  const saved = Number(LS.get("importRange", 30));
+  const sel = document.getElementById("importRange");
+  if (sel) sel.value = String(IMPORT_RANGES.some(r => r.v === saved) ? saved : 30);
+}catch(e){}
+$("#importRange").addEventListener("change", () => {
+  const n = importDays();
+  try{ LS.set("importRange", n); }catch(e){}
+  applyImport(n);
 });
+$("#importBtn").addEventListener("click", () => applyImport(importDays()));
 
 /* ---------- ① render ---------- */
 function renderGoal(){
@@ -2100,14 +2187,15 @@ function startAutoSync(){
 /* 営業ログの実績を、ナビの「現状」に反映します */
 function syncCurFromLog(){
   if (state.mode !== "api" || !TARGET) return;
-  const a = actualsFromLog(TARGET, state.month);
-  if (!a.days && !a.t && !a.apo) return;
-  setMonth({ cur: a, curFromLog: true });
-  renderAll();
+  const mo = monthObj();
+  /* 手で直した数字は上書きしません（取り込んだ数字だけを更新します） */
+  if (mo.cur && !mo.curFromLog) return;
+  const n = Number(mo.curRange) || importDays();
+  if (applyImport(n, true)) renderAll();
 }
 
 function normMember(m){ const o = Object.assign({base:{}, months:{}, issues:[], summary:{}}, m||{}); o.issues = (o.issues||[]).map(normIssue); return o; }
-function renderAll(){ setMode(); fillGoalForm(); renderGoal(); renderIssues(); fillDayForm(); renderStrip(); }
+function renderAll(){ setMode(); fillGoalForm(); renderGoal(); renderCurNote(); renderIssues(); fillDayForm(); renderStrip(); }
 $("#monthSel").value = state.month;
 try{ const t = localStorage.getItem("sgn2_tab"); if (t) switchTab(t); }catch(e){}
 state.member = normMember(LS.get("member", null));

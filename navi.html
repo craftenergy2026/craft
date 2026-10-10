@@ -349,7 +349,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
     <div class="topbar">
       <div class="brand"><div class="brand-mark">営</div>
 <a href="./log.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">営業ログへ</a>
-<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v66</span></div>
+<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v67</span></div>
       <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
       <span class="pill" id="whoPill" style="margin-right:8px"></span><span class="pill" id="modePill">接続中…</span>
       <span class="me" id="meBox"></span>
@@ -391,7 +391,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
           </div>
         </div>
         <div class="panel">
-          <h3>現状の数字 <span class="spacer"></span><select id="importRange" style="width:auto;padding:4px 6px;font-size:12px;margin-right:6px" title="日報を集計する期間"><option value="7">直近1週間</option><option value="30">直近1か月</option><option value="90">直近3か月</option></select><button class="btn small" id="importBtn" title="選んだ期間の日報の実績を合計して入れます">日報から取り込む</button></h3>
+          <h3>現状の数字 <span class="spacer"></span><select id="importRange" style="width:auto;padding:4px 6px;font-size:12px;margin-right:6px" title="日報を集計する期間"><option value="0">今月</option><option value="7">直近1週間</option><option value="30">直近1か月</option><option value="90">直近3か月</option></select><button class="btn small" id="importBtn" title="選んだ期間の日報の実績を合計して入れます">日報から取り込む</button></h3>
           <p class="note" id="curNote" style="margin-bottom:10px">先月の実績や直近の集計を入れてください。</p>
           <div class="fields three">
             <label class="f" for="c-days">出勤日数<span class="unit"><input id="c-days" type="number" min="1" placeholder="20"><span>日</span></span></label>
@@ -937,21 +937,30 @@ $("#simBase").addEventListener("click", () => {
 });
 /* ---------- 日報の取り込み（期間を選べます） ---------- */
 const IMPORT_RANGES = [
+  {v:0,  label:"今月"},
   {v:7,  label:"直近1週間"},
   {v:30, label:"直近1か月"},
   {v:90, label:"直近3か月"}
 ];
-/* 選ばれている期間（日数）。前回の選択はこの端末に覚えておきます */
+const isRange = n => IMPORT_RANGES.some(r => r.v === n);
+/* 選ばれている期間（日数。0 は「今月」）。前回の選択はこの端末に覚えておきます */
 function importDays(){
   const el = document.getElementById("importRange");
   const n = Number(el && el.value);
-  return IMPORT_RANGES.some(r => r.v === n) ? n : 30;
+  return isRange(n) ? n : 30;
 }
-/* 今日までの N 日間（今日を含む） */
+/* 集計する期間。0 なら対象月の1日から（今月なら今日まで）、それ以外は今日までの N 日間 */
 function importRange(n){
-  const to = new Date(); const from = new Date();
-  from.setDate(from.getDate() - (Math.max(1, n) - 1));
-  return { span:n, from: ymd(from), to: ymd(to) };
+  if (Number(n) === 0){
+    const m = (state.month && /^\d{4}-\d{2}$/.test(state.month)) ? state.month : today.slice(0,7);
+    const from = m + "-01";
+    const last = ymd(new Date(Number(m.slice(0,4)), Number(m.slice(5,7)), 0));
+    const to = (last > today && from <= today) ? today : last;
+    return { span:0, from, to };
+  }
+  const t = new Date(); const f = new Date();
+  f.setDate(f.getDate() - (Math.max(1, n) - 1));
+  return { span:n, from: ymd(f), to: ymd(t) };
 }
 const mdLabel = iso => iso ? Number(iso.slice(5,7)) + "/" + Number(iso.slice(8,10)) : "";
 const rangeLabel = r => mdLabel(r.from) + "〜" + mdLabel(r.to);
@@ -984,9 +993,12 @@ function renderCurNote(){
   const el = $("#curNote"); if (!el) return;
   const mo = monthObj();
   const sel = $("#importRange");
-  if (sel && IMPORT_RANGES.some(r => r.v === Number(mo.curRange))) sel.value = String(Number(mo.curRange));
+  const saved = mo.curRange == null ? null : Number(mo.curRange);
+  if (sel && saved != null && isRange(saved)) sel.value = String(saved);
   if (mo.curFrom && mo.curTo){
-    const lb = (IMPORT_RANGES.find(r => r.v === Number(mo.curRange)) || {}).label || "期間";
+    let lb = (IMPORT_RANGES.find(r => r.v === saved) || {}).label || "期間";
+    /* 対象月が今月でないときは「今月」ではなく「対象月」と書きます */
+    if (saved === 0 && mo.curFrom.slice(0,7) !== today.slice(0,7)) lb = "対象月";
     el.textContent = `${lb}（${mdLabel(mo.curFrom)}〜${mdLabel(mo.curTo)}）の日報を取り込んでいます。手で直すこともできます。`;
   } else {
     el.textContent = "先月の実績や直近の集計を入れてください。";
@@ -1000,7 +1012,7 @@ function applyImport(n, quiet){
   }
   const cur = {days:a.days, t:a.t, ap:a.ap, apo:a.apo, sho:a.sho, kei:a.kei, kan:a.kan};
   const mo = monthObj();
-  const same = mo.cur && Number(mo.curRange) === n && mo.curFrom === a.from && mo.curTo === a.to
+  const same = mo.cur && mo.curRange != null && Number(mo.curRange) === n && mo.curFrom === a.from && mo.curTo === a.to
     && Object.keys(cur).every(k => Number(mo.cur[k]||0) === Number(cur[k]||0));
   if (quiet && same) return false;
   setMonth({ cur, curFromLog: true, curRange: n, curFrom: a.from, curTo: a.to });
@@ -1011,7 +1023,7 @@ function applyImport(n, quiet){
 try{
   const saved = Number(LS.get("importRange", 30));
   const sel = document.getElementById("importRange");
-  if (sel) sel.value = String(IMPORT_RANGES.some(r => r.v === saved) ? saved : 30);
+  if (sel) sel.value = String(isRange(saved) ? saved : 30);
 }catch(e){}
 $("#importRange").addEventListener("change", () => {
   const n = importDays();
@@ -1561,7 +1573,7 @@ $("#monthSel").addEventListener("change", async e => {
   if (!e.target.value) return;
   state.month = e.target.value;
   state.date = state.month === today.slice(0,7) ? today : state.month+"-01";
-  await loadMonthDays(); fillGoalForm(); renderGoal(); renderIssues(); fillDayForm(); renderStrip(); renderTeam(); mgrOpen.clear(); renderMgr();
+  await loadMonthDays(); fillGoalForm(); renderGoal(); renderCurNote(); renderIssues(); fillDayForm(); renderStrip(); renderTeam(); mgrOpen.clear(); renderMgr();
 });
 
 /* ---------- members / ranks ---------- */
@@ -2190,7 +2202,7 @@ function syncCurFromLog(){
   const mo = monthObj();
   /* 手で直した数字は上書きしません（取り込んだ数字だけを更新します） */
   if (mo.cur && !mo.curFromLog) return;
-  const n = Number(mo.curRange) || importDays();
+  const n = (mo.curRange != null && isRange(Number(mo.curRange))) ? Number(mo.curRange) : importDays();
   if (applyImport(n, true)) renderAll();
 }
 

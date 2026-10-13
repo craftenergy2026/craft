@@ -349,7 +349,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
     <div class="topbar">
       <div class="brand"><div class="brand-mark">営</div>
 <a href="./log.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">営業ログへ</a>
-<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v68</span></div>
+<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v69</span></div>
       <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
       <span class="pill" id="whoPill" style="margin-right:8px"></span><span class="pill" id="modePill">接続中…</span>
       <span class="me" id="meBox"></span>
@@ -677,10 +677,10 @@ function actualsFromLogBy(name, inRange){
   o.power = powerOf(o);
   return o;
 }
-/* 戦闘力：対応 + アプ×6 + アポ×20 + 商談×400 + 契約×1200 − キャンセル×600 */
+/* 戦闘力：対応 + アプ×16 + アポ×80 + 商談×400 + 契約×1000 − キャンセル×500 */
 function powerOf(o){
-  return Number(o.t||0) + Number(o.ap||0)*6 + Number(o.apo||0)*20
-    + Number(o.sho||0)*400 + Number(o.kei||0)*1200 - Number(o.cancel||0)*600;
+  return Number(o.t||0) + Number(o.ap||0)*16 + Number(o.apo||0)*80
+    + Number(o.sho||0)*400 + Number(o.kei||0)*1000 - Number(o.cancel||0)*500;
 }
 /* 指定メンバー・指定月（YYYY-MM）の実績 */
 function actualsFromLog(name, month){

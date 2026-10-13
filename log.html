@@ -331,9 +331,9 @@ const MEMBERS = [
 ];
 
 /* ───────── 戦闘力 ─────────
-   対応 + アプ×6 + アポ×20 + 商談×400 + 契約×1200 − キャンセル×600
+   対応 + アプ×16 + アポ×80 + 商談×400 + 契約×1000 − キャンセル×500
    商談は有効商談（未商談を除いたもの）、契約はキャンセルされていない契約です。 */
-const POWER_WEIGHT = { taio: 1, apu: 6, apo: 20, shodan: 400, keiyaku: 1200, cancel: -600 };
+const POWER_WEIGHT = { taio: 1, apu: 16, apo: 80, shodan: 400, keiyaku: 1000, cancel: -500 };
 const POWER_PARTS = [
   { key: "taio", label: "対応" },
   { key: "apu", label: "アプ" },
@@ -2275,7 +2275,7 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
           </p>
         </div>
         <p className="max-w-xs text-xs leading-relaxed text-slate-500">
-          対応 ＋ アプ×6 ＋ アポ×20 ＋ 商談×400 ＋ 契約×1200 − キャンセル×600。
+          対応 ＋ アプ×16 ＋ アポ×80 ＋ 商談×400 ＋ 契約×1000 − キャンセル×500。
           全員の順位はランキング画面で確認できます。
         </p>
       </Card>
@@ -5064,7 +5064,7 @@ function Ranking({ stats, currentUser, month, setMonth, branch, setBranch, logs,
             </div>
           </Card>
           <p className="mb-5 rounded-lg bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-500 ring-1 ring-slate-100">
-            戦闘力 ＝ 対応 ＋ アプ×6 ＋ アポ×20 ＋ 商談×400 ＋ 契約×1200 − キャンセル×600
+            戦闘力 ＝ 対応 ＋ アプ×16 ＋ アポ×80 ＋ 商談×400 ＋ 契約×1000 − キャンセル×500
             <br />
             商談は有効商談（未商談を除く）、契約はキャンセルされていないものを数えます。
             順位変動は、週（土曜はじまり）の戦闘力で先週 {lastWeek.label} と今週 {thisWeek.label} を比べたものです。
@@ -6081,7 +6081,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v68</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v69</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">

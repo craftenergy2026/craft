@@ -349,7 +349,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
     <div class="topbar">
       <div class="brand"><div class="brand-mark">営</div>
 <a href="./log.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">営業ログへ</a>
-<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v67</span></div>
+<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v68</span></div>
       <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
       <span class="pill" id="whoPill" style="margin-right:8px"></span><span class="pill" id="modePill">接続中…</span>
       <span class="me" id="meBox"></span>
@@ -660,7 +660,7 @@ function actualsFromLogBy(name, inRange){
   });
   const live = deals.filter(d => Number(d.keiyaku||0) > 0 && !Number(d.cancelled||0));
   const worked = logs.filter(l => (Number(l.taio||0)+Number(l.apu||0)+Number(l.apo||0)+itemsOfLog(l).length) > 0);
-  return {
+  const o = {
     days: worked.length,
     t:   logs.reduce((a,l)=>a+Number(l.taio||0),0),
     ap:  logs.reduce((a,l)=>a+Number(l.apu||0),0),
@@ -671,8 +671,16 @@ function actualsFromLogBy(name, inRange){
     kan: live.length,
     /* うち実際に完工したもの */
     kanDone: live.filter(d => Number(d.kanko||0) > 0).length,
+    cancel: deals.filter(d => Number(d.cancelled||0) > 0).length,
     sales: live.reduce((a,d) => a + Number(d.sales||0), 0)
   };
+  o.power = powerOf(o);
+  return o;
+}
+/* 戦闘力：対応 + アプ×6 + アポ×20 + 商談×400 + 契約×1200 − キャンセル×600 */
+function powerOf(o){
+  return Number(o.t||0) + Number(o.ap||0)*6 + Number(o.apo||0)*20
+    + Number(o.sho||0)*400 + Number(o.kei||0)*1200 - Number(o.cancel||0)*600;
 }
 /* 指定メンバー・指定月（YYYY-MM）の実績 */
 function actualsFromLog(name, month){
@@ -1747,7 +1755,7 @@ function rowsForMgr(){
         link: { uid: r.name, data: naviOf },
         has: logged > 0 || !!target,
         target, kan: a.kan, kanDone: a.kanDone || 0, sales: a.sales || 0,
-        t: a.t, ap: a.ap, apo: a.apo, sho: a.sho, kei: a.kei, logged, D,
+        t: a.t, ap: a.ap, apo: a.apo, sho: a.sho, kei: a.kei, cancel: a.cancel || 0, power: a.power || 0, logged, D,
         q, el, late: q != null && q < el * 0.95,
         dayApo: logged ? a.apo / logged : null,
         apRate: rate(a.ap, a.t), apoRate: rate(a.apo, a.ap),
@@ -1779,7 +1787,8 @@ function rowsForMgr(){
     const q = target ? (s.kan||0)/target : null, el = D ? logged/D : 0;
     const rate = (a, c) => c > 0 ? a/c : null;
     const o = Object.assign(r, {
-      has: !!d && (!!target || logged > 0), target, kan:s.kan||0, t:s.t||0, ap:s.ap||0, apo:s.apo||0, sho:s.sho||0, kei:s.kei||0, logged, D,
+      has: !!d && (!!target || logged > 0), target, kan:s.kan||0, t:s.t||0, ap:s.ap||0, apo:s.apo||0, sho:s.sho||0, kei:s.kei||0,
+      cancel: 0, power: powerOf({t:s.t, ap:s.ap, apo:s.apo, sho:s.sho, kei:s.kei, cancel:0}), logged, D,
       q, el, late: q!=null && q < el*0.95,
       dayApo: logged ? (s.apo||0)/logged : null, apRate: rate(s.ap||0, s.t||0), apoRate: rate(s.apo||0, s.ap||0),
       shoRate: rate(s.sho||0, s.apo||0), kanRate: rate(s.kan||0, s.sho||0), doRate: s.doRate ?? null,
@@ -1796,6 +1805,7 @@ const MG_ORDER = {exec:-1, mgr:0, am:1, tl:2, brother:3, "":4};
 const MCOLS = [
   {k:"rank", nm:"メンバー", l:true, v:r => RANK_ORDER[r.rank]*10 + MG_ORDER[r.mgmt]},
   {k:"gen", nm:"世代", l:true, v:r => r.gen || 99},
+  {k:"power", nm:"戦闘力", v:r => r.power || 0},
   {k:"q", nm:"完工 達成率", v:r => r.q ?? -1},
   {k:"t", nm:"対応", v:r => r.t}, {k:"ap", nm:"アプ", v:r => r.ap}, {k:"apo", nm:"アポ", v:r => r.apo},
   {k:"sho", nm:"商談", v:r => r.sho}, {k:"kei", nm:"契約", v:r => r.kei},
@@ -1843,6 +1853,7 @@ function renderMgr(){
     h += `<tr class="mrow ${open?"open":""} ${r.has?"":"nodata"}" data-key="${esc(r.key)}" tabindex="0" aria-expanded="${open}">
       <td class="l"><div class="nm"><b>${esc(r.name)}</b><span>${r.rank?rankBadge(r.rank):""}${mgmtBadge(r.mgmt)}</span></div></td>
       <td class="l">${r.gen ? genBadge(r.gen) : `<span class="note">—</span>`}</td>
+      <td class="num"><b style="color:var(--accent)">${(r.power||0).toLocaleString("ja-JP")}</b></td>
       <td>${r.has ? `<div class="ach"><span class="${cc(qc)}">${r.q==null?"目標未設定":Math.round(r.q*100)+"%"}</span><div class="mbar ${qc}"><i style="width:${r.q==null?0:Math.min(100,r.q*100)}%"></i></div><span class="note">${r.kan} / ${r.target??"–"}件</span></div>` : `<span class="note">未入力</span>`}</td>
       <td class="num">${r.t}</td><td class="num">${r.ap}</td><td class="num">${r.apo}</td><td class="num">${r.sho}</td><td class="num">${r.kei}</td>
       <td class="num"><b>${r.kan}</b></td><td class="num"><span class="note">${r.kanDone ?? 0}</span></td>
@@ -1867,11 +1878,11 @@ function genTable(rows, pc, cc, doCls){
     const dr = act.filter(r => r.doRate != null);
     const q = target ? kan/target : null;
     const el = act.length ? act.reduce((s,r) => s + r.el, 0)/act.length : 0;
-    return {g, n:rs.length, inN:act.length, names: rs.map(r => r.name).join("、"), target, kan, kanDone: sum("kanDone"), kei: sum("kei"), t, apo, sho, q, late: q!=null && q < el*0.95, el,
+    return {g, n:rs.length, inN:act.length, names: rs.map(r => r.name).join("、"), target, kan, kanDone: sum("kanDone"), kei: sum("kei"), t, apo, sho, power: sum("power"), q, late: q!=null && q < el*0.95, el,
       apRate: t ? ap/t : null, apoRate: ap ? apo/ap : null, dayApo: logged ? apo/logged : null, shoRate: apo ? sho/apo : null, kanRate: sho ? kan/sho : null,
       doRate: dr.length ? dr.reduce((s,r) => s + r.doRate, 0)/dr.length : null, lateN: rs.filter(r => r.late).length, staleN: rs.filter(r => r.stale).length};
   });
-  const head = ["世代","人数（入力）","完工 達成率","対応","アポ","商談","契約","完工","うち完工済み","対応アプ率","アプアポ率","出勤アポ率","商談アポ率","商談完工率","平均DO実行率","ペース遅れ","2日以上未更新"];
+  const head = ["世代","人数（入力）","総戦闘力","完工 達成率","対応","アポ","商談","契約","完工","うち完工済み","対応アプ率","アプアポ率","出勤アポ率","商談アポ率","商談完工率","平均DO実行率","ペース遅れ","2日以上未更新"];
   let h = `<thead><tr>${head.map((x,i) => `<th class="${i===0?"l":""}" style="cursor:default">${x}</th>`).join("")}</tr></thead><tbody>`;
   if (!agg.length) h += `<tr><td colspan="${head.length}" class="l"><span class="note">該当するメンバーはいません。</span></td></tr>`;
   agg.forEach(a => {
@@ -1879,6 +1890,7 @@ function genTable(rows, pc, cc, doCls){
     h += `<tr class="grow" data-gen="${a.g}" tabindex="0" title="押すとこの世代の個人一覧を表示">
       <td class="l"><div class="nm">${a.g ? genBadge(a.g) : `<span class="gen">世代未設定</span>`}<span class="note" style="white-space:normal">${esc(a.names)}</span></div></td>
       <td class="num">${a.n}名（${a.inN}）</td>
+      <td class="num"><b style="color:var(--accent)">${(a.power||0).toLocaleString("ja-JP")}</b></td>
       <td>${a.inN ? `<div class="ach"><span class="cell-${qc}">${a.q==null?"目標未設定":Math.round(a.q*100)+"%"}</span><div class="mbar ${qc}"><i style="width:${a.q==null?0:Math.min(100,a.q*100)}%"></i></div><span class="note">${a.kan} / ${a.target||"–"}件</span></div>` : `<span class="note">未入力</span>`}</td>
       <td class="num">${a.t}</td><td class="num">${a.apo}</td><td class="num">${a.sho}</td>
       <td class="num">${a.kei}</td><td class="num"><b>${a.kan}</b></td><td class="num"><span class="note">${a.kanDone}</span></td>
@@ -2061,7 +2073,7 @@ function squadRows(month){
 }
 
 function sumRows(rows){
-  const k = ["days","t","ap","apo","sho","kei","kan","kanDone","sales"];
+  const k = ["days","t","ap","apo","sho","kei","kan","kanDone","cancel","sales","power"];
   const out = {}; k.forEach(x => out[x] = rows.reduce((a,r) => a + (r[x]||0), 0));
   out.n = rows.length;
   return out;
@@ -2092,7 +2104,7 @@ function renderSquad(){
   /* 区分ごとのまとめ */
   let html = '<div style="overflow-x:auto"><table style="width:100%;min-width:760px;border-collapse:collapse;font-size:13px">';
   html += '<thead><tr style="background:var(--accent-soft);color:var(--accent)">' +
-    ["区分","人数","出勤","対応","アプ","アポ","商談","契約","完工","うち完工済み","対応アプ率","アプアポ率","アポ商談率","商談完工率"]
+    ["区分","人数","総戦闘力","出勤","対応","アプ","アポ","商談","契約","完工","うち完工済み","対応アプ率","アプアポ率","アポ商談率","商談完工率"]
       .map(h => '<th style="padding:8px;text-align:left;white-space:nowrap">'+h+'</th>').join("") +
     '</tr></thead><tbody>';
   keys.forEach(k => {
@@ -2101,6 +2113,7 @@ function renderSquad(){
     html += '<tr style="border-bottom:1px solid var(--line)">' +
       '<td style="padding:8px">'+head+'</td>' +
       '<td style="padding:8px">'+s2.n+'</td>' +
+      '<td style="padding:8px;font-weight:700;color:var(--accent)">'+(s2.power||0).toLocaleString("ja-JP")+'</td>' +
       '<td style="padding:8px">'+s2.days+'</td>' +
       '<td style="padding:8px">'+s2.t+'</td>' +
       '<td style="padding:8px">'+s2.ap+'</td>' +
@@ -2121,7 +2134,7 @@ function renderSquad(){
   /* 区分ごとのメンバー内訳 */
   let d = "";
   keys.forEach(k => {
-    const list = groups[k].slice().sort((a,b) => (b.apo||0) - (a.apo||0));
+    const list = groups[k].slice().sort((a,b) => (b.power||0) - (a.power||0));
     d += '<h3 style="font-size:14px;margin:16px 0 6px;display:flex;align-items:center;gap:8px">'
       + groupLabel(k, mode)
       + '<span style="color:var(--muted);font-weight:400;font-size:12px">'+list.length+'名</span></h3>';
@@ -2131,6 +2144,7 @@ function renderSquad(){
         '<td style="padding:7px;font-weight:700;white-space:nowrap">'+esc(r.name)+'</td>' +
         '<td style="padding:7px;white-space:nowrap">'+rankBadge(metaOf(r.name).rank)+'</td>' +
         '<td style="padding:7px;white-space:nowrap">'+(metaOf(r.name).gen ? genBadge(Number(metaOf(r.name).gen)) : "")+'</td>' +
+        '<td style="padding:7px;font-weight:700;color:var(--accent);white-space:nowrap">戦闘力 '+(r.power||0).toLocaleString("ja-JP")+'</td>' +
         '<td style="padding:7px">出勤 '+r.days+'</td>' +
         '<td style="padding:7px">対応 '+r.t+'</td>' +
         '<td style="padding:7px">アポ '+r.apo+'</td>' +

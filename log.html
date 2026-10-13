@@ -330,6 +330,69 @@ const MEMBERS = [
   { name: "小林", branch: "その他", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
 ];
 
+/* ───────── 戦闘力 ─────────
+   対応 + アプ×6 + アポ×20 + 商談×400 + 契約×1200 − キャンセル×600
+   商談は有効商談（未商談を除いたもの）、契約はキャンセルされていない契約です。 */
+const POWER_WEIGHT = { taio: 1, apu: 6, apo: 20, shodan: 400, keiyaku: 1200, cancel: -600 };
+const POWER_PARTS = [
+  { key: "taio", label: "対応" },
+  { key: "apu", label: "アプ" },
+  { key: "apo", label: "アポ" },
+  { key: "shodan", label: "商談" },
+  { key: "keiyaku", label: "契約" },
+  { key: "cancel", label: "キャンセル" },
+];
+const powerOf = (v) =>
+  Object.keys(POWER_WEIGHT).reduce((a, k) => a + Number(v[k] || 0) * POWER_WEIGHT[k], 0);
+
+/* ───────── 世代・ランクの既定値 ─────────
+   営業目標ナビの「メンバー設定」で変更した内容（rosterMeta）が優先されます。 */
+const DEFAULT_ROSTER_META = (() => {
+  const m = {};
+  const put = (names, key, val) => names.forEach((n) => { m[n] = { ...(m[n] || {}), [key]: val }; });
+  put(["保坂", "扇田", "石", "小林", "廣世"], "rank", "trainee");
+  put(["藤代", "鄭", "伊藤"], "rank", "bronze");
+  put(["佐伯", "三瀬"], "rank", "silver");
+  put(["山﨑", "坂神", "大川", "沼口", "森野"], "rank", "gold");
+  put(["佐伯", "坂神", "山﨑"], "gen", 1);
+  put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", 2);
+  put(["扇田", "保坂", "小林", "廣世"], "gen", 3);
+  return m;
+})();
+const KAN_NUM = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
+const genLabel = (g) => (g ? `第${KAN_NUM[g] || g}世代` : "世代未設定");
+
+/* ───────── 対応のフェーズ内訳 ─────────
+   「どの段階で終わったか」を数えます。6つの合計が対応数になります。
+   dir: up  … 割合が上がると良い（深い段階まで進めている）
+        down… 割合が下がると良い（浅い段階での離脱） */
+const PHASES = [
+  { key: "phInter", label: "インターホン", short: "インター", dir: "down" },
+  { key: "phFront", label: "フロント", short: "フロント", dir: "down" },
+  { key: "phTarget", label: "対象確認", short: "対象", dir: "down" },
+  { key: "phNeeds", label: "ニーズ", short: "ニーズ", dir: "up" },
+  { key: "phApu", label: "アプ", short: "アプ", dir: "up" },
+  { key: "phApo", label: "アポ", short: "アポ", dir: "up" },
+];
+/* アポの質（〇△✖）。合計がアポ数になります。 */
+const APO_GRADES = [
+  { key: "apoA", label: "〇アポ", dir: "up" },
+  { key: "apoB", label: "△アポ", dir: "flat" },
+  { key: "apoC", label: "✖アポ", dir: "down" },
+];
+const PHASE_KEYS = PHASES.map((p) => p.key);
+const GRADE_KEYS = APO_GRADES.map((g) => g.key);
+
+/* 日報の集まりからフェーズ内訳を合計します */
+function phaseTotals(rows) {
+  const o = {};
+  [...PHASE_KEYS, ...GRADE_KEYS].forEach((k) => (o[k] = 0));
+  rows.forEach((l) => [...PHASE_KEYS, ...GRADE_KEYS].forEach((k) => (o[k] += Number(l[k] || 0))));
+  o.phTotal = PHASE_KEYS.reduce((a, k) => a + o[k], 0);
+  o.apoTotal = GRADE_KEYS.reduce((a, k) => a + o[k], 0);
+  return o;
+}
+
 /* 支店 */
 const BRANCHES = ["東京", "静岡", "その他"];
 const branchOf = (name) => (MEMBERS.find((m) => m.name === name) || {}).branch || "";
@@ -591,6 +654,66 @@ function aggregateAll(allLogs, allDeals, month, branch = "all") {
   });
 
   return { members, closers, daily, weeks, base };
+}
+
+/* ───────── 戦闘力の集計 ─────────
+   inRange は日報の日付（"M/D"）を受け取り、集計対象かどうかを返します。 */
+function powerRows(allLogs, allDeals, inRange, branch = "all") {
+  const inBranch = (name) => branch === "all" || branchOf(name) === branch;
+  const rows = {};
+  membersIn(branch).forEach((m) => {
+    rows[m.name] = { name: m.name, branch: m.branch, role: m.role, taio: 0, apu: 0, apo: 0, shodan: 0, keiyaku: 0, cancel: 0 };
+  });
+  allLogs.forEach((l) => {
+    const r = rows[l.name];
+    if (!r || !inBranch(l.name) || !inRange(l.date)) return;
+    r.taio += num(l.taio);
+    r.apu += num(l.apu);
+    r.apo += num(l.apo);
+  });
+  allDeals.forEach((d) => {
+    const r = rows[d.name];
+    if (!r || !inBranch(d.name) || !inRange(d.date)) return;
+    if (d.cancelled) r.cancel += 1;
+    if (!d.excluded) r.shodan += 1;
+    if (d.keiyaku > 0 && !d.cancelled) r.keiyaku += 1;
+  });
+  return Object.values(rows).map((r) => ({
+    ...r,
+    power: powerOf(r),
+    /* その期間に動きがあったかどうか（順位をつける対象） */
+    active: r.taio + r.apu + r.apo + r.shodan + r.keiyaku + r.cancel > 0,
+  }));
+}
+
+/* 土曜始まりの週の範囲。offset 0 が今週、-1 が先週です */
+function weekRangeOf(offset = 0) {
+  const from = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
+  from.setDate(from.getDate() - ((from.getDay() + 1) % 7) + offset * 7);
+  const to = new Date(from);
+  to.setDate(to.getDate() + 6);
+  const key = (dt) => (dt.getMonth() + 1) * 100 + dt.getDate();
+  const label = `${from.getMonth() + 1}/${from.getDate()}〜${to.getMonth() + 1}/${to.getDate()}`;
+  return {
+    from,
+    to,
+    label,
+    has: (date) => {
+      const k = monthOf(date) * 100 + dayNum(date);
+      return k >= key(from) && k <= key(to);
+    },
+  };
+}
+
+/* 戦闘力の高い順に並べ、名前から順位を引けるようにします。
+   その期間に動きがなかった人は順位をつけません。 */
+function powerRankMap(rows) {
+  const map = {};
+  rows
+    .filter((r) => r.active)
+    .sort((a, b) => b.power - a.power)
+    .forEach((r, i) => (map[r.name] = i + 1));
+  return map;
 }
 
 /* メンバー個人目標の初期値（設定画面で変更可） */
@@ -928,6 +1051,99 @@ function MemberSelect({ value, onChange, includeAll = false, label = "入力者"
           <option key={m.name} value={m.name}>{m.name}（{m.role}）</option>
         ))}
       </select>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   フェーズ内訳の入力
+   対応が「どの段階で終わったか」と、アポの質（〇△✖）を記録します
+   ══════════════════════════════════════════ */
+function PhaseFields({ values, onPatch }) {
+  const n = (k) => Number(values[k] || 0);
+  const phTotal = PHASE_KEYS.reduce((a, k) => a + n(k), 0);
+  const apoTotal = GRADE_KEYS.reduce((a, k) => a + n(k), 0);
+  const taio = Number(values.taio || 0);
+  const apo = Number(values.apo || 0);
+  const set = (k, v) => onPatch({ [k]: v === "" ? 0 : Number(v) });
+  const applyTotals = () =>
+    onPatch({ taio: phTotal, apu: n("phApu") + n("phApo"), apo: n("phApo") });
+
+  const box =
+    "w-full rounded-lg border border-slate-200 bg-slate-50 py-2 px-2 text-right text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100";
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-bold text-slate-900">フェーズ内訳（任意）</p>
+          <p className="mt-0.5 text-xs text-slate-400">対応が「どの段階で終わったか」を入れると、躓いている段階がわかります</p>
+        </div>
+        {phTotal > 0 && (
+          <button
+            onClick={applyTotals}
+            className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:bg-slate-50"
+            style={{ borderColor: NAVY, color: NAVY }}
+          >
+            対応・アプ・アポに反映
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {PHASES.map((p) => (
+          <div key={p.key}>
+            <label className="mb-1 block text-center text-[11px] font-medium text-slate-600">{p.label}</label>
+            <input
+              type="number"
+              min="0"
+              value={values[p.key] ?? ""}
+              onChange={(e) => set(p.key, e.target.value)}
+              placeholder="0"
+              className={box}
+            />
+            <p className="mt-1 text-center text-[11px] text-slate-400">
+              {phTotal > 0 ? p1(ratio(n(p.key), phTotal)) : "—"}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {phTotal > 0 && (
+        <p className={`mt-3 text-xs ${taio && phTotal !== taio ? "text-amber-600" : "text-slate-400"}`}>
+          フェーズ合計 {phTotal}件
+          {taio ? `／対応数 ${taio}件` : ""}
+          {taio && phTotal !== taio ? "：数が合っていません。どちらかを直してください。" : ""}
+        </p>
+      )}
+
+      <div className="mt-4 border-t border-slate-100 pt-4">
+        <p className="mb-2 text-sm font-bold text-slate-900">アポの内訳（任意）</p>
+        <div className="grid grid-cols-3 gap-2">
+          {APO_GRADES.map((g) => (
+            <div key={g.key}>
+              <label className="mb-1 block text-center text-[11px] font-medium text-slate-600">{g.label}</label>
+              <input
+                type="number"
+                min="0"
+                value={values[g.key] ?? ""}
+                onChange={(e) => set(g.key, e.target.value)}
+                placeholder="0"
+                className={box}
+              />
+              <p className="mt-1 text-center text-[11px] text-slate-400">
+                {apoTotal > 0 ? p1(ratio(n(g.key), apoTotal)) : "—"}
+              </p>
+            </div>
+          ))}
+        </div>
+        {apoTotal > 0 && (
+          <p className={`mt-2 text-xs ${apo && apoTotal !== apo ? "text-amber-600" : "text-slate-400"}`}>
+            内訳合計 {apoTotal}件{apo ? `／アポ数 ${apo}件` : ""}
+            {apo && apoTotal !== apo ? "：数が合っていません。どちらかを直してください。" : ""}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -1344,6 +1560,7 @@ function EditLogModal({ log, onClose, onSave, onDelete, currentUser }) {
   ];
   const changed =
     fields.some(([k]) => Number(draft[k] || 0) !== Number(log[k] || 0)) ||
+    [...PHASE_KEYS, ...GRADE_KEYS].some((k) => Number(draft[k] || 0) !== Number(log[k] || 0)) ||
     JSON.stringify(items) !== JSON.stringify(itemsOf(log)) ||
     dateChanged;
 
@@ -1403,6 +1620,10 @@ function EditLogModal({ log, onClose, onSave, onDelete, currentUser }) {
               </div>
             );
           })}
+        </div>
+
+        <div className="px-6 pb-6">
+          <PhaseFields values={draft} onPatch={(o) => setDraft((prev) => ({ ...prev, ...o }))} />
         </div>
 
         <div className="px-6 pb-6">
@@ -1958,6 +2179,32 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
   const weakest = active.length ? active.reduce((a, b) => (a.gap <= b.gap ? a : b)) : null;
   const okCount = stages.filter((x) => x.ok).length;
 
+  /* 戦闘力（当月）と、フェーズ内訳の前月対比 */
+  const myPower = useMemo(
+    () => powerRows(logs, deals, (d) => monthOf(d) === month, "all").find((r) => r.name === currentUser) || { power: 0 },
+    [logs, deals, month, currentUser]
+  );
+  const myLogs = (m) => logs.filter((l) => l.name === currentUser && monthOf(l.date) === m);
+  const phNow = useMemo(() => phaseTotals(myLogs(month)), [logs, currentUser, month]);
+  const phPrev = useMemo(() => phaseTotals(myLogs(month - 1)), [logs, currentUser, month]);
+  const hasPhase = phNow.phTotal > 0 || phNow.apoTotal > 0;
+
+  /* 割合の前月対比。dir が up のフェーズは上がれば良化、down は下がれば良化です */
+  const phaseRow = (def, total, prevTotal) => {
+    const cnt = phNow[def.key] || 0;
+    const rate = total > 0 ? ratio(cnt, total) : null;
+    const prev = prevTotal > 0 ? ratio(phPrev[def.key] || 0, prevTotal) : null;
+    const diff = rate != null && prev != null ? rate - prev : null;
+    let tone = "flat";
+    if (diff != null && Math.abs(diff) >= 0.05 && def.dir !== "flat") {
+      const better = def.dir === "up" ? diff > 0 : diff < 0;
+      tone = better ? "good" : "bad";
+    }
+    return { ...def, cnt, rate, prev, diff, tone };
+  };
+  const phaseRows = PHASES.map((p) => phaseRow(p, phNow.phTotal, phPrev.phTotal));
+  const gradeRows = APO_GRADES.map((g) => phaseRow(g, phNow.apoTotal, phPrev.apoTotal));
+
   return (
     <>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -2015,6 +2262,99 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
           )}
         </Card>
       )}
+
+      {/* 戦闘力 */}
+      <Card className="mb-8 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">BATTLE POWER</p>
+          <p className="mt-1 text-3xl font-bold tracking-tight" style={{ color: NAVY }}>
+            {myPower.power.toLocaleString("ja-JP")}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {POWER_PARTS.map((p) => `${p.label} ${myPower[p.key] || 0}`).join("・")}
+          </p>
+        </div>
+        <p className="max-w-xs text-xs leading-relaxed text-slate-500">
+          対応 ＋ アプ×6 ＋ アポ×20 ＋ 商談×400 ＋ 契約×1200 − キャンセル×600。
+          全員の順位はランキング画面で確認できます。
+        </p>
+      </Card>
+
+      {/* フェーズ別の内訳 */}
+      <section className="mb-10">
+        <SectionTitle note={month > 1 ? `${month - 1}月の自分の割合と比較` : "前月のデータなし"}>
+          フェーズ別の内訳
+        </SectionTitle>
+        {!hasPhase ? (
+          <Card className="p-5">
+            <p className="text-sm text-slate-500">
+              この月はフェーズ内訳が入力されていません。日報入力の「フェーズ内訳」に、対応がどの段階で終わったかを入れると、ここに躓いている段階が出ます。
+            </p>
+          </Card>
+        ) : (
+          <Card className="p-5">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+              {phaseRows.map((r) => (
+                <div
+                  key={r.key}
+                  className={`rounded-lg p-3 text-center ring-1 ${
+                    r.tone === "good"
+                      ? "bg-emerald-50 ring-emerald-100"
+                      : r.tone === "bad"
+                      ? "bg-red-50 ring-red-100"
+                      : "bg-slate-50 ring-slate-100"
+                  }`}
+                >
+                  <p className="text-[11px] font-medium text-slate-500">{r.label}</p>
+                  <p className="mt-1 text-xl font-bold text-slate-900">{r.cnt}</p>
+                  <p className="text-xs font-semibold text-slate-600">{r.rate == null ? "—" : p1(r.rate)}</p>
+                  <p
+                    className={`mt-1 text-[11px] font-semibold ${
+                      r.tone === "good" ? "text-emerald-700" : r.tone === "bad" ? "text-red-600" : "text-slate-400"
+                    }`}
+                  >
+                    {r.diff == null ? "前月なし" : `前月 ${p1(r.prev)} ${r.diff >= 0 ? "＋" : "−"}${Math.abs(r.diff).toFixed(1)}pt`}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-slate-400">
+              合計 {phNow.phTotal} 件。インターホン・フロント・対象確認は割合が下がるほど、ニーズ・アプ・アポは上がるほど良い状態です（緑＝良化、赤＝悪化）。
+            </p>
+
+            {phNow.apoTotal > 0 && (
+              <div className="mt-5 border-t border-slate-100 pt-5">
+                <p className="mb-3 text-sm font-bold text-slate-900">アポの内訳</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {gradeRows.map((r) => (
+                    <div
+                      key={r.key}
+                      className={`rounded-lg p-3 text-center ring-1 ${
+                        r.tone === "good"
+                          ? "bg-emerald-50 ring-emerald-100"
+                          : r.tone === "bad"
+                          ? "bg-red-50 ring-red-100"
+                          : "bg-slate-50 ring-slate-100"
+                      }`}
+                    >
+                      <p className="text-[11px] font-medium text-slate-500">{r.label}</p>
+                      <p className="mt-1 text-xl font-bold text-slate-900">{r.cnt}</p>
+                      <p className="text-xs font-semibold text-slate-600">{r.rate == null ? "—" : p1(r.rate)}</p>
+                      <p
+                        className={`mt-1 text-[11px] font-semibold ${
+                          r.tone === "good" ? "text-emerald-700" : r.tone === "bad" ? "text-red-600" : "text-slate-400"
+                        }`}
+                      >
+                        {r.diff == null ? "前月なし" : `前月 ${p1(r.prev)} ${r.diff >= 0 ? "＋" : "−"}${Math.abs(r.diff).toFixed(1)}pt`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
+      </section>
 
       {/* 個人目標に対する進捗 */}
       {myTarget && (
@@ -2558,6 +2898,9 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
                 </div>
               </div>
             ))}
+          </div>
+          <div className="mt-5">
+            <PhaseFields values={values} onPatch={(o) => setValues((prev) => ({ ...prev, ...o }))} />
           </div>
           <div className="mt-5">
             <DealEditor items={items} setItems={setItems} author={author} />
@@ -4557,14 +4900,73 @@ function CloserAnalysis({ stats, goal, deals, onGoMishodan, month, setMonth, bra
 /* ══════════════════════════════════════════
    6. ランキング
    ══════════════════════════════════════════ */
-function Ranking({ stats, currentUser, month, setMonth, branch, setBranch }) {
-  const [tab, setTab] = useState("apo");
+/* 先週 ⇒ 今週 の順位変動 */
+function RankDelta({ prev, now }) {
+  if (!now) return <span className="text-xs text-slate-300">今週の実績なし</span>;
+  if (!prev) {
+    return (
+      <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-bold text-sky-700 ring-1 ring-sky-100">
+        今週から {now}位
+      </span>
+    );
+  }
+  const d = prev - now;
+  const tone = d > 0 ? "bg-emerald-50 text-emerald-700 ring-emerald-100" : d < 0 ? "bg-red-50 text-red-600 ring-red-100" : "bg-slate-50 text-slate-500 ring-slate-100";
+  return (
+    <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold ring-1 ${tone}`}>
+      {prev}⇒{now}
+      {d > 0 ? ` ↑${d}` : d < 0 ? ` ↓${-d}` : " →"}
+    </span>
+  );
+}
+
+function Ranking({ stats, currentUser, month, setMonth, branch, setBranch, logs, deals, rosterMeta }) {
+  const [tab, setTab] = useState("power");
   const [showAll, setShowAll] = useState(false);
 
+  const genOf = (name) =>
+    (rosterMeta[name] || {}).gen || (DEFAULT_ROSTER_META[name] || {}).gen || 0;
+
+  /* 戦闘力：当月の合計と、先週・今週の順位（順位変動の表示に使います） */
+  const thisWeek = useMemo(() => weekRangeOf(0), []);
+  const lastWeek = useMemo(() => weekRangeOf(-1), []);
+  const monthPower = useMemo(
+    () => powerRows(logs, deals, (d) => monthOf(d) === month, branch),
+    [logs, deals, month, branch]
+  );
+  const powerByName = useMemo(
+    () => monthPower.reduce((a, r) => ({ ...a, [r.name]: r }), {}),
+    [monthPower]
+  );
+  const nowRank = useMemo(
+    () => powerRankMap(powerRows(logs, deals, thisWeek.has, branch)),
+    [logs, deals, branch, thisWeek]
+  );
+  const prevRank = useMemo(
+    () => powerRankMap(powerRows(logs, deals, lastWeek.has, branch)),
+    [logs, deals, branch, lastWeek]
+  );
+
+  /* 世代別の総戦闘力 */
+  const genGroups = useMemo(() => {
+    const map = {};
+    monthPower.forEach((r) => {
+      const g = genOf(r.name);
+      (map[g] = map[g] || { gen: g, power: 0, members: [] }).power += r.power;
+      map[g].members.push(r);
+    });
+    return Object.values(map).sort((a, b) => b.power - a.power);
+  }, [monthPower, rosterMeta]);
+
   const valueOf = (m, key) =>
-    key === "yuko" ? memberValue(m, "shodan", stats) - (stats.byMember[m.name] || 0) : memberValue(m, key, stats);
+    key === "power"
+      ? (powerByName[m.name] || {}).power || 0
+      : key === "yuko"
+      ? memberValue(m, "shodan", stats) - (stats.byMember[m.name] || 0)
+      : memberValue(m, key, stats);
 
   const TABS = [
+    { key: "power", label: "戦闘力" },
     { key: "taio", label: "対応数" },
     { key: "apu", label: "アプローチ数" },
     { key: "apo", label: "アポ数" },
@@ -4573,6 +4975,7 @@ function Ranking({ stats, currentUser, month, setMonth, branch, setBranch }) {
     { key: "sales", label: "売上金額" },
   ];
   const badgeOf = {
+    power: "戦闘力トップ",
     taio: "対応数トップ",
     apu: "アプローチ数トップ",
     apo: "アポ数トップ",
@@ -4580,7 +4983,8 @@ function Ranking({ stats, currentUser, month, setMonth, branch, setBranch }) {
     kanko: "完工数トップ",
     sales: "売上トップ",
   };
-  const fmt = (m) => (tab === "sales" ? yen(valueOf(m, "sales")) : valueOf(m, tab));
+  const fmt = (m) =>
+    tab === "sales" ? yen(valueOf(m, "sales")) : valueOf(m, tab).toLocaleString("ja-JP");
 
   const rankedAll = useMemo(
     () => [...membersIn(branch)].sort((a, b) => valueOf(b, tab) - valueOf(a, tab)),
@@ -4628,6 +5032,46 @@ function Ranking({ stats, currentUser, month, setMonth, branch, setBranch }) {
         ))}
       </div>
 
+      {tab === "power" && (
+        <>
+          <Card className="mb-5 p-5">
+            <SectionTitle note={`${PERIOD.year}年${month}月の合計`}>世代別 総戦闘力</SectionTitle>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {genGroups.map((g) => {
+                const list = [...g.members].sort((a, b) => b.power - a.power);
+                return (
+                  <div key={g.gen} className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-bold text-slate-800">{genLabel(g.gen)}</span>
+                      <span className="text-xs text-slate-400">{g.members.length}名</span>
+                    </div>
+                    <p className="mt-1 text-2xl font-bold tabular-nums" style={{ color: NAVY }}>
+                      {g.power.toLocaleString("ja-JP")}
+                    </p>
+                    <div className="mt-3 space-y-1 border-t border-slate-200 pt-2">
+                      {list.map((r) => (
+                        <div key={r.name} className="flex items-center justify-between gap-2 text-xs">
+                          <span className={r.name === currentUser ? "font-bold text-slate-900" : "text-slate-600"}>
+                            {r.name}
+                          </span>
+                          <span className="tabular-nums text-slate-500">{r.power.toLocaleString("ja-JP")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+          <p className="mb-5 rounded-lg bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-500 ring-1 ring-slate-100">
+            戦闘力 ＝ 対応 ＋ アプ×6 ＋ アポ×20 ＋ 商談×400 ＋ 契約×1200 − キャンセル×600
+            <br />
+            商談は有効商談（未商談を除く）、契約はキャンセルされていないものを数えます。
+            順位変動は、週（土曜はじまり）の戦闘力で先週 {lastWeek.label} と今週 {thisWeek.label} を比べたものです。
+          </p>
+        </>
+      )}
+
       <div className="space-y-3">
         {ranked.map((m, i) => {
           const medal = medals[Math.min(i, 3)];
@@ -4660,9 +5104,20 @@ function Ranking({ stats, currentUser, month, setMonth, branch, setBranch }) {
                     </span>
                   )}
                   <RoleTag role={m.role} />
+                  {tab === "power" && (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                      {genLabel(genOf(m.name))}
+                    </span>
+                  )}
+                  {tab === "power" && <RankDelta prev={prevRank[m.name]} now={nowRank[m.name]} />}
                 </div>
               </div>
               <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
+                {tab === "power" && (
+                  <span className="text-xs text-slate-400">
+                    {POWER_PARTS.map((p) => `${p.label} ${(powerByName[m.name] || {})[p.key] || 0}`).join("・")}
+                  </span>
+                )}
                 <span>
                   {TABS.find((t) => t.key === tab).label}：
                   <span className="ml-1 text-base font-bold text-slate-900">{fmt(m)}</span>
@@ -5369,6 +5824,8 @@ function App() {
   const busy = useRef(false);
 
   const { logs, goal, targets, editPolicy } = shared;
+  /* 世代・ランクは営業目標ナビのメンバー設定を共用します */
+  const rosterMeta = shared.rosterMeta || {};
   const deals = useMemo(() => buildDeals(logs), [logs]);
   const teamTarget = useMemo(() => sumTargets(targets), [targets]);
   const currentUser = me?.name || "";
@@ -5624,6 +6081,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v68</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">
@@ -5843,7 +6301,19 @@ function App() {
               }}
             />
           )}
-          {page === "ranking" && <Ranking stats={stats} currentUser={currentUser} month={month} setMonth={setMonth} branch={branch} setBranch={setBranch} />}
+          {page === "ranking" && (
+            <Ranking
+              stats={stats}
+              currentUser={currentUser}
+              month={month}
+              setMonth={setMonth}
+              branch={branch}
+              setBranch={setBranch}
+              logs={logs}
+              deals={deals}
+              rosterMeta={rosterMeta}
+            />
+          )}
           {page === "settings" && (
             <SettingsPage
               excl={excl}

@@ -709,10 +709,17 @@ function weekRangeOf(offset = 0) {
    その期間に動きがなかった人は順位をつけません。 */
 function powerRankMap(rows) {
   const map = {};
+  let rank = 0;
+  let last = null;
   rows
     .filter((r) => r.active)
     .sort((a, b) => b.power - a.power)
-    .forEach((r, i) => (map[r.name] = i + 1));
+    .forEach((r, i) => {
+      /* 戦闘力が同じ人は同じ順位にします */
+      if (last === null || r.power !== last) rank = i + 1;
+      last = r.power;
+      map[r.name] = rank;
+    });
   return map;
 }
 
@@ -4900,12 +4907,12 @@ function CloserAnalysis({ stats, goal, deals, onGoMishodan, month, setMonth, bra
 /* ══════════════════════════════════════════
    6. ランキング
    ══════════════════════════════════════════ */
-/* 先週 ⇒ 今週 の順位変動 */
+/* 月間順位の推移：先週の終わりまでの累計順位 ⇒ 今の累計順位 */
 function RankDelta({ prev, now }) {
-  if (!now) return <span className="text-xs text-slate-300">今週の実績なし</span>;
+  if (!now) return <span className="whitespace-nowrap text-xs text-slate-300">今月の実績なし</span>;
   if (!prev) {
     return (
-      <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-bold text-sky-700 ring-1 ring-sky-100">
+      <span className="whitespace-nowrap rounded-full bg-sky-50 px-2 py-0.5 text-xs font-bold text-sky-700 ring-1 ring-sky-100">
         今週から {now}位
       </span>
     );
@@ -4914,7 +4921,7 @@ function RankDelta({ prev, now }) {
   const tone = d > 0 ? "bg-emerald-50 text-emerald-700 ring-emerald-100" : d < 0 ? "bg-red-50 text-red-600 ring-red-100" : "bg-slate-50 text-slate-500 ring-slate-100";
   return (
     <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold ring-1 ${tone}`}>
-      {prev}⇒{now}
+      先週 {prev}位 ⇒ 今週 {now}位
       {d > 0 ? ` ↑${d}` : d < 0 ? ` ↓${-d}` : " →"}
     </span>
   );
@@ -4927,36 +4934,49 @@ function Ranking({ stats, currentUser, month, setMonth, branch, setBranch, logs,
   const genOf = (name) =>
     (rosterMeta[name] || {}).gen || (DEFAULT_ROSTER_META[name] || {}).gen || 0;
 
-  /* 戦闘力：当月の合計と、先週・今週の順位（順位変動の表示に使います） */
-  const thisWeek = useMemo(() => weekRangeOf(0), []);
-  const lastWeek = useMemo(() => weekRangeOf(-1), []);
+  /* 戦闘力は選んだ月の累計です。
+     順位変動は、同じ月の累計を「先週の終わりの時点」で切って比べます。 */
+  const isCurrentMonth = month === PERIOD.month;
+  /* 先週の終わり＝今週（土曜はじまり）の前日 */
+  const lastWeekEnd = useMemo(() => {
+    const d = new Date(weekRangeOf(0).from);
+    d.setDate(d.getDate() - 1);
+    return { key: (d.getMonth() + 1) * 100 + d.getDate(), label: `${d.getMonth() + 1}/${d.getDate()}` };
+  }, []);
+
   const monthPower = useMemo(
     () => powerRows(logs, deals, (d) => monthOf(d) === month, branch),
     [logs, deals, month, branch]
   );
+  const powerSource = monthPower;
   const powerByName = useMemo(
-    () => monthPower.reduce((a, r) => ({ ...a, [r.name]: r }), {}),
-    [monthPower]
+    () => powerSource.reduce((a, r) => ({ ...a, [r.name]: r }), {}),
+    [powerSource]
   );
-  const nowRank = useMemo(
-    () => powerRankMap(powerRows(logs, deals, thisWeek.has, branch)),
-    [logs, deals, branch, thisWeek]
-  );
+  const nowRank = useMemo(() => powerRankMap(monthPower), [monthPower]);
   const prevRank = useMemo(
-    () => powerRankMap(powerRows(logs, deals, lastWeek.has, branch)),
-    [logs, deals, branch, lastWeek]
+    () =>
+      powerRankMap(
+        powerRows(
+          logs,
+          deals,
+          (d) => monthOf(d) === month && monthOf(d) * 100 + dayNum(d) <= lastWeekEnd.key,
+          branch
+        )
+      ),
+    [logs, deals, month, branch, lastWeekEnd]
   );
 
   /* 世代別の総戦闘力 */
   const genGroups = useMemo(() => {
     const map = {};
-    monthPower.forEach((r) => {
+    powerSource.forEach((r) => {
       const g = genOf(r.name);
       (map[g] = map[g] || { gen: g, power: 0, members: [] }).power += r.power;
       map[g].members.push(r);
     });
     return Object.values(map).sort((a, b) => b.power - a.power);
-  }, [monthPower, rosterMeta]);
+  }, [powerSource, rosterMeta]);
 
   const valueOf = (m, key) =>
     key === "power"
@@ -5066,8 +5086,13 @@ function Ranking({ stats, currentUser, month, setMonth, branch, setBranch, logs,
           <p className="mb-5 rounded-lg bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-500 ring-1 ring-slate-100">
             戦闘力 ＝ 対応 ＋ アプ×16 ＋ アポ×80 ＋ 商談×400 ＋ 契約×1000 − キャンセル×500
             <br />
-            商談は有効商談（未商談を除く）、契約はキャンセルされていないものを数えます。
-            順位変動は、週（土曜はじまり）の戦闘力で先週 {lastWeek.label} と今週 {thisWeek.label} を比べたものです。
+            商談は有効商談（未商談を除く）、契約はキャンセルされていないものを数えます。順位は {month}月の累計です。
+            {isCurrentMonth && (
+              <>
+                <br />
+                「先週◯位 ⇒ 今週◯位」は、同じ月の累計順位を先週の終わり（{lastWeekEnd.label}）の時点で切って比べたものです。今週の数字は右側の順位に含まれています。
+              </>
+            )}
           </p>
         </>
       )}
@@ -5109,7 +5134,9 @@ function Ranking({ stats, currentUser, month, setMonth, branch, setBranch, logs,
                       {genLabel(genOf(m.name))}
                     </span>
                   )}
-                  {tab === "power" && <RankDelta prev={prevRank[m.name]} now={nowRank[m.name]} />}
+                  {tab === "power" && isCurrentMonth && (
+                    <RankDelta prev={prevRank[m.name]} now={nowRank[m.name]} />
+                  )}
                 </div>
               </div>
               <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
@@ -6081,7 +6108,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v69</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v71</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">

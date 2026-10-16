@@ -325,9 +325,6 @@ const MEMBERS = [
   { name: "扇田", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
   { name: "保坂", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
   { name: "熊澤", branch: "静岡", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 15, shodan: 8, kanko: 4, rate: 30 } },
-
-  /* ── その他支店 ── */
-  { name: "小林", branch: "その他", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
 ];
 
 /* ───────── 戦闘力 ─────────
@@ -350,13 +347,13 @@ const powerOf = (v) =>
 const DEFAULT_ROSTER_META = (() => {
   const m = {};
   const put = (names, key, val) => names.forEach((n) => { m[n] = { ...(m[n] || {}), [key]: val }; });
-  put(["保坂", "扇田", "石", "小林", "廣世"], "rank", "trainee");
+  put(["保坂", "扇田", "石", "廣世"], "rank", "trainee");
   put(["藤代", "鄭", "伊藤"], "rank", "bronze");
   put(["佐伯", "三瀬"], "rank", "silver");
   put(["山﨑", "坂神", "大川", "沼口", "森野"], "rank", "gold");
   put(["佐伯", "坂神", "山﨑"], "gen", 1);
   put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", 2);
-  put(["扇田", "保坂", "小林", "廣世"], "gen", 3);
+  put(["扇田", "保坂", "廣世"], "gen", 3);
   return m;
 })();
 const KAN_NUM = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
@@ -382,6 +379,23 @@ const APO_GRADES = [
 ];
 const PHASE_KEYS = PHASES.map((p) => p.key);
 const GRADE_KEYS = APO_GRADES.map((g) => g.key);
+const PHASE_ALL = [...PHASES, ...APO_GRADES];
+
+/* この日以降の日報は、フェーズ内訳とアポの内訳が必須です（それ以前の日報は任意のまま） */
+const PHASE_REQUIRED_FROM = "2026-10-16";
+const phaseRequired = (iso) => String(iso || "") >= PHASE_REQUIRED_FROM;
+/* 未入力の項目（0は入力済みとして扱い、空欄だけを未入力とみなします） */
+const missingPhases = (v) =>
+  PHASE_ALL.filter((p) => v[p.key] === "" || v[p.key] == null).map((p) => p.label);
+/* 保存前に、9項目の空欄を0に直します */
+const fillPhases = (v) => {
+  const o = { ...v };
+  PHASE_ALL.forEach((p) => (o[p.key] = Number(o[p.key] || 0)));
+  return o;
+};
+/* 入力途中で消された欄（空文字）が、そのまま保存されないようにします */
+const cleanBlanks = (v) =>
+  Object.keys(v).reduce((a, k) => ({ ...a, [k]: v[k] === "" ? 0 : v[k] }), {});
 
 /* 日報の集まりからフェーズ内訳を合計します */
 function phaseTotals(rows) {
@@ -416,7 +430,7 @@ const ACCOUNTS = [...ADMINS, ...MEMBERS.map((m) => ({ name: m.name, role: m.role
 const findAccount = (name) => ACCOUNTS.find((a) => a.name === name);
 
 /* 未商談の理由 */
-const REASONS = ["既設7キロ以上", "屋根貸し3年未満禁止", "75歳以上"];
+const REASONS = ["既設7キロ以上", "屋根貸し3年未満禁止", "75歳以上", "30分未満"];
 
 /* 契約キャンセルの理由 */
 const CANCEL_REASONS = ["クーリングオフ", "審査NG", "設置条件NG", "顧客都合", "その他"];
@@ -1066,25 +1080,57 @@ function MemberSelect({ value, onChange, includeAll = false, label = "入力者"
    フェーズ内訳の入力
    対応が「どの段階で終わったか」と、アポの質（〇△✖）を記録します
    ══════════════════════════════════════════ */
-function PhaseFields({ values, onPatch }) {
+function PhaseFields({ values, onPatch, required = false }) {
   const n = (k) => Number(values[k] || 0);
   const phTotal = PHASE_KEYS.reduce((a, k) => a + n(k), 0);
   const apoTotal = GRADE_KEYS.reduce((a, k) => a + n(k), 0);
   const taio = Number(values.taio || 0);
   const apo = Number(values.apo || 0);
-  const set = (k, v) => onPatch({ [k]: v === "" ? 0 : Number(v) });
+  /* 空欄は空欄のまま保ち、未入力かどうかを判定できるようにします */
+  const set = (k, v) => onPatch({ [k]: v === "" ? "" : Number(v) });
+  const blank = (k) => values[k] === "" || values[k] == null;
   const applyTotals = () =>
     onPatch({ taio: phTotal, apu: n("phApu") + n("phApo"), apo: n("phApo") });
 
-  const box =
-    "w-full rounded-lg border border-slate-200 bg-slate-50 py-2 px-2 text-right text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100";
+  const boxCls = (k) =>
+    `w-full rounded-lg border py-2 px-2 text-right text-sm transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 ${
+      required && blank(k) ? "border-rose-300 bg-rose-50" : "border-slate-200 bg-slate-50"
+    }`;
+
+  const field = (p) => (
+    <div key={p.key}>
+      <label className="mb-1 block text-center text-[11px] font-medium text-slate-600">{p.label}</label>
+      <input
+        type="number"
+        min="0"
+        value={values[p.key] ?? ""}
+        onChange={(e) => set(p.key, e.target.value)}
+        placeholder={required ? "必須" : "0"}
+        className={boxCls(p.key)}
+      />
+      <p className="mt-1 text-center text-[11px] text-slate-400">
+        {(PHASE_KEYS.includes(p.key) ? phTotal : apoTotal) > 0
+          ? p1(ratio(n(p.key), PHASE_KEYS.includes(p.key) ? phTotal : apoTotal))
+          : "—"}
+      </p>
+    </div>
+  );
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className={`rounded-lg border p-4 ${required ? "border-slate-300 bg-white" : "border-slate-200 bg-white"}`}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-bold text-slate-900">フェーズ内訳（任意）</p>
-          <p className="mt-0.5 text-xs text-slate-400">対応が「どの段階で終わったか」を入れると、躓いている段階がわかります</p>
+          <p className="text-sm font-bold text-slate-900">
+            フェーズ内訳
+            {required ? (
+              <span className="ml-2 rounded px-1.5 py-0.5 text-[11px] font-bold text-rose-600 ring-1 ring-rose-200">必須</span>
+            ) : (
+              <span className="ml-2 text-xs font-normal text-slate-400">（任意）</span>
+            )}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-400">
+            対応が「どの段階で終わったか」を入れます。やっていない段階は 0 と入れてください。
+          </p>
         </div>
         {phTotal > 0 && (
           <button
@@ -1097,24 +1143,7 @@ function PhaseFields({ values, onPatch }) {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-        {PHASES.map((p) => (
-          <div key={p.key}>
-            <label className="mb-1 block text-center text-[11px] font-medium text-slate-600">{p.label}</label>
-            <input
-              type="number"
-              min="0"
-              value={values[p.key] ?? ""}
-              onChange={(e) => set(p.key, e.target.value)}
-              placeholder="0"
-              className={box}
-            />
-            <p className="mt-1 text-center text-[11px] text-slate-400">
-              {phTotal > 0 ? p1(ratio(n(p.key), phTotal)) : "—"}
-            </p>
-          </div>
-        ))}
-      </div>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{PHASES.map(field)}</div>
 
       {phTotal > 0 && (
         <p className={`mt-3 text-xs ${taio && phTotal !== taio ? "text-amber-600" : "text-slate-400"}`}>
@@ -1125,25 +1154,15 @@ function PhaseFields({ values, onPatch }) {
       )}
 
       <div className="mt-4 border-t border-slate-100 pt-4">
-        <p className="mb-2 text-sm font-bold text-slate-900">アポの内訳（任意）</p>
-        <div className="grid grid-cols-3 gap-2">
-          {APO_GRADES.map((g) => (
-            <div key={g.key}>
-              <label className="mb-1 block text-center text-[11px] font-medium text-slate-600">{g.label}</label>
-              <input
-                type="number"
-                min="0"
-                value={values[g.key] ?? ""}
-                onChange={(e) => set(g.key, e.target.value)}
-                placeholder="0"
-                className={box}
-              />
-              <p className="mt-1 text-center text-[11px] text-slate-400">
-                {apoTotal > 0 ? p1(ratio(n(g.key), apoTotal)) : "—"}
-              </p>
-            </div>
-          ))}
-        </div>
+        <p className="mb-2 text-sm font-bold text-slate-900">
+          アポの内訳
+          {required ? (
+            <span className="ml-2 rounded px-1.5 py-0.5 text-[11px] font-bold text-rose-600 ring-1 ring-rose-200">必須</span>
+          ) : (
+            <span className="ml-2 text-xs font-normal text-slate-400">（任意）</span>
+          )}
+        </p>
+        <div className="grid grid-cols-3 gap-2">{APO_GRADES.map(field)}</div>
         {apoTotal > 0 && (
           <p className={`mt-2 text-xs ${apo && apoTotal !== apo ? "text-amber-600" : "text-slate-400"}`}>
             内訳合計 {apoTotal}件{apo ? `／アポ数 ${apo}件` : ""}
@@ -1151,6 +1170,12 @@ function PhaseFields({ values, onPatch }) {
           </p>
         )}
       </div>
+
+      {required && (
+        <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-500">
+          {PHASE_REQUIRED_FROM.slice(5).replace("-", "/")} 以降の日報は、9項目すべての入力が必要です。アポが0件の日も、アポの内訳は 0・0・0 と入れてください。
+        </p>
+      )}
     </div>
   );
 }
@@ -1498,6 +1523,9 @@ function EntryModal({ author, setAuthor, onClose, onSubmit, isAdmin }) {
   const [values, setValues] = useState({});
   const [items, setItems] = useState([]);
   const set = (k, v) => setValues((prev) => ({ ...prev, [k]: v === "" ? 0 : Number(v) }));
+  /* 指定日以降の日報は、フェーズ内訳とアポの内訳が必須です */
+  const needPhase = phaseRequired(TODAY.iso);
+  const missing = needPhase ? missingPhases(values) : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">
@@ -1531,6 +1559,18 @@ function EntryModal({ author, setAuthor, onClose, onSubmit, isAdmin }) {
           ))}
         </div>
         <div className="px-6 pb-6">
+          <PhaseFields
+            values={values}
+            onPatch={(o) => setValues((prev) => ({ ...prev, ...o }))}
+            required={needPhase}
+          />
+          {missing.length > 0 && (
+            <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold leading-relaxed text-rose-700 ring-1 ring-rose-100">
+              未入力：{missing.join("・")}。該当がない項目は 0 を入れてください。
+            </p>
+          )}
+        </div>
+        <div className="px-6 pb-6">
           <DealEditor items={items} setItems={setItems} author={author} />
         </div>
         <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
@@ -1538,8 +1578,9 @@ function EntryModal({ author, setAuthor, onClose, onSubmit, isAdmin }) {
             キャンセル
           </button>
           <button
-            onClick={() => onSubmit(author, TODAY.iso, values, items)}
-            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            onClick={() => onSubmit(author, TODAY.iso, needPhase ? fillPhases(values) : values, items)}
+            disabled={missing.length > 0}
+            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {author} の成績を保存する
           </button>
@@ -1570,6 +1611,9 @@ function EditLogModal({ log, onClose, onSave, onDelete, currentUser }) {
     [...PHASE_KEYS, ...GRADE_KEYS].some((k) => Number(draft[k] || 0) !== Number(log[k] || 0)) ||
     JSON.stringify(items) !== JSON.stringify(itemsOf(log)) ||
     dateChanged;
+  /* 指定日以降の日報は、フェーズ内訳とアポの内訳が必須です */
+  const needPhase = phaseRequired(iso);
+  const missing = needPhase ? missingPhases(draft) : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">
@@ -1630,7 +1674,16 @@ function EditLogModal({ log, onClose, onSave, onDelete, currentUser }) {
         </div>
 
         <div className="px-6 pb-6">
-          <PhaseFields values={draft} onPatch={(o) => setDraft((prev) => ({ ...prev, ...o }))} />
+          <PhaseFields
+            values={draft}
+            onPatch={(o) => setDraft((prev) => ({ ...prev, ...o }))}
+            required={needPhase}
+          />
+          {missing.length > 0 && (
+            <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold leading-relaxed text-rose-700 ring-1 ring-rose-100">
+              未入力：{missing.join("・")}。該当がない項目は 0 を入れてください。
+            </p>
+          )}
         </div>
 
         <div className="px-6 pb-6">
@@ -1658,13 +1711,13 @@ function EditLogModal({ log, onClose, onSave, onDelete, currentUser }) {
             <button
               onClick={() =>
                 onSave({
-                  ...draft,
+                  ...cleanBlanks(needPhase ? fillPhases(draft) : draft),
                   items,
                   date: `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`,
                   dow: ["日", "月", "火", "水", "木", "金", "土"][new Date(iso).getDay()],
                 })
               }
-              disabled={!changed}
+              disabled={!changed || missing.length > 0}
               className="rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: NAVY }}
             >
@@ -2803,6 +2856,7 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
   const [values, setValues] = useState({});
   const [items, setItems] = useState([]);
   const [flash, setFlash] = useState("");
+  const [warn, setWarn] = useState("");
   const setV = (k, v) => setValues((prev) => ({ ...prev, [k]: v === "" ? 0 : Number(v) }));
 
   const FORM_FIELDS = [
@@ -2811,8 +2865,18 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
     ["apo", "アポ数", "件"],
   ];
 
+  /* 指定日以降の日報は、フェーズ内訳とアポの内訳が必須です */
+  const needPhase = phaseRequired(iso);
+  const missing = needPhase ? missingPhases(values) : [];
+
   const save = async () => {
-    const mode = submitLog(author, iso, values, items);
+    if (missing.length) {
+      setFlash("");
+      setWarn(`未入力の項目があります：${missing.join("・")}。該当がない項目は 0 を入れてください。`);
+      return;
+    }
+    setWarn("");
+    const mode = submitLog(author, iso, needPhase ? fillPhases(values) : values, items);
     try {
       await mode.promise;
       setValues({});
@@ -2907,11 +2971,23 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
             ))}
           </div>
           <div className="mt-5">
-            <PhaseFields values={values} onPatch={(o) => setValues((prev) => ({ ...prev, ...o }))} />
+            <PhaseFields
+              values={values}
+              onPatch={(o) => {
+                setWarn("");
+                setValues((prev) => ({ ...prev, ...o }));
+              }}
+              required={needPhase}
+            />
           </div>
           <div className="mt-5">
             <DealEditor items={items} setItems={setItems} author={author} />
           </div>
+          {warn && (
+            <p className="mt-5 rounded-lg bg-rose-50 px-4 py-3 text-xs font-semibold leading-relaxed text-rose-700 ring-1 ring-rose-100">
+              {warn}
+            </p>
+          )}
           <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
             {flash && (
               <span className="flex items-center justify-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
@@ -2920,6 +2996,7 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
             )}
             <button
               onClick={() => {
+                setWarn("");
                 setValues({});
                 setItems([]);
               }}
@@ -6002,7 +6079,8 @@ function App() {
   const onSaveSettings = (patch) => run("saveSettings", patch, token);
   const resetData = () => run("resetData", DEFAULT_SHARED, token);
 
-  const submitLog = (name, iso, values, items = []) => {
+  const submitLog = (name, iso, rawValues, items = []) => {
+    const values = cleanBlanks(rawValues || {});
     const date = `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
     const dow = ["日", "月", "火", "水", "木", "金", "土"][new Date(iso).getDay()];
     const exists = logs.some((l) => l.name === name && l.date === date);
@@ -6108,7 +6186,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v71</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v74</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">

@@ -325,6 +325,11 @@ const MEMBERS = [
   { name: "扇田", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
   { name: "保坂", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
   { name: "熊澤", branch: "静岡", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 15, shodan: 8, kanko: 4, rate: 30 } },
+
+  /* ── Bizlabo ── */
+  { name: "塚原", branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "新井田", branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "樋熊", branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
 ];
 
 /* ───────── 戦闘力 ─────────
@@ -347,13 +352,13 @@ const powerOf = (v) =>
 const DEFAULT_ROSTER_META = (() => {
   const m = {};
   const put = (names, key, val) => names.forEach((n) => { m[n] = { ...(m[n] || {}), [key]: val }; });
-  put(["保坂", "扇田", "石", "廣世"], "rank", "trainee");
+  put(["保坂", "扇田", "石", "廣世", "塚原", "新井田", "樋熊"], "rank", "trainee");
   put(["藤代", "鄭", "伊藤"], "rank", "bronze");
   put(["佐伯", "三瀬"], "rank", "silver");
   put(["山﨑", "坂神", "大川", "沼口", "森野"], "rank", "gold");
   put(["佐伯", "坂神", "山﨑"], "gen", 1);
   put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", 2);
-  put(["扇田", "保坂", "廣世"], "gen", 3);
+  put(["扇田", "保坂", "廣世", "塚原", "新井田", "樋熊"], "gen", 3);
   return m;
 })();
 const KAN_NUM = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
@@ -408,7 +413,9 @@ function phaseTotals(rows) {
 }
 
 /* 支店 */
-const BRANCHES = ["東京", "静岡", "その他"];
+const BRANCHES = ["東京", "静岡", "Bizlabo", "その他"];
+/* 拠点名の表示。日本語の拠点だけ「◯◯支店」と呼びます */
+const branchLabel = (b) => (/[ぁ-んァ-ヶ一-龠]/.test(b) ? `${b}支店` : b);
 const branchOf = (name) => (MEMBERS.find((m) => m.name === name) || {}).branch || "";
 /* 名簿から外れた人（退職者など）かどうか */
 const isFormer = (name) => !MEMBERS.some((m) => m.name === name);
@@ -974,7 +981,7 @@ function GroupedBarChart({ data, series, height = 140, unit = "件", activeIndex
 function BranchSelect({ branch, setBranch }) {
   return (
     <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
-      {[{ label: "全社", v: "all" }, ...BRANCHES.map((b) => ({ label: `${b}支店`, v: b }))].map((o) => (
+      {[{ label: "全社", v: "all" }, ...BRANCHES.map((b) => ({ label: branchLabel(b), v: b }))].map((o) => (
         <button
           key={o.v}
           onClick={() => setBranch(o.v)}
@@ -2271,7 +2278,7 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">{currentUser} さんの成績</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {PERIOD.year}年{month}月{myBranch !== "all" && ` ／ ${myBranch}支店`}
+            {PERIOD.year}年{month}月{myBranch !== "all" && ` ／ ${branchLabel(myBranch)}`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -2682,7 +2689,7 @@ function Dashboard({ excl, setExcl, showBanner, onOpenModal, onGoMishodan, stats
         <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">MONTHLY SALES OVERVIEW</p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">営業ダッシュボード</h1>
         <p className="mt-2 text-sm text-slate-500">
-          {PERIOD.year}年{month}月／{branch === "all" ? "全社" : `${branch}支店`}の営業状況{isCurrent ? "" : "（当月以外の実績表示）"}
+          {PERIOD.year}年{month}月／{branch === "all" ? "全社" : branchLabel(branch)}の営業状況{isCurrent ? "" : "（当月以外の実績表示）"}
         </p>
       </header>
 
@@ -4121,7 +4128,7 @@ function Aggregate({ excl, setExcl, stats, month, setMonth, goal, branch, setBra
         deals={deals}
         branch={branch}
         goal={goal}
-        title={`全体の推移（${branch === "all" ? "全社" : branch + "支店"}）`}
+        title={`全体の推移（${branch === "all" ? "全社" : branchLabel(branch)}）`}
       />
 
       {md.hasData ? (
@@ -4687,7 +4694,7 @@ function CloserAnalysis({ stats, goal, deals, onGoMishodan, month, setMonth, bra
         <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">CLOSER PERFORMANCE</p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">クローザー分析</h1>
         <p className="mt-2 text-sm text-slate-500">
-          {PERIOD.year}年{month}月／{branch === "all" ? "全社" : `${branch}支店`}のクローザー {closersIn(branch).length} 名（商談完工率の目標 {target}%）
+          {PERIOD.year}年{month}月／{branch === "all" ? "全社" : branchLabel(branch)}のクローザー {closersIn(branch).length} 名（商談完工率の目標 {target}%）
         </p>
       </header>
 
@@ -5480,7 +5487,7 @@ function SettingsPage({
             <div className="mt-3 space-y-2">
               {BRANCHES.map((b) => (
                 <div key={b} className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-xs font-semibold text-slate-600">{b}支店</span>
+                  <span className="text-xs font-semibold text-slate-600">{branchLabel(b)}</span>
                   {membersIn(b).map((m) => (
                     <span
                       key={m.name}
@@ -6186,7 +6193,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v74</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v75</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">

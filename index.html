@@ -88,6 +88,10 @@
         <span class="t">営業目標ナビ</span>
         <span class="d">月間目標から逆算した行動計画と、日々の振り返り</span>
       </a>
+      <a class="choice" id="recruitChoice" href="./recruit.html" hidden>
+        <span class="t">採用・育成ボード</span>
+        <span class="d">応募者の育成進捗、媒体別の歩留まり、継続後の実績（採用担当のみ）</span>
+      </a>
     </div>
     <button class="logout" id="logout">ログアウト</button>
   </div>
@@ -131,6 +135,8 @@ function showMenu(me) {
   $("loginBox").hidden = true;
   $("menuBox").hidden = false;
   $("who").textContent = me.name + " さん（" + roleLabel(me) + "）";
+  /* 育成ボードは採用担当にだけ出します */
+  $("recruitChoice").hidden = !me.recruiter;
 }
 
 function showError(msg) {
@@ -150,6 +156,7 @@ function showError(msg) {
       var next = new URLSearchParams(location.search).get("next");
       if (next === "navi") { location.href = "./navi.html"; return; }
       if (next === "log") { location.href = "./log.html"; return; }
+      if (next === "recruit" && res.me.recruiter) { location.href = "./recruit.html"; return; }
       showMenu(res.me);
     } else {
       clearToken();
@@ -174,6 +181,7 @@ $("go").addEventListener("click", async function () {
       var next = new URLSearchParams(location.search).get("next");
       if (next === "navi") { location.href = "./navi.html"; return; }
       if (next === "log") { location.href = "./log.html"; return; }
+      if (next === "recruit" && res.me.recruiter) { location.href = "./recruit.html"; return; }
       showMenu(res.me);
     }
   } catch (e) {

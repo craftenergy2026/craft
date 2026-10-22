@@ -6193,7 +6193,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v75</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v76</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">
@@ -6218,7 +6218,7 @@ function App() {
           })}
         </nav>
 
-        <div className="mx-5 mb-2">
+        <div className="mx-5 mb-2 space-y-2">
           <a
             href="./navi.html"
             className="flex items-center justify-center gap-2 rounded-lg bg-white py-2.5 text-sm font-bold shadow-sm transition hover:opacity-90"
@@ -6226,6 +6226,14 @@ function App() {
           >
             <Target size={16} /> 営業目標ナビへ
           </a>
+          {me?.recruiter && (
+            <a
+              href="./recruit.html"
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/35 py-2.5 text-sm font-bold text-white transition hover:bg-white/10"
+            >
+              <Users size={16} /> 採用・育成ボードへ
+            </a>
+          )}
         </div>
 
         <div className="m-5 mt-3 rounded-lg p-4" style={{ backgroundColor: NAVY_SOFT }}>

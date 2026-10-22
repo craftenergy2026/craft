@@ -1,0 +1,1044 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>採用・育成ボード</title>
+<style>
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#172033; --muted:#5B6577; --line:#DCE1EA;
+  --accent:#1F5A96; --accent-ink:#FFFFFF; --accent-soft:#E3ECF7;
+  --shu:#C8442F; --shu-soft:#FBE7E3; --ok:#2E7D4F; --ok-soft:#E2F2E8;
+  --warn:#A8670F; --warn-soft:#FBF0DC;
+  --r:10px;
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink); font-size:14px; line-height:1.65;
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;
+  -webkit-text-size-adjust:100%;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.num{font-variant-numeric:tabular-nums}
+
+/* ── ヘッダー ── */
+header{position:sticky;top:0;z-index:20;background:var(--accent);color:#fff;padding:10px 16px}
+.hrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:1280px;margin:0 auto}
+.brand{display:flex;align-items:baseline;gap:8px;margin-right:auto}
+.brand h1{margin:0;font-size:17px;font-weight:800;letter-spacing:.02em}
+.brand span{font-size:11px;opacity:.75}
+header a.nav{font-size:12px;color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.45);border-radius:99px;padding:4px 10px}
+header a.nav:hover{background:rgba(255,255,255,.12)}
+.pill{font-size:11px;border-radius:99px;padding:3px 10px;background:rgba(255,255,255,.18)}
+.pill.ok{background:#D8F0E2;color:#1C5C38}
+.pill.warn{background:#FBF0DC;color:#7A4A08}
+.pill.bad{background:#FBE7E3;color:#8E2A1B}
+
+/* ── タブ ── */
+nav.tabs{position:sticky;top:46px;z-index:19;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto}
+nav.tabs .inner{display:flex;gap:2px;max-width:1280px;margin:0 auto;padding:0 10px}
+nav.tabs button{
+  background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);
+  font:inherit;font-weight:700;font-size:13px;padding:11px 14px;white-space:nowrap;cursor:pointer;
+}
+nav.tabs button[aria-selected=true]{color:var(--accent);border-bottom-color:var(--accent)}
+
+main{max-width:1280px;margin:0 auto;padding:16px 14px 60px}
+section[hidden]{display:none}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.panel h2{margin:0 0 4px;font-size:16px}
+.panel h3{margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.spacer{flex:1}
+.note{margin:0;color:var(--muted);font-size:12px;line-height:1.7}
+.label-sm{font-size:11px;font-weight:400;color:var(--muted)}
+
+/* ── 入力 ── */
+input,select,textarea{
+  font:inherit;font-size:15px;color:var(--ink);background:#fff;border:1px solid var(--line);
+  border-radius:8px;padding:8px 10px;width:100%;min-width:0;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+label.f{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:0}
+label.f input,label.f select{margin-top:4px}
+.btn{
+  font:inherit;font-weight:700;font-size:13px;border-radius:8px;padding:9px 14px;cursor:pointer;
+  background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);
+}
+.btn:hover{opacity:.9}
+.btn.ghost{background:#fff;color:var(--accent)}
+.btn.small{font-size:12px;padding:5px 10px}
+.btn.danger{background:#fff;color:var(--shu);border-color:#E8BDB4}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.fields{display:grid;gap:10px}
+.fields.add{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end}
+
+/* ── 表 ── */
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.t{width:100%;border-collapse:collapse;font-size:13px;min-width:680px}
+table.t th,table.t td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.t th{background:var(--accent-soft);color:var(--accent);font-size:12px;position:sticky;top:0}
+table.t th.l,table.t td.l{text-align:left}
+table.t tbody tr:hover{background:#F8FAFD}
+.cell-ok{color:var(--ok);font-weight:700}
+.cell-warn{color:var(--warn);font-weight:700}
+.cell-bad{color:var(--shu);font-weight:700}
+
+/* ── タイル ── */
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.tile{background:#F8FAFD;border:1px solid var(--line);border-radius:var(--r);padding:11px 12px}
+.tile .label-sm{display:block}
+.tile b{display:block;font-size:22px;line-height:1.3;font-variant-numeric:tabular-nums}
+.tile .note{font-size:11px}
+
+/* ── 育成カード ── */
+.cards{display:grid;gap:10px}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);
+  border-radius:var(--r);padding:13px 14px;display:grid;gap:10px;
+  grid-template-columns:minmax(0,1fr) minmax(190px,260px);
+}
+.card.late{border-left-color:var(--shu)}
+.card.soon{border-left-color:var(--warn)}
+.card.done{border-left-color:var(--ok)}
+.card .who{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.avatar{
+  width:34px;height:34px;border-radius:50%;background:var(--accent-soft);color:var(--accent);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:0 0 auto;
+}
+.nm{font-size:15px;font-weight:800}
+.tag{font-size:11px;font-weight:700;border-radius:5px;padding:1px 7px;background:#EEF2F7;color:var(--muted)}
+.tag.media{background:#E7E9F5;color:#3B4A8C}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}
+.tag.warn{background:var(--warn-soft);color:var(--warn)}
+.tag.bad{background:var(--shu-soft);color:var(--shu)}
+
+/* ステップ */
+.steps{display:flex;align-items:center;gap:0;margin-top:2px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+.step{display:flex;align-items:center;flex:0 0 auto}
+.dot{
+  width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;border:2px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;
+  flex:0 0 auto;
+}
+.dot:hover{border-color:var(--accent)}
+.dot.done{background:var(--ok);border-color:var(--ok);color:#fff}
+.dot.late{border-color:var(--shu);color:var(--shu)}
+.dot.now{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.bar{width:26px;height:2px;background:var(--line);flex:0 0 auto}
+.bar.done{background:var(--ok)}
+.next{margin:4px 0 0;font-size:12px;font-weight:700}
+.next.late{color:var(--shu)}
+.next.soon{color:var(--warn)}
+.next.calm{color:var(--muted)}
+.right{display:flex;flex-direction:column;gap:6px;align-items:flex-end;justify-content:center;text-align:right}
+.mbar{height:7px;border-radius:99px;background:#E7ECF3;overflow:hidden;width:130px}
+.mbar i{display:block;height:100%;background:var(--accent)}
+.mbar.ok i{background:var(--ok)} .mbar.warn i{background:var(--warn)} .mbar.bad i{background:var(--shu)}
+.deadline{font-size:12px;color:var(--muted)}
+.deadline b{font-size:15px;color:var(--ink)}
+.cardact{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+
+/* ── 編集パネル ── */
+.editbox{border-top:1px solid var(--line);margin-top:10px;padding-top:10px;grid-column:1/-1}
+.editgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.banner{background:var(--warn-soft);color:#7A4A08;border-radius:var(--r);padding:10px 12px;font-size:12px;margin-bottom:12px}
+.empty{padding:26px 10px;text-align:center;color:var(--muted);font-size:13px}
+.err{background:var(--shu-soft);color:var(--shu);border-radius:var(--r);padding:10px 12px;font-size:12px;margin-bottom:12px;font-weight:700}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:8px}
+.legend span{display:flex;align-items:center;gap:4px}
+.sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+@media(max-width:720px){
+  .card{grid-template-columns:1fr}
+  .right{align-items:flex-start;text-align:left}
+  nav.tabs{top:44px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <div class="brand">
+      <h1>採用・育成ボード</h1><span>画面 v76</span>
+    </div>
+    <a class="nav" href="./log.html">営業ログ</a>
+    <a class="nav" href="./navi.html">目標ナビ</a>
+    <a class="nav" href="./index.html">メニュー</a>
+    <span class="pill" id="modePill">接続中…</span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="inner">
+    <button data-tab="board" aria-selected="true">育成ボード</button>
+    <button data-tab="funnel" aria-selected="false">媒体別の歩留まり</button>
+    <button data-tab="perf" aria-selected="false">継続後の実績</button>
+    <button data-tab="list" aria-selected="false">応募者一覧</button>
+  </div>
+</nav>
+
+<main>
+  <div id="banner" class="banner" hidden></div>
+  <div id="err" class="err" hidden></div>
+
+  <!-- ══ 育成ボード ══ -->
+  <section data-sec="board">
+    <div class="panel">
+      <h3>応募者を登録 <span class="label-sm">氏名・媒体・応募日の3つだけで登録できます</span></h3>
+      <div class="fields add">
+        <label class="f" for="a-name">氏名<input id="a-name" type="text" placeholder="山田たける"></label>
+        <label class="f" for="a-media">応募媒体<select id="a-media"></select></label>
+        <label class="f" for="a-date">応募日<input id="a-date" type="date"></label>
+        <label class="f" for="a-owner">採用担当<select id="a-owner"></select></label>
+        <button class="btn" id="addBtn">登録する</button>
+      </div>
+      <p class="note" style="margin-top:8px">
+        登録すると、応募日から逆算した研修の予定日（目標設定面談・営業研修・トーク研修・テスト）と、初出勤の期限が自動で入ります。
+        期限は応募日から <b id="limitTxt">30</b> 日後です。
+      </p>
+    </div>
+
+    <div class="panel">
+      <h3>進行中 <span class="label-sm" id="boardCount"></span>
+        <span class="spacer"></span>
+        <select id="fMedia" style="width:auto"></select>
+        <select id="fOwner" style="width:auto"></select>
+        <select id="fSort" style="width:auto">
+          <option value="urgent">期限が近い順</option>
+          <option value="new">登録が新しい順</option>
+          <option value="progress">進捗が遅い順</option>
+        </select>
+      </h3>
+      <div class="tiles" id="boardTiles" style="margin-bottom:12px"></div>
+      <div class="cards" id="board"></div>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--ok)"></i>予定どおり</span>
+        <span><i class="sw" style="background:var(--warn)"></i>期限が3日以内</span>
+        <span><i class="sw" style="background:var(--shu)"></i>期限を過ぎている</span>
+        <span>丸を押すと、その研修を「済」にできます</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>出勤済み・継続 <span class="label-sm">初出勤までたどり着いた人</span></h3>
+      <div class="cards" id="boardDone"></div>
+    </div>
+  </section>
+
+  <!-- ══ 媒体別の歩留まり ══ -->
+  <section data-sec="funnel" hidden>
+    <div class="panel">
+      <h3>媒体別の歩留まり
+        <span class="spacer"></span>
+        <select id="fPeriod" style="width:auto">
+          <option value="all">全期間</option>
+          <option value="90">直近3か月</option>
+          <option value="30">直近1か月</option>
+        </select>
+      </h3>
+      <div class="tscroll"><table class="t" id="funnelTable"></table></div>
+      <p class="note" style="margin-top:8px">
+        各率は「ひとつ前の段階に対する割合」です。継続率は、初出勤した人のうち継続と判定した人の割合を指します。
+      </p>
+    </div>
+    <div class="panel">
+      <h3>採用担当別</h3>
+      <div class="tscroll"><table class="t" id="ownerTable"></table></div>
+    </div>
+    <div class="panel">
+      <h3>離脱した段階 <span class="label-sm">どこで抜けているかを見て、施策を決めます</span></h3>
+      <div class="tscroll"><table class="t" id="dropTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ══ 継続後の実績 ══ -->
+  <section data-sec="perf" hidden>
+    <div class="panel">
+      <h3>継続したメンバーの実績
+        <span class="spacer"></span>
+        <input type="month" id="perfMonth" style="width:auto">
+      </h3>
+      <p class="note" style="margin-bottom:10px">
+        営業ログの日報から自動で集計しています。「営業ログの氏名」を設定した人だけが対象です。
+      </p>
+      <div class="tiles" id="perfTiles" style="margin-bottom:12px"></div>
+      <div class="tscroll"><table class="t" id="perfTable"></table></div>
+    </div>
+    <div class="panel">
+      <h3>媒体別の平均実績 <span class="label-sm">どの媒体の学生が伸びているか</span></h3>
+      <div class="tscroll"><table class="t" id="perfMedia"></table></div>
+      <p class="note" style="margin-top:8px">
+        1人あたりの平均です。母数が少ない媒体は振れ幅が大きいので、人数とあわせて見てください。
+      </p>
+    </div>
+  </section>
+
+  <!-- ══ 応募者一覧 ══ -->
+  <section data-sec="list" hidden>
+    <div class="panel">
+      <h3>応募者一覧
+        <span class="spacer"></span>
+        <select id="lStatus" style="width:auto"></select>
+        <select id="lMedia" style="width:auto"></select>
+      </h3>
+      <div class="tscroll"><table class="t" id="listTable"></table></div>
+      <p class="note" style="margin-top:8px">氏名を押すと、育成ボードのカードが開きます。</p>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ══════════════════════════════════════════
+   ここに Apps Script のウェブアプリURLを貼り付けてください
+   （デプロイを管理 → ウェブアプリのURL。末尾が /exec のもの）
+   ══════════════════════════════════════════ */
+const API_URL = "https://script.google.com/macros/s/AKfycbynWR39HbLwEv7y-wv-otaoXSf4ApaLzSLK9loCrCP1rkF0e1C483fO-cnoM1bIocFinA/exec";
+const TOKEN_KEY = "craft-sales-token";
+
+/* ── 設定 ──────────────────────────────── */
+/* 応募媒体。増やすときはここに足してください */
+const MEDIA = ["インフラ", "ゼロワン", "ココシロ"];
+/* 応募から初出勤までの上限日数 */
+const LIMIT_DAYS = 30;
+/* 育成のステップ。plan は応募日から何日後を予定にするか */
+const STEPS = [
+  { key: "mendan", nm: "目標設定面談", short: "面", plan: 7 },
+  { key: "eigyo",  nm: "営業研修",     short: "営", plan: 14 },
+  { key: "talk",   nm: "トーク研修",   short: "ト", plan: 21 },
+  { key: "test",   nm: "テスト",       short: "テ", plan: 26 }
+];
+/* 歩留まりの段階 */
+const STAGES = [
+  { key: "apply", nm: "応募", dateKey: "applyDate" },
+  { key: "seat",  nm: "着座", dateKey: "seatDate" },
+  { key: "hire",  nm: "採用", dateKey: "hireDate" },
+  { key: "start", nm: "初出勤", dateKey: "startDate" },
+  { key: "keep",  nm: "継続", dateKey: "keepDate" }
+];
+const STATUS = ["応募", "着座", "採用", "出勤", "継続", "離脱"];
+
+/* ── 共通 ──────────────────────────────── */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.prototype.slice.call(document.querySelectorAll(s));
+const pad = (n) => String(n).padStart(2, "0");
+const ymd = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const TODAY = ymd(new Date());
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const n0 = (v) => { const x = Number(v); return isFinite(x) ? x : 0; };
+const f1 = (v) => (v == null || !isFinite(v)) ? "–" : (Math.round(v * 10) / 10).toLocaleString("ja-JP");
+const pct = (a, b) => (b > 0 ? Math.round((a / b) * 1000) / 10 + "%" : "–");
+const yen = (v) => "¥" + Math.round(n0(v)).toLocaleString("ja-JP");
+const md = (iso) => iso ? Number(iso.slice(5, 7)) + "/" + Number(iso.slice(8, 10)) : "";
+const addDays = (iso, days) => {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return ymd(d);
+};
+/* iso1 から iso2 までの日数（過去ならマイナス） */
+const daysBetween = (from, to) => {
+  if (!from || !to) return null;
+  return Math.round((new Date(to + "T00:00:00") - new Date(from + "T00:00:00")) / 86400000);
+};
+const WD = ["日", "月", "火", "水", "木", "金", "土"];
+const dowOf = (iso) => iso ? WD[new Date(iso + "T00:00:00").getDay()] : "";
+
+/* ── 通信 ──────────────────────────────── */
+function apiToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } }
+async function api(fn, ...args) {
+  if (!API_URL || API_URL.indexOf("script.google.com") < 0) throw new Error("接続先が設定されていません。recruit.html の API_URL を書き換えてください。");
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ fn, args })
+  });
+  if (!res.ok) throw new Error("サーバーに接続できませんでした");
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.result;
+}
+
+/* ── 状態 ──────────────────────────────── */
+let ME = null;
+let RECRUITS = [];
+let LOGS = [];
+let ROSTER = [];
+let OPEN = null;      /* 編集中のカードID */
+let SAVING = false;
+let TAB = "board";
+
+function showErr(msg) {
+  const e = $("#err");
+  if (!msg) { e.hidden = true; return; }
+  e.textContent = msg;
+  e.hidden = false;
+}
+function showBanner(msg) {
+  const b = $("#banner");
+  if (!msg) { b.hidden = true; return; }
+  b.textContent = msg;
+  b.hidden = false;
+}
+function setMode(state, txt) {
+  const p = $("#modePill");
+  p.textContent = txt;
+  p.className = "pill" + (state ? " " + state : "");
+}
+
+/* ══════════════════════════════════════════
+   応募者データの組み立て
+   ══════════════════════════════════════════ */
+/* 保存されている1件を、画面で使いやすい形に整えます */
+function norm(r) {
+  const o = Object.assign({
+    id: "", name: "", media: MEDIA[0], owner: "", status: "応募",
+    applyDate: "", seatDate: "", hireDate: "", startDate: "", keepDate: "",
+    dropDate: "", dropStage: "", dropReason: "", logName: "", note: ""
+  }, r || {});
+  o.steps = Object.assign({}, r && r.steps);
+  STEPS.forEach((s) => {
+    o.steps[s.key] = Object.assign({ done: false, date: "", plan: "" }, o.steps[s.key]);
+    if (!o.steps[s.key].plan && o.applyDate) o.steps[s.key].plan = addDays(o.applyDate, s.plan);
+  });
+  return o;
+}
+/* 初出勤の期限 */
+const limitOf = (r) => r.applyDate ? addDays(r.applyDate, LIMIT_DAYS) : "";
+const isDropped = (r) => r.status === "離脱";
+const isStarted = (r) => !!r.startDate || r.status === "出勤" || r.status === "継続";
+const isKeeping = (r) => r.status === "継続";
+
+/* 進捗率：研修4つ＋初出勤の5つで数えます */
+function progressOf(r) {
+  let done = STEPS.filter((s) => r.steps[s.key].done).length;
+  if (isStarted(r)) done += 1;
+  return Math.round((done / (STEPS.length + 1)) * 100);
+}
+
+/* 次にやること。期限の状態（late / soon / calm）も返します */
+function nextOf(r) {
+  if (isDropped(r)) return { label: "離脱", due: r.dropDate, state: "calm", kind: "drop" };
+  const pending = STEPS.find((s) => !r.steps[s.key].done);
+  if (pending) {
+    const due = r.steps[pending.key].plan || "";
+    return { label: pending.nm, due, state: dueState(due), kind: "step", step: pending.key };
+  }
+  if (!isStarted(r)) {
+    const due = limitOf(r);
+    return { label: "初出勤", due, state: dueState(due), kind: "start" };
+  }
+  if (!isKeeping(r)) return { label: "継続の判定", due: "", state: "calm", kind: "keep" };
+  return { label: "育成完了", due: "", state: "calm", kind: "done" };
+}
+function dueState(due) {
+  if (!due) return "calm";
+  const left = daysBetween(TODAY, due);
+  if (left < 0) return "late";
+  if (left <= 3) return "soon";
+  return "calm";
+}
+function leftText(due) {
+  if (!due) return "";
+  const left = daysBetween(TODAY, due);
+  if (left < 0) return (-left) + "日 超過";
+  if (left === 0) return "今日まで";
+  return "あと" + left + "日";
+}
+
+/* ══════════════════════════════════════════
+   保存
+   ══════════════════════════════════════════ */
+async function save(entry, label) {
+  if (SAVING) return;
+  SAVING = true;
+  setMode("", "保存しています…");
+  showErr("");
+  try {
+    const data = await api("saveRecruit", entry, apiToken());
+    applyShared(data);
+    setMode("ok", label || "保存しました");
+    renderAll();
+  } catch (e) {
+    showErr((e && e.message) || "保存できませんでした");
+    setMode("bad", "保存に失敗");
+  }
+  SAVING = false;
+}
+async function removeRecruit(id, name) {
+  if (!confirm(name + " さんの記録を削除します。元に戻せません。よろしいですか？")) return;
+  SAVING = true;
+  setMode("", "削除しています…");
+  try {
+    const data = await api("deleteRecruit", id, apiToken());
+    applyShared(data);
+    OPEN = null;
+    setMode("ok", "削除しました");
+    renderAll();
+  } catch (e) {
+    showErr((e && e.message) || "削除できませんでした");
+    setMode("bad", "削除に失敗");
+  }
+  SAVING = false;
+}
+const byId = (id) => RECRUITS.find((r) => r.id === id);
+
+/* ══════════════════════════════════════════
+   育成ボード
+   ══════════════════════════════════════════ */
+function filtered() {
+  const m = $("#fMedia").value, o = $("#fOwner").value;
+  return RECRUITS.filter((r) => (!m || r.media === m) && (!o || r.owner === o));
+}
+function sortBoard(list) {
+  const key = $("#fSort").value;
+  const rank = { late: 0, soon: 1, calm: 2 };
+  if (key === "new") return list.slice().sort((a, b) => (b.applyDate || "").localeCompare(a.applyDate || ""));
+  if (key === "progress") return list.slice().sort((a, b) => progressOf(a) - progressOf(b));
+  return list.slice().sort((a, b) => {
+    const na = nextOf(a), nb = nextOf(b);
+    return (rank[na.state] - rank[nb.state]) || (na.due || "9999").localeCompare(nb.due || "9999");
+  });
+}
+
+function cardHtml(r) {
+  const nx = nextOf(r);
+  const prog = progressOf(r);
+  const limit = limitOf(r);
+  const cls = isKeeping(r) ? "done" : nx.state === "late" ? "late" : nx.state === "soon" ? "soon" : "";
+  const pcls = prog >= 100 ? "ok" : nx.state === "late" ? "bad" : nx.state === "soon" ? "warn" : "";
+
+  /* ステップの丸 */
+  let steps = "";
+  STEPS.forEach((s, i) => {
+    const st = r.steps[s.key];
+    const late = !st.done && st.plan && daysBetween(TODAY, st.plan) < 0;
+    const isNext = !st.done && nx.kind === "step" && nx.step === s.key;
+    const title = s.nm + (st.done ? "（済 " + md(st.date) + "）" : st.plan ? "（予定 " + md(st.plan) + "）" : "");
+    if (i > 0) steps += '<i class="bar ' + (r.steps[STEPS[i - 1].key].done ? "done" : "") + '"></i>';
+    steps += '<div class="step"><button class="dot ' + (st.done ? "done" : late ? "late" : isNext ? "now" : "") +
+      '" data-step="' + r.id + "|" + s.key + '" title="' + esc(title) + '">' +
+      (st.done ? "✓" : s.short) + "</button></div>";
+  });
+  steps += '<i class="bar ' + (STEPS.every((s) => r.steps[s.key].done) ? "done" : "") + '"></i>';
+  steps += '<div class="step"><button class="dot ' + (isStarted(r) ? "done" : "") + '" data-start="' + r.id +
+    '" title="初出勤">' + (isStarted(r) ? "✓" : "出") + "</button></div>";
+
+  const mediaTag = '<span class="tag media">' + esc(r.media) + "</span>";
+  const ownerTag = r.owner ? '<span class="label-sm">担当 ' + esc(r.owner) + "</span>" : "";
+  const statusTag = isDropped(r) ? '<span class="tag bad">離脱</span>'
+    : isKeeping(r) ? '<span class="tag ok">継続</span>'
+    : '<span class="tag">' + esc(r.status) + "</span>";
+
+  return '<div class="card ' + cls + '" data-card="' + r.id + '">' +
+    '<div>' +
+      '<div class="who"><div class="avatar">' + esc((r.name || "？").slice(0, 1)) + "</div>" +
+        '<span class="nm">' + esc(r.name) + "</span>" + mediaTag + statusTag + ownerTag + "</div>" +
+      '<div class="steps">' + steps + "</div>" +
+      '<p class="next ' + nx.state + '">' +
+        (nx.kind === "done" ? "育成完了" : "次：" + esc(nx.label)) +
+        (nx.due ? "・予定 " + md(nx.due) + "（" + leftText(nx.due) + "）" : "") +
+      "</p>" +
+    "</div>" +
+    '<div class="right">' +
+      '<span class="label-sm">進捗 ' + prog + "%</span>" +
+      '<div class="mbar ' + pcls + '"><i style="width:' + prog + '%"></i></div>' +
+      (limit && !isStarted(r)
+        ? '<span class="deadline">初出勤の期限 <b>' + md(limit) + "</b>（" + leftText(limit) + "）</span>"
+        : r.startDate ? '<span class="deadline">初出勤 <b>' + md(r.startDate) + "</b></span>" : "") +
+      '<div class="cardact"><button class="btn ghost small" data-edit="' + r.id + '">' +
+        (OPEN === r.id ? "閉じる" : "詳細・編集") + "</button></div>" +
+    "</div>" +
+    (OPEN === r.id ? editHtml(r) : "") +
+    "</div>";
+}
+
+function editHtml(r) {
+  const opt = (list, cur) => list.map((x) => '<option value="' + esc(x) + '"' + (x === cur ? " selected" : "") + ">" + esc(x) + "</option>").join("");
+  const names = ROSTER.map((x) => x.name);
+  const dateF = (key, label, val) =>
+    '<label class="f">' + label + '<input type="date" data-f="' + r.id + "|" + key + '" value="' + esc(val || "") + '"></label>';
+
+  let stepRows = STEPS.map((s) => {
+    const st = r.steps[s.key];
+    return '<div style="display:grid;gap:6px;grid-template-columns:auto 1fr 1fr;align-items:end">' +
+      '<label class="f" style="white-space:nowrap">' + s.nm +
+        '<span style="display:block;margin-top:6px"><input type="checkbox" style="width:auto" data-sdone="' + r.id + "|" + s.key + '"' + (st.done ? " checked" : "") + "> 済</span></label>" +
+      '<label class="f">予定日<input type="date" data-splan="' + r.id + "|" + s.key + '" value="' + esc(st.plan || "") + '"></label>' +
+      '<label class="f">実施日<input type="date" data-sdate="' + r.id + "|" + s.key + '" value="' + esc(st.date || "") + '"></label>' +
+      "</div>";
+  }).join("");
+
+  return '<div class="editbox">' +
+    '<div class="editgrid">' +
+      '<label class="f">氏名<input type="text" data-f="' + r.id + '|name" value="' + esc(r.name) + '"></label>' +
+      '<label class="f">媒体<select data-f="' + r.id + '|media">' + opt(MEDIA, r.media) + "</select></label>" +
+      '<label class="f">採用担当<select data-f="' + r.id + '|owner"><option value="">未設定</option>' + opt(names, r.owner) + "</select></label>" +
+      '<label class="f">状況<select data-f="' + r.id + '|status">' + opt(STATUS, r.status) + "</select></label>" +
+    "</div>" +
+    '<div class="editgrid" style="margin-top:10px">' +
+      dateF("applyDate", "応募日", r.applyDate) +
+      dateF("seatDate", "着座日", r.seatDate) +
+      dateF("hireDate", "採用日", r.hireDate) +
+      dateF("startDate", "初出勤日", r.startDate) +
+      dateF("keepDate", "継続判定日", r.keepDate) +
+    "</div>" +
+    '<p class="note" style="margin:12px 0 6px"><b>研修の進捗</b></p>' +
+    '<div style="display:grid;gap:8px">' + stepRows + "</div>" +
+    '<div class="editgrid" style="margin-top:12px">' +
+      '<label class="f">営業ログの氏名<select data-f="' + r.id + '|logName"><option value="">未連携</option>' + opt(names, r.logName) + "</select></label>" +
+      dateF("dropDate", "離脱日", r.dropDate) +
+      '<label class="f">離脱した段階<select data-f="' + r.id + '|dropStage"><option value="">—</option>' +
+        opt(["応募後", "着座後", "採用後", "出勤後"], r.dropStage) + "</select></label>" +
+      '<label class="f">離脱理由<input type="text" data-f="' + r.id + '|dropReason" value="' + esc(r.dropReason) + '" placeholder="例：学業都合"></label>' +
+    "</div>" +
+    '<label class="f" style="margin-top:10px">備考<input type="text" data-f="' + r.id + '|note" value="' + esc(r.note) + '" placeholder="面談での様子、つまずいている点など"></label>' +
+    '<p class="note" style="margin-top:8px">営業ログの氏名を設定すると、「継続後の実績」タブに日報の数字が出ます。</p>' +
+    '<div class="cardact" style="margin-top:10px">' +
+      '<button class="btn danger small" data-del="' + r.id + '">この記録を削除</button>' +
+    "</div>" +
+  "</div>";
+}
+
+function renderBoard() {
+  const all = filtered();
+  const live = sortBoard(all.filter((r) => !isDropped(r) && !isStarted(r)));
+  const done = sortBoard(all.filter((r) => isStarted(r) && !isDropped(r)));
+  const dropped = all.filter(isDropped);
+
+  const late = live.filter((r) => nextOf(r).state === "late").length;
+  const soon = live.filter((r) => nextOf(r).state === "soon").length;
+  const tile = (k, v, sub, cls) =>
+    '<div class="tile"><span class="label-sm">' + k + '</span><b class="' + (cls || "") + '">' + v + '</b><span class="note">' + sub + "</span></div>";
+  $("#boardTiles").innerHTML =
+    tile("育成中", live.length + "名", "初出勤を待っている人") +
+    tile("予定を超過", late + "名", "すぐに声かけを", late ? "cell-bad" : "") +
+    tile("3日以内が期限", soon + "名", "今週中に実施", soon ? "cell-warn" : "") +
+    tile("出勤済み", done.length + "名", "継続 " + done.filter(isKeeping).length + "名") +
+    tile("離脱", dropped.length + "名", "応募 " + all.length + "名のうち", dropped.length ? "cell-warn" : "");
+
+  $("#boardCount").textContent = live.length + "名";
+  $("#board").innerHTML = live.length
+    ? live.map(cardHtml).join("")
+    : '<div class="empty">育成中の応募者はいません。上のフォームから登録してください。</div>';
+  $("#boardDone").innerHTML = done.length
+    ? done.map(cardHtml).join("")
+    : '<div class="empty">まだ初出勤までたどり着いた人がいません。</div>';
+}
+
+/* ══════════════════════════════════════════
+   媒体別の歩留まり
+   ══════════════════════════════════════════ */
+function inPeriod(r) {
+  const v = $("#fPeriod").value;
+  if (v === "all" || !r.applyDate) return true;
+  const left = daysBetween(r.applyDate, TODAY);
+  return left != null && left <= Number(v);
+}
+/* 段階に到達しているか。後の段階に進んでいれば前の段階も通過とみなします */
+function reached(r, key) {
+  const order = ["apply", "seat", "hire", "start", "keep"];
+  const idx = order.indexOf(key);
+  const has = {
+    apply: true,
+    seat: !!r.seatDate || !!r.hireDate || isStarted(r) || ["着座", "採用", "出勤", "継続"].indexOf(r.status) >= 0,
+    hire: !!r.hireDate || isStarted(r) || ["採用", "出勤", "継続"].indexOf(r.status) >= 0,
+    start: isStarted(r),
+    keep: isKeeping(r)
+  };
+  for (let i = idx; i < order.length; i++) if (has[order[i]]) return true;
+  return false;
+}
+function countsFor(list) {
+  const o = {};
+  STAGES.forEach((s) => (o[s.key] = list.filter((r) => reached(r, s.key)).length));
+  o.n = list.length;
+  return o;
+}
+function funnelRow(label, list, extra) {
+  const c = countsFor(list);
+  return "<tr><td class=\"l\"><b>" + esc(label) + "</b></td>" +
+    STAGES.map((s) => '<td class="num">' + c[s.key] + "</td>").join("") +
+    '<td class="num">' + pct(c.seat, c.apply) + "</td>" +
+    '<td class="num">' + pct(c.hire, c.seat) + "</td>" +
+    '<td class="num">' + pct(c.start, c.hire) + "</td>" +
+    '<td class="num ' + rateCls(c.keep, c.start) + '">' + pct(c.keep, c.start) + "</td>" +
+    '<td class="num"><b>' + pct(c.keep, c.apply) + "</b></td>" +
+    (extra || "") + "</tr>";
+}
+function rateCls(a, b) {
+  if (!b) return "";
+  const q = a / b;
+  return q >= 0.7 ? "cell-ok" : q >= 0.4 ? "cell-warn" : "cell-bad";
+}
+function renderFunnel() {
+  const list = RECRUITS.filter(inPeriod);
+  const head = '<thead><tr><th class="l">媒体</th>' +
+    STAGES.map((s) => "<th>" + s.nm + "</th>").join("") +
+    "<th>着座率</th><th>採用率</th><th>出勤率</th><th>継続率</th><th>応募→継続</th><th>平均日数</th></tr></thead><tbody>";
+  let h = head;
+  MEDIA.forEach((m) => {
+    const ms = list.filter((r) => r.media === m);
+    const days = ms.filter((r) => r.applyDate && r.startDate).map((r) => daysBetween(r.applyDate, r.startDate));
+    const avg = days.length ? days.reduce((a, b) => a + b, 0) / days.length : null;
+    h += funnelRow(m, ms, '<td class="num">' + (avg == null ? "–" : f1(avg) + "日") + "</td>");
+  });
+  const other = list.filter((r) => MEDIA.indexOf(r.media) < 0);
+  if (other.length) h += funnelRow("その他", other, '<td class="num">–</td>');
+  const allDays = list.filter((r) => r.applyDate && r.startDate).map((r) => daysBetween(r.applyDate, r.startDate));
+  const allAvg = allDays.length ? allDays.reduce((a, b) => a + b, 0) / allDays.length : null;
+  h += '<tr style="background:#F8FAFD">' + funnelRow("合計", list, '<td class="num">' + (allAvg == null ? "–" : f1(allAvg) + "日") + "</td>").slice(4);
+  $("#funnelTable").innerHTML = h + "</tbody>";
+
+  /* 採用担当別 */
+  const owners = Array.from(new Set(list.map((r) => r.owner).filter(Boolean)));
+  let oh = '<thead><tr><th class="l">採用担当</th>' + STAGES.map((s) => "<th>" + s.nm + "</th>").join("") +
+    "<th>着座率</th><th>採用率</th><th>出勤率</th><th>継続率</th><th>応募→継続</th></tr></thead><tbody>";
+  if (!owners.length) oh += '<tr><td class="l" colspan="11"><span class="note">採用担当が設定されている応募者がいません。</span></td></tr>';
+  owners.forEach((o) => { oh += funnelRow(o, list.filter((r) => r.owner === o)); });
+  $("#ownerTable").innerHTML = oh + "</tbody>";
+
+  /* 離脱の内訳 */
+  const dropped = list.filter(isDropped);
+  const stages = ["応募後", "着座後", "採用後", "出勤後", "（未記入）"];
+  let dh = '<thead><tr><th class="l">離脱した段階</th><th>人数</th><th>割合</th><th class="l">媒体の内訳</th><th class="l">理由</th></tr></thead><tbody>';
+  if (!dropped.length) dh += '<tr><td class="l" colspan="5"><span class="note">離脱の記録はまだありません。</span></td></tr>';
+  stages.forEach((st) => {
+    const rows = dropped.filter((r) => (r.dropStage || "（未記入）") === st);
+    if (!rows.length) return;
+    const byMedia = MEDIA.map((m) => m + " " + rows.filter((r) => r.media === m).length).join("・");
+    const reasons = Array.from(new Set(rows.map((r) => r.dropReason).filter(Boolean))).slice(0, 4).join("、");
+    dh += '<tr><td class="l">' + esc(st) + '</td><td class="num">' + rows.length + '</td><td class="num">' +
+      pct(rows.length, dropped.length) + '</td><td class="l"><span class="note">' + esc(byMedia) +
+      '</span></td><td class="l"><span class="note">' + esc(reasons || "—") + "</span></td></tr>";
+  });
+  $("#dropTable").innerHTML = dh + "</tbody>";
+}
+
+/* ══════════════════════════════════════════
+   継続後の実績（営業ログの日報から集計）
+   ══════════════════════════════════════════ */
+const LOG_YEAR = new Date().getFullYear();
+function logDateISO(mdStr) {
+  const p = String(mdStr || "").split("/");
+  if (p.length < 2) return "";
+  return LOG_YEAR + "-" + pad(Number(p[0])) + "-" + pad(Number(p[1]));
+}
+const itemsOf = (l) => Array.isArray(l.items) ? l.items : [];
+
+/* 営業ログと同じ数え方で、1人分の実績をまとめます */
+function perfOf(name, month) {
+  const inM = (iso) => !!iso && (month === "all" || iso.slice(0, 7) === month);
+  const mine = LOGS.filter((l) => l.name === name && inM(logDateISO(l.date)));
+  const deals = [];
+  LOGS.forEach((l) => {
+    if (!inM(logDateISO(l.date))) return;
+    itemsOf(l).forEach((it) => {
+      if ((it.appointer || l.name) !== name) return;
+      deals.push(it);
+    });
+  });
+  const live = deals.filter((d) => n0(d.keiyaku) > 0 && !n0(d.cancelled));
+  const worked = mine.filter((l) => n0(l.taio) + n0(l.apu) + n0(l.apo) + itemsOf(l).length > 0);
+  const o = {
+    days: worked.length,
+    t: mine.reduce((a, l) => a + n0(l.taio), 0),
+    ap: mine.reduce((a, l) => a + n0(l.apu), 0),
+    apo: mine.reduce((a, l) => a + n0(l.apo), 0),
+    sho: deals.filter((d) => !(n0(d.mishodan) > 0 && !(n0(d.keiyaku) > 0 && !n0(d.cancelled)))).length,
+    kei: live.length,
+    kan: live.length,
+    cancel: deals.filter((d) => n0(d.cancelled) > 0).length,
+    sales: live.reduce((a, d) => a + n0(d.sales), 0)
+  };
+  /* 戦闘力：営業ログと同じ式 */
+  o.power = o.t + o.ap * 16 + o.apo * 80 + o.sho * 400 + o.kei * 1000 - o.cancel * 500;
+  return o;
+}
+
+function renderPerf() {
+  const month = $("#perfMonth").value || "all";
+  const kept = RECRUITS.filter((r) => isKeeping(r) || isStarted(r));
+  const rows = kept.map((r) => ({ r, p: r.logName ? perfOf(r.logName, month) : null }));
+  const linked = rows.filter((x) => x.p);
+
+  const sum = (k) => linked.reduce((a, x) => a + (x.p[k] || 0), 0);
+  const tile = (k, v, sub) => '<div class="tile"><span class="label-sm">' + k + "</span><b>" + v + '</b><span class="note">' + sub + "</span></div>";
+  $("#perfTiles").innerHTML =
+    tile("対象メンバー", linked.length + "名", "出勤した " + kept.length + "名のうち") +
+    tile("総戦闘力", sum("power").toLocaleString("ja-JP"), "対応＋アプ×16＋アポ×80＋…") +
+    tile("総アポ数", sum("apo") + "件", "対応 " + sum("t") + "件") +
+    tile("総完工数", sum("kan") + "件", "商談 " + sum("sho") + "件") +
+    tile("総売上", yen(sum("sales")), "キャンセルを除く");
+
+  let h = '<thead><tr><th class="l">氏名</th><th class="l">媒体</th><th class="l">初出勤</th><th>在籍日数</th>' +
+    "<th>出勤</th><th>対応</th><th>アプ</th><th>アポ</th><th>商談</th><th>契約</th><th>完工</th><th>売上</th><th>戦闘力</th></tr></thead><tbody>";
+  if (!rows.length) {
+    h += '<tr><td class="l" colspan="13"><span class="note">初出勤した応募者がまだいません。</span></td></tr>';
+  }
+  rows.sort((a, b) => ((b.p && b.p.power) || -1) - ((a.p && a.p.power) || -1));
+  rows.forEach(({ r, p }) => {
+    const tenure = r.startDate ? daysBetween(r.startDate, TODAY) : null;
+    if (!p) {
+      h += '<tr><td class="l"><b>' + esc(r.name) + '</b></td><td class="l">' + esc(r.media) + '</td><td class="l">' +
+        md(r.startDate) + '</td><td class="num">' + (tenure == null ? "–" : tenure + "日") +
+        '</td><td class="l" colspan="9"><span class="note">営業ログの氏名が未連携です（育成ボードの詳細で設定できます）</span></td></tr>';
+      return;
+    }
+    h += '<tr><td class="l"><b>' + esc(r.name) + "</b>" + (isKeeping(r) ? ' <span class="tag ok">継続</span>' : "") + "</td>" +
+      '<td class="l">' + esc(r.media) + '</td><td class="l">' + md(r.startDate) + "</td>" +
+      '<td class="num">' + (tenure == null ? "–" : tenure + "日") + "</td>" +
+      '<td class="num">' + p.days + '</td><td class="num">' + p.t + '</td><td class="num">' + p.ap + "</td>" +
+      '<td class="num">' + p.apo + '</td><td class="num">' + p.sho + '</td><td class="num">' + p.kei + "</td>" +
+      '<td class="num"><b>' + p.kan + '</b></td><td class="num">' + yen(p.sales) + "</td>" +
+      '<td class="num"><b style="color:var(--accent)">' + p.power.toLocaleString("ja-JP") + "</b></td></tr>";
+  });
+  $("#perfTable").innerHTML = h + "</tbody>";
+
+  /* 媒体別の平均 */
+  let mh = '<thead><tr><th class="l">媒体</th><th>継続中</th><th>実績あり</th><th>平均出勤</th><th>平均対応</th>' +
+    "<th>平均アポ</th><th>平均商談</th><th>平均完工</th><th>平均売上</th><th>平均戦闘力</th></tr></thead><tbody>";
+  MEDIA.forEach((m) => {
+    const ms = linked.filter((x) => x.r.media === m);
+    const avg = (k) => ms.length ? ms.reduce((a, x) => a + x.p[k], 0) / ms.length : null;
+    mh += '<tr><td class="l"><b>' + esc(m) + '</b></td><td class="num">' +
+      RECRUITS.filter((r) => r.media === m && isKeeping(r)).length + '</td><td class="num">' + ms.length + "</td>" +
+      '<td class="num">' + f1(avg("days")) + '</td><td class="num">' + f1(avg("t")) + "</td>" +
+      '<td class="num">' + f1(avg("apo")) + '</td><td class="num">' + f1(avg("sho")) + "</td>" +
+      '<td class="num">' + f1(avg("kan")) + '</td><td class="num">' + (ms.length ? yen(avg("sales")) : "–") + "</td>" +
+      '<td class="num"><b style="color:var(--accent)">' + (ms.length ? Math.round(avg("power")).toLocaleString("ja-JP") : "–") + "</b></td></tr>";
+  });
+  $("#perfMedia").innerHTML = mh + "</tbody>";
+}
+
+/* ══════════════════════════════════════════
+   応募者一覧
+   ══════════════════════════════════════════ */
+function renderList() {
+  const st = $("#lStatus").value, mf = $("#lMedia").value;
+  const rows = RECRUITS.filter((r) => (!st || r.status === st) && (!mf || r.media === mf))
+    .slice().sort((a, b) => (b.applyDate || "").localeCompare(a.applyDate || ""));
+  let h = '<thead><tr><th class="l">氏名</th><th class="l">媒体</th><th class="l">担当</th><th class="l">状況</th>' +
+    '<th class="l">応募</th><th class="l">着座</th><th class="l">採用</th><th class="l">初出勤</th><th class="l">継続</th>' +
+    "<th>応募→出勤</th><th>進捗</th><th class=\"l\">備考</th></tr></thead><tbody>";
+  if (!rows.length) h += '<tr><td class="l" colspan="12"><span class="note">該当する応募者がいません。</span></td></tr>';
+  rows.forEach((r) => {
+    const span = r.applyDate && r.startDate ? daysBetween(r.applyDate, r.startDate) : null;
+    const over = span != null && span > LIMIT_DAYS;
+    h += '<tr><td class="l"><a href="#" data-jump="' + r.id + '" style="color:var(--accent);font-weight:700;text-decoration:none">' +
+      esc(r.name) + "</a></td>" +
+      '<td class="l">' + esc(r.media) + '</td><td class="l">' + esc(r.owner || "–") + "</td>" +
+      '<td class="l">' + (isDropped(r) ? '<span class="tag bad">離脱</span>' : isKeeping(r) ? '<span class="tag ok">継続</span>' : esc(r.status)) + "</td>" +
+      '<td class="l">' + md(r.applyDate) + '</td><td class="l">' + (md(r.seatDate) || "–") + "</td>" +
+      '<td class="l">' + (md(r.hireDate) || "–") + '</td><td class="l">' + (md(r.startDate) || "–") + "</td>" +
+      '<td class="l">' + (md(r.keepDate) || "–") + "</td>" +
+      '<td class="num ' + (over ? "cell-bad" : "") + '">' + (span == null ? "–" : span + "日") + "</td>" +
+      '<td class="num">' + progressOf(r) + "%</td>" +
+      '<td class="l"><span class="note">' + esc(r.note || "") + "</span></td></tr>";
+  });
+  $("#listTable").innerHTML = h + "</tbody>";
+}
+
+/* ══════════════════════════════════════════
+   画面の制御
+   ══════════════════════════════════════════ */
+function renderAll() {
+  renderBoard();
+  renderFunnel();
+  renderPerf();
+  renderList();
+}
+function switchTab(name) {
+  if (!document.querySelector('section[data-sec="' + name + '"]')) name = "board";
+  TAB = name;
+  $$("nav.tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+  $$("main section").forEach((s) => (s.hidden = s.dataset.sec !== name));
+  try { localStorage.setItem("craft-recruit-tab", name); } catch (e) {}
+}
+$$("nav.tabs button").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
+
+/* 選択肢の組み立て */
+function fillSelects() {
+  const names = ROSTER.map((x) => x.name);
+  const opts = (list, blank) => (blank ? '<option value="">' + blank + "</option>" : "") +
+    list.map((x) => '<option value="' + esc(x) + '">' + esc(x) + "</option>").join("");
+  $("#a-media").innerHTML = opts(MEDIA);
+  $("#a-owner").innerHTML = opts(names, "未設定");
+  $("#fMedia").innerHTML = opts(MEDIA, "媒体：すべて");
+  $("#fOwner").innerHTML = opts(names, "担当：すべて");
+  $("#lMedia").innerHTML = opts(MEDIA, "媒体：すべて");
+  $("#lStatus").innerHTML = opts(STATUS, "状況：すべて");
+  if (ME && names.indexOf(ME.name) >= 0) $("#a-owner").value = ME.name;
+  $("#limitTxt").textContent = LIMIT_DAYS;
+}
+
+/* 登録 */
+$("#addBtn").addEventListener("click", async () => {
+  const name = $("#a-name").value.trim();
+  if (!name) { showErr("氏名を入れてください"); return; }
+  const applyDate = $("#a-date").value || TODAY;
+  const entry = norm({
+    name,
+    media: $("#a-media").value,
+    owner: $("#a-owner").value,
+    applyDate,
+    status: "応募"
+  });
+  $("#addBtn").disabled = true;
+  await save(entry, name + " さんを登録しました");
+  $("#addBtn").disabled = false;
+  $("#a-name").value = "";
+  $("#a-name").focus();
+});
+$("#a-name").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#addBtn").click(); });
+
+/* カード内の操作 */
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("[data-step],[data-start],[data-edit],[data-del],[data-jump]");
+  if (!t) return;
+
+  if (t.dataset.jump) {
+    e.preventDefault();
+    OPEN = t.dataset.jump;
+    switchTab("board");
+    renderBoard();
+    const el = document.querySelector('[data-card="' + OPEN + '"]');
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  if (t.dataset.edit) {
+    OPEN = OPEN === t.dataset.edit ? null : t.dataset.edit;
+    renderBoard();
+    return;
+  }
+  if (t.dataset.del) {
+    const r = byId(t.dataset.del);
+    if (r) await removeRecruit(r.id, r.name);
+    return;
+  }
+  if (t.dataset.step) {
+    const [id, key] = t.dataset.step.split("|");
+    const r = byId(id);
+    if (!r) return;
+    const st = r.steps[key];
+    const next = Object.assign({}, r, { steps: Object.assign({}, r.steps) });
+    next.steps[key] = Object.assign({}, st, { done: !st.done, date: !st.done ? TODAY : "" });
+    await save(next, (STEPS.find((s) => s.key === key) || {}).nm + "を" + (!st.done ? "済にしました" : "未にしました"));
+    return;
+  }
+  if (t.dataset.start) {
+    const r = byId(t.dataset.start);
+    if (!r) return;
+    const on = isStarted(r);
+    const next = Object.assign({}, r, {
+      startDate: on ? "" : TODAY,
+      status: on ? "採用" : "出勤"
+    });
+    await save(next, on ? "初出勤を取り消しました" : r.name + " さんが初出勤になりました");
+    return;
+  }
+});
+
+/* 編集欄の変更（離れたときに保存） */
+document.addEventListener("change", async (e) => {
+  const el = e.target;
+
+  /* 絞り込みと並べ替え */
+  if (["fMedia", "fOwner", "fSort"].indexOf(el.id) >= 0) { renderBoard(); return; }
+  if (el.id === "fPeriod") { renderFunnel(); return; }
+  if (el.id === "perfMonth") { renderPerf(); return; }
+  if (["lStatus", "lMedia"].indexOf(el.id) >= 0) { renderList(); return; }
+
+  const f = el.dataset.f, sd = el.dataset.sdone, sp = el.dataset.splan, dt = el.dataset.sdate;
+  if (!f && !sd && !sp && !dt) return;
+
+  const id = (f || sd || sp || dt).split("|")[0];
+  const key = (f || sd || sp || dt).split("|")[1];
+  const r = byId(id);
+  if (!r) return;
+  const next = Object.assign({}, r, { steps: Object.assign({}, r.steps) });
+
+  if (f) {
+    next[key] = el.value;
+    /* 日付を入れたら、状況も自動で進めます（手で直すこともできます） */
+    if (key === "seatDate" && el.value && next.status === "応募") next.status = "着座";
+    if (key === "hireDate" && el.value && ["応募", "着座"].indexOf(next.status) >= 0) next.status = "採用";
+    if (key === "startDate" && el.value && next.status !== "継続") next.status = "出勤";
+    if (key === "keepDate" && el.value) next.status = "継続";
+    if (key === "dropDate" && el.value) next.status = "離脱";
+    /* 応募日を変えたら、まだ実施していない研修の予定日を引き直します */
+    if (key === "applyDate" && el.value) {
+      STEPS.forEach((s) => {
+        if (!next.steps[s.key].done) next.steps[s.key] = Object.assign({}, next.steps[s.key], { plan: addDays(el.value, s.plan) });
+      });
+    }
+  } else if (sd) {
+    next.steps[key] = Object.assign({}, next.steps[key], { done: el.checked, date: el.checked ? (next.steps[key].date || TODAY) : "" });
+  } else if (sp) {
+    next.steps[key] = Object.assign({}, next.steps[key], { plan: el.value });
+  } else if (dt) {
+    next.steps[key] = Object.assign({}, next.steps[key], { date: el.value, done: el.value ? true : next.steps[key].done });
+  }
+  await save(next, "保存しました");
+});
+
+/* ══════════════════════════════════════════
+   起動
+   ══════════════════════════════════════════ */
+function applyShared(d) {
+  RECRUITS = ((d && d.recruits) || []).map(norm);
+  if (d && d.logs) LOGS = d.logs;
+}
+
+async function boot() {
+  $("#a-date").value = TODAY;
+  $("#perfMonth").value = TODAY.slice(0, 7);
+  try { const t = localStorage.getItem("craft-recruit-tab"); if (t) switchTab(t); } catch (e) {}
+
+  const token = apiToken();
+  if (!token) { location.href = "./index.html?next=recruit"; return; }
+
+  try {
+    const res = await api("resume", token);
+    if (!res || !res.ok) {
+      try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+      location.href = "./index.html?next=recruit";
+      return;
+    }
+    ME = res.me;
+    if (!ME.recruiter) {
+      document.querySelector("main").innerHTML =
+        '<div class="panel"><h2>この画面は採用担当のみが利用できます</h2>' +
+        '<p class="note" style="margin-top:8px">' + esc(ME.name) +
+        ' さんのアカウントには、育成ボードの閲覧権限がありません。必要な場合は管理者にご連絡ください。</p>' +
+        '<p style="margin-top:14px"><a class="btn ghost" href="./index.html" style="text-decoration:none">メニューへ戻る</a></p></div>';
+      document.querySelector("nav.tabs").hidden = true;
+      setMode("bad", "権限がありません");
+      return;
+    }
+    setMode("ok", "営業ログと共有中");
+    applyShared(res.data || {});
+    try { ROSTER = await api("roster", token); } catch (e) { ROSTER = []; }
+    fillSelects();
+    renderAll();
+
+    /* ほかの人の登録を取り込みます */
+    setInterval(async () => {
+      if (SAVING || OPEN) return;
+      try {
+        const d = await api("getData", token);
+        applyShared(d || {});
+        renderAll();
+      } catch (e) {}
+    }, 30000);
+  } catch (e) {
+    showBanner("営業ログに接続できませんでした：" + ((e && e.message) || e));
+    setMode("bad", "未接続");
+  }
+}
+boot();
+</script>
+</body>
+</html>

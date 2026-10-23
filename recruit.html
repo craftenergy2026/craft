@@ -168,7 +168,7 @@ table.t tbody tr:hover{background:#F8FAFD}
 <header>
   <div class="hrow">
     <div class="brand">
-      <h1>採用・育成ボード</h1><span>画面 v82</span>
+      <h1>採用・育成ボード</h1><span>画面 v83</span>
     </div>
     <a class="nav" href="./log.html">営業ログ</a>
     <a class="nav" href="./navi.html">目標ナビ</a>
@@ -353,7 +353,10 @@ table.t tbody tr:hover{background:#F8FAFD}
         <select id="lMedia" style="width:auto"></select>
       </h3>
       <div class="tscroll"><table class="t" id="listTable"></table></div>
-      <p class="note" style="margin-top:8px">氏名を押すと、育成ボードのカードが開きます。</p>
+      <p class="note" style="margin-top:8px">
+        右端の「修正」から、その場で直せます。採用・不採用を押し間違えたときは、段階を選び直せば日付ごと元に戻ります。
+        氏名を押すと、育成ボードの該当カードへ移動します。
+      </p>
     </div>
   </section>
 </main>
@@ -457,7 +460,8 @@ let PLANS = [];
 let GOAL = {};
 let LOGS = [];
 let ROSTER = [];
-let OPEN = null;      /* 編集中のカードID */
+let OPEN = null;      /* 育成ボードで編集中のID */
+let LOPEN = null;     /* 応募者一覧で編集中のID */
 let SAVING = false;
 let TAB = "board";
 
@@ -609,6 +613,48 @@ function leftText(due) {
   if (left < 0) return (-left) + "日 超過";
   if (left === 0) return "今日まで";
   return "あと" + left + "日";
+}
+
+/* 段階を選び直したときに、日付も合わせて整えます。
+   押し間違いを戻すときに、状況と日付が食い違わないようにするためです。 */
+function applyStage(r, stage) {
+  const o = Object.assign({}, r, { steps: Object.assign({}, r.steps) });
+  const clearDrop = () => { o.status = stage; o.dropDate = ""; o.dropStage = ""; o.dropReason = ""; o.revived = true; };
+  if (stage === "応募") {
+    clearDrop();
+    o.seatDate = ""; o.hireDate = ""; o.startDate = ""; o.keepDate = "";
+    o.steps = replanSteps(o, "");
+  } else if (stage === "着座") {
+    clearDrop();
+    o.seatDate = r.seatDate || TODAY;
+    o.hireDate = ""; o.startDate = ""; o.keepDate = "";
+    o.steps = replanSteps(o, "");
+  } else if (stage === "採用") {
+    clearDrop();
+    o.seatDate = r.seatDate || TODAY;
+    o.hireDate = r.hireDate || o.seatDate;
+    o.startDate = ""; o.keepDate = "";
+    o.steps = replanSteps(o, o.hireDate);
+  } else if (stage === "出勤") {
+    clearDrop();
+    o.seatDate = r.seatDate || TODAY;
+    o.hireDate = r.hireDate || o.seatDate;
+    o.startDate = r.startDate || TODAY;
+    o.keepDate = "";
+    if (!r.hireDate) o.steps = replanSteps(o, o.hireDate);
+  } else if (stage === "継続") {
+    clearDrop();
+    o.seatDate = r.seatDate || TODAY;
+    o.hireDate = r.hireDate || o.seatDate;
+    o.startDate = r.startDate || TODAY;
+    o.keepDate = r.keepDate || TODAY;
+  } else if (stage === "離脱") {
+    o.status = "離脱";
+    o.dropStage = r.dropStage || dropStageAuto(r);
+    o.dropDate = r.dropDate || TODAY;
+    o.revived = false;
+  }
+  return o;
 }
 
 /* ══════════════════════════════════════════
@@ -788,7 +834,8 @@ function editHtml(r) {
       '<label class="f">媒体<select data-f="' + r.id + '|media">' + opt(MEDIA, r.media) + "</select></label>" +
       '<label class="f">採用担当<select data-f="' + r.id + '|owner">' + opt(OWNERS, r.owner) + "</select></label>" +
       '<label class="f">教育担当<select data-f="' + r.id + '|trainer"><option value="">未設定</option>' + opt(names, r.trainer) + "</select></label>" +
-      '<label class="f">状況<select data-f="' + r.id + '|status">' + opt(STATUS, r.status) + "</select></label>" +
+      '<label class="f">段階（押し間違いはここで戻せます）<select data-stage="' + r.id + '">' +
+        opt(STATUS, isDropped(r) ? "離脱" : r.status) + "</select></label>" +
     "</div>" +
     '<div class="editgrid" style="margin-top:10px">' +
       dateF("applyDate", "応募日", r.applyDate) +
@@ -1377,8 +1424,8 @@ function renderList() {
     .slice().sort((a, b) => (b.applyDate || "").localeCompare(a.applyDate || ""));
   let h = '<thead><tr><th class="l">氏名</th><th class="l">媒体</th><th class="l">採用担当</th><th class="l">教育担当</th><th class="l">状況</th>' +
     '<th class="l">応募</th><th class="l">着座</th><th class="l">採用</th><th class="l">初出勤</th><th class="l">継続</th>' +
-    "<th>採用→出勤</th><th>進捗</th><th class=\"l\">備考</th></tr></thead><tbody>";
-  if (!rows.length) h += '<tr><td class="l" colspan="13"><span class="note">該当する応募者がいません。</span></td></tr>';
+    "<th>採用→出勤</th><th>進捗</th><th class=\"l\">備考</th><th></th></tr></thead><tbody>";
+  if (!rows.length) h += '<tr><td class="l" colspan="14"><span class="note">該当する応募者がいません。</span></td></tr>';
   rows.forEach((r) => {
     const span = r.hireDate && r.startDate ? daysBetween(r.hireDate, r.startDate) : null;
     const over = span != null && span > LIMIT_DAYS;
@@ -1392,7 +1439,14 @@ function renderList() {
       '<td class="l">' + (md(r.keepDate) || (isKeeping(r) ? md(keepDueOf(r)) : "–")) + "</td>" +
       '<td class="num ' + (over ? "cell-bad" : "") + '">' + (span == null ? "–" : span + "日") + "</td>" +
       '<td class="num">' + progressOf(r) + "%</td>" +
-      '<td class="l"><span class="note">' + esc(r.note || "") + "</span></td></tr>";
+      '<td class="l"><span class="note">' + esc(r.note || "") + "</span></td>" +
+      '<td><button class="btn ghost small" data-ledit="' + r.id + '">' + (LOPEN === r.id ? "閉じる" : "修正") + "</button></td></tr>" +
+      (LOPEN === r.id
+        ? '<tr><td class="l" colspan="14" style="background:#F8FAFD">' +
+          '<div style="padding:4px 2px 10px"><p class="note" style="margin:0 0 8px">' +
+          "<b>" + esc(r.name) + " さんの修正</b>　段階を選び直すと、日付もあわせて整えます。" +
+          "</p>" + editHtml(r) + "</div></td></tr>"
+        : "");
   });
   $("#listTable").innerHTML = h + "</tbody>";
 }
@@ -1486,7 +1540,7 @@ $("#addPlan").addEventListener("click", async () => {
 
 /* カード内の操作 */
 document.addEventListener("click", async (e) => {
-  const t = e.target.closest("[data-node],[data-edit],[data-del],[data-jump],[data-drop],[data-revive],[data-undrop],[data-seatnow],[data-hire],[data-reject],[data-plandel]");
+  const t = e.target.closest("[data-node],[data-edit],[data-del],[data-jump],[data-drop],[data-revive],[data-undrop],[data-seatnow],[data-hire],[data-reject],[data-plandel],[data-ledit]");
   if (!t) return;
   if (t.disabled) return;
 
@@ -1606,6 +1660,11 @@ document.addEventListener("click", async (e) => {
     return;
   }
 
+  if (t.dataset.ledit) {
+    LOPEN = LOPEN === t.dataset.ledit ? null : t.dataset.ledit;
+    renderList();
+    return;
+  }
   if (t.dataset.jump) {
     e.preventDefault();
     OPEN = t.dataset.jump;
@@ -1656,6 +1715,14 @@ document.addEventListener("change", async (e) => {
     const cur = PLANS.find((x) => x.id === pid);
     if (!cur) return;
     await savePlan(Object.assign({}, cur, { [pkey]: el.value }), "施策を更新しました");
+    return;
+  }
+
+  /* 段階のやり直し */
+  if (el.dataset.stage) {
+    const r = byId(el.dataset.stage);
+    if (!r) return;
+    await save(applyStage(r, el.value), r.name + " さんを「" + el.value + "」に戻しました");
     return;
   }
 
@@ -1734,7 +1801,7 @@ async function boot() {
 
     /* ほかの人の登録を取り込みます */
     setInterval(async () => {
-      if (SAVING || OPEN) return;
+      if (SAVING || OPEN || LOPEN) return;
       try {
         const d = await api("getData", token);
         applyShared(d || {});

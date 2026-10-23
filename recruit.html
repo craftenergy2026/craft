@@ -142,6 +142,13 @@ table.t tbody tr:hover{background:#F8FAFD}
 .deadline{font-size:12px;color:var(--muted)}
 .deadline b{font-size:15px;color:var(--ink)}
 .cardact{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+table.t.after{min-width:620px}
+table.t.after td,table.t.after th{padding:6px 8px}
+table.t.after input[type=date]{width:auto;padding:4px 6px;font-size:13px}
+tr.ghead td{background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:12px}
+tr.irow.done td{background:#F6FAF7}
+tr.irow.late td{background:var(--shu-soft)}
+tr.irow.soon td{background:var(--warn-soft)}
 .alert{margin-top:7px;border-radius:8px;padding:7px 10px;font-size:12px;line-height:1.6}
 .alert.warn{background:var(--warn-soft);color:#7A4A08}
 .alert.bad{background:var(--shu-soft);color:#8E2A1B}
@@ -168,7 +175,7 @@ table.t tbody tr:hover{background:#F8FAFD}
 <header>
   <div class="hrow">
     <div class="brand">
-      <h1>採用・育成ボード</h1><span>画面 v83</span>
+      <h1>採用・育成ボード</h1><span>画面 v84</span>
     </div>
     <a class="nav" href="./log.html">営業ログ</a>
     <a class="nav" href="./navi.html">目標ナビ</a>
@@ -179,7 +186,8 @@ table.t tbody tr:hover{background:#F8FAFD}
 
 <nav class="tabs">
   <div class="inner">
-    <button data-tab="board" aria-selected="true">育成ボード</button>
+    <button data-tab="board" aria-selected="true">応募〜採用</button>
+    <button data-tab="after" aria-selected="false">採用後の育成</button>
     <button data-tab="funnel" aria-selected="false">媒体別の歩留まり</button>
     <button data-tab="perf" aria-selected="false">継続後の実績</button>
     <button data-tab="pdca" aria-selected="false">施策（PDCA）</button>
@@ -228,7 +236,7 @@ table.t tbody tr:hover{background:#F8FAFD}
     </div>
 
     <div class="panel">
-      <h3>進行中 <span class="label-sm" id="boardCount"></span>
+      <h3>選考中 <span class="label-sm" id="boardCount"></span>
         <span class="spacer"></span>
         <select id="fMedia" style="width:auto"></select>
         <select id="fOwner" style="width:auto"></select>
@@ -249,9 +257,30 @@ table.t tbody tr:hover{background:#F8FAFD}
     </div>
 
     <div class="panel">
-      <h3>出勤済み・継続 <span class="label-sm">初出勤までたどり着いた人</span></h3>
+      <h3>採用済み <span class="label-sm">詳しい進捗は「採用後の育成」タブで見られます</span></h3>
       <div class="cards" id="boardDone"></div>
     </div>
+  </section>
+
+  <!-- ══ 採用後の育成 ══ -->
+  <section data-sec="after" hidden>
+    <div class="panel">
+      <h3>採用後の育成 <span class="label-sm" id="afterCount"></span>
+        <span class="spacer"></span>
+        <select id="aOwner" style="width:auto"></select>
+        <select id="aState" style="width:auto">
+          <option value="live">初出勤前</option>
+          <option value="all">全員</option>
+          <option value="started">出勤済み</option>
+        </select>
+      </h3>
+      <div class="tiles" id="afterTiles" style="margin-bottom:12px"></div>
+      <p class="note">
+        予定日は採用日から自動で入ります。日付を直したり、「済」を押して進めてください。
+        ロープレは回数を増やせます。トークテストは、結果を「再受験」にすると再受験の行を足せます。
+      </p>
+    </div>
+    <div id="afterList"></div>
   </section>
 
   <!-- ══ 媒体別の歩留まり ══ -->
@@ -390,6 +419,22 @@ const STEPS = [
   { key: "talk",   nm: "トーク研修",   short: "ト", plan: 21 },
   { key: "test",   nm: "テスト",       short: "テ", plan: 26 }
 ];
+/* ── 採用後の育成メニュー ──────────────────
+   plan は採用日から何日後を予定にするか。増減はこの表を直してください。 */
+/* ロープレの既定回数と予定日（採用日からの日数）。回数は画面から足せます */
+const ROLEPLAY_PLAN = [18, 24];
+/* 動画提出の3本 */
+const VIDEOS = [
+  { key: "v1", nm: "① インターホン・対象確認", plan: 16 },
+  { key: "v2", nm: "② ニーズトーク・費用ネックの切り返し", plan: 20 },
+  { key: "v3", nm: "③ 日程調整・三点確認", plan: 24 }
+];
+/* 単発の項目 */
+const HIDUKE_PLAN = 28;   /* 火付け */
+const BROTHER_PLAN = 10;  /* ブラザーとの接点開始 */
+/* トークテストの判定 */
+const TEST_RESULTS = ["", "合格", "再受験"];
+
 /* 歩留まりの段階 */
 const STAGES = [
   { key: "apply", nm: "応募", dateKey: "applyDate" },
@@ -503,6 +548,34 @@ function norm(r) {
     /* 予定日は採用日から数えます。採用前は空のままです。 */
     if (!o.steps[s.key].plan && o.hireDate) o.steps[s.key].plan = addDays(o.hireDate, s.plan);
   });
+
+  /* ロープレ（回数は増やせます） */
+  o.roleplays = Array.isArray(r && r.roleplays) ? r.roleplays.map((x, i) => ({
+    id: x.id || "rp" + i, plan: x.plan || "", done: !!x.done
+  })) : [];
+  if (!o.roleplays.length && o.hireDate) {
+    o.roleplays = ROLEPLAY_PLAN.map((d, i) => ({ id: "rp" + i, plan: addDays(o.hireDate, d), done: false }));
+  }
+
+  /* 動画提出 */
+  o.videos = Object.assign({}, r && r.videos);
+  VIDEOS.forEach((v) => {
+    o.videos[v.key] = Object.assign({ due: "", done: false }, o.videos[v.key]);
+    if (!o.videos[v.key].due && o.hireDate) o.videos[v.key].due = addDays(o.hireDate, v.plan);
+  });
+
+  /* トークテストの判定と再受験 */
+  o.testResult = o.testResult || "";
+  o.retests = Array.isArray(r && r.retests) ? r.retests.map((x, i) => ({
+    id: x.id || "rt" + i, plan: x.plan || "", done: !!x.done, result: x.result || ""
+  })) : [];
+
+  /* 火付け・ブラザーとの接点 */
+  o.hiduke = Object.assign({ plan: "", done: false }, r && r.hiduke);
+  if (!o.hiduke.plan && o.hireDate) o.hiduke.plan = addDays(o.hireDate, HIDUKE_PLAN);
+  o.brother = Object.assign({ name: "", plan: "", done: false }, r && r.brother);
+  if (!o.brother.plan && o.hireDate) o.brother.plan = addDays(o.hireDate, BROTHER_PLAN);
+
   return o;
 }
 /* 採用日をもとに、未実施の研修の予定日を引き直します */
@@ -513,6 +586,26 @@ function replanSteps(r, hireDate) {
     if (!st.done) steps[s.key] = Object.assign({}, st, { plan: hireDate ? addDays(hireDate, s.plan) : "" });
   });
   return steps;
+}
+/* 採用日を決め直したときに、採用後の予定をまとめて引き直します */
+function replanAfter(r, hireDate) {
+  const o = { steps: replanSteps(r, hireDate) };
+  o.roleplays = (r.roleplays && r.roleplays.length
+    ? r.roleplays
+    : ROLEPLAY_PLAN.map((d, i) => ({ id: "rp" + i, plan: "", done: false }))
+  ).map((x, i) => x.done ? x : Object.assign({}, x, {
+    plan: hireDate ? addDays(hireDate, ROLEPLAY_PLAN[i] != null ? ROLEPLAY_PLAN[i] : ROLEPLAY_PLAN[ROLEPLAY_PLAN.length - 1] + (i - ROLEPLAY_PLAN.length + 1) * 6) : ""
+  }));
+  o.videos = Object.assign({}, r.videos);
+  VIDEOS.forEach((v) => {
+    const cur = o.videos[v.key] || { due: "", done: false };
+    if (!cur.done) o.videos[v.key] = Object.assign({}, cur, { due: hireDate ? addDays(hireDate, v.plan) : "" });
+  });
+  o.hiduke = (r.hiduke && r.hiduke.done) ? r.hiduke
+    : Object.assign({}, r.hiduke, { plan: hireDate ? addDays(hireDate, HIDUKE_PLAN) : "" });
+  o.brother = (r.brother && r.brother.done) ? r.brother
+    : Object.assign({}, r.brother, { plan: hireDate ? addDays(hireDate, BROTHER_PLAN) : "" });
+  return o;
 }
 /* 初出勤の期限（採用から LIMIT_DAYS 日） */
 const limitOf = (r) => r.hireDate ? addDays(r.hireDate, LIMIT_DAYS) : "";
@@ -561,13 +654,42 @@ const dropStageOf = (r) => r.dropStage || dropStageAuto(r);
 const seatDueOf = (r) => r.applyDate ? addDays(r.applyDate, SEAT_REMIND_DAYS) : "";
 
 /* 進捗率：研修4つ＋初出勤の5つで数えます */
+/* 採用後にやること。予定日と「済」をまとめて扱えるようにした一覧です */
+function afterItems(r) {
+  const out = [];
+  STEPS.forEach((s) => {
+    if (s.key === "test") return;
+    out.push({ id: "step|" + s.key, nm: s.nm, plan: r.steps[s.key].plan, done: r.steps[s.key].done, group: "研修" });
+  });
+  (r.roleplays || []).forEach((x, i) => {
+    out.push({ id: "rp|" + x.id, nm: "ロープレ " + (i + 1) + "回目", plan: x.plan, done: x.done, group: "ロープレ" });
+  });
+  VIDEOS.forEach((v) => {
+    const c = r.videos[v.key] || {};
+    out.push({ id: "vd|" + v.key, nm: v.nm, plan: c.due, done: c.done, group: "動画提出" });
+  });
+  out.push({ id: "step|test", nm: "トークテスト", plan: r.steps.test.plan, done: r.steps.test.done, group: "トークテスト" });
+  (r.retests || []).forEach((x, i) => {
+    out.push({ id: "rt|" + x.id, nm: "再受験 " + (i + 1) + "回目", plan: x.plan, done: x.done, group: "トークテスト" });
+  });
+  out.push({ id: "hd|hiduke", nm: "火付け", plan: r.hiduke.plan, done: r.hiduke.done, group: "その他" });
+  out.push({ id: "br|brother", nm: "ブラザー接点開始", plan: r.brother.plan, done: r.brother.done, group: "その他" });
+  return out;
+}
 function progressOf(r) {
   let done = 0;
+  let total = 3; /* 着座・採用・初出勤 */
   if (isSeated(r)) done += 1;
   if (isHired(r)) done += 1;
-  done += STEPS.filter((s) => r.steps[s.key].done).length;
   if (isStarted(r)) done += 1;
-  return Math.round((done / (STEPS.length + 3)) * 100);
+  if (isHired(r)) {
+    const it = afterItems(r);
+    total += it.length;
+    done += it.filter((x) => x.done).length;
+  } else {
+    total += STEPS.length;
+  }
+  return Math.round((done / total) * 100);
 }
 
 /* 次にやること。期限の状態（late / soon / calm）も返します */
@@ -588,10 +710,12 @@ function nextOf(r) {
     return { label: "採用・不採用の判定", due: r.seatDate || "", state: dueState(r.seatDate || ""), kind: "decide" };
   }
   /* ここから先は採用後。予定日は採用日から数えています */
-  const pending = STEPS.find((s) => !r.steps[s.key].done);
-  if (pending) {
-    const due = r.steps[pending.key].plan || "";
-    return { label: pending.nm, due, state: dueState(due), kind: "step", step: pending.key };
+  const rest = afterItems(r).filter((x) => !x.done);
+  if (rest.length) {
+    /* 予定日が早いものから。未設定は後ろに回します */
+    rest.sort((a, b) => (a.plan || "9999-99-99").localeCompare(b.plan || "9999-99-99"));
+    const nx = rest[0];
+    return { label: nx.nm, due: nx.plan || "", state: dueState(nx.plan || ""), kind: "step", step: nx.id };
   }
   if (!isStarted(r)) {
     const due = limitOf(r);
@@ -731,7 +855,7 @@ function cardHtml(r) {
     return {
       key: s.key, short: s.short, nm: s.nm, done: st.done, act: "step", lock: !hired,
       late: hired && !st.done && st.plan && daysBetween(TODAY, st.plan) < 0,
-      now: hired && !st.done && nx.kind === "step" && nx.step === s.key,
+      now: hired && !st.done && nx.kind === "step" && nx.step === "step|" + s.key,
       plan: st.plan
     };
   })).concat([{ key: "start", short: "出", nm: "初出勤", done: isStarted(r), act: "start", lock: !hired }]);
@@ -865,8 +989,9 @@ function editHtml(r) {
 function renderBoard() {
   const all = filtered();
   /* 自動で離脱と判定した人も、確定するまでは催促できるようボードに残します */
-  const live = sortBoard(all.filter((r) => !isDropped(r) && !isStarted(r)));
-  const done = sortBoard(all.filter((r) => isStarted(r) && !isDropped(r)));
+  /* このタブは採用までを見ます。採用後は「採用後の育成」タブへ */
+  const live = sortBoard(all.filter((r) => !isDropped(r) && !isHired(r)));
+  const done = sortBoard(all.filter((r) => isHired(r) && !isDropped(r)));
   const dropped = all.filter(effDropped);
 
   const remind = all.filter((r) => { const a = seatAlert(r); return a && a.level === "remind"; }).length;
@@ -876,12 +1001,12 @@ function renderBoard() {
   const tile = (k, v, sub, cls) =>
     '<div class="tile"><span class="label-sm">' + k + '</span><b class="' + (cls || "") + '">' + v + '</b><span class="note">' + sub + "</span></div>";
   $("#boardTiles").innerHTML =
-    tile("育成中", live.length + "名", "初出勤を待っている人") +
+    tile("選考中", live.length + "名", "採用・不採用がこれから") +
     tile("着座待ち", pending + "名", "採用・不採用がまだの人") +
     tile("着座の催促", remind + "名", "応募から" + SEAT_REMIND_DAYS + "日以上", remind ? "cell-warn" : "") +
     tile("返信なし", silent + "名", SEAT_DROP_DAYS + "日経過・離脱と判定", silent ? "cell-bad" : "") +
     tile("予定を超過", late + "名", "研修・初出勤の遅れ", late ? "cell-bad" : "") +
-    tile("出勤済み", done.length + "名", "継続 " + done.filter(isKeeping).length + "名") +
+    tile("採用済み", done.length + "名", "出勤 " + done.filter(isStarted).length + "・継続 " + done.filter(isKeeping).length + "名") +
     tile("離脱", dropped.length + "名", "応募 " + all.length + "名のうち", dropped.length ? "cell-warn" : "");
 
   /* 媒体ごとの応募数と着座率 */
@@ -923,12 +1048,159 @@ function renderBoard() {
   $("#boardCount").textContent = live.length + "名";
   $("#board").innerHTML = live.length
     ? live.map(cardHtml).join("")
-    : '<div class="empty">育成中の応募者はいません。上のフォームから登録してください。</div>';
+    : '<div class="empty">選考中の応募者はいません。上のフォームから登録してください。</div>';
   $("#boardDone").innerHTML = done.length
     ? done.map(cardHtml).join("")
-    : '<div class="empty">まだ初出勤までたどり着いた人がいません。</div>';
+    : '<div class="empty">まだ採用までたどり着いた人がいません。</div>';
   const dl = $("#dropReasons");
   if (dl) dl.innerHTML = DROP_REASONS.map((x) => '<option value="' + esc(x) + '">').join("");
+}
+
+/* 採用後の項目（ID は "種類|キー"）を書き換えます */
+function patchItem(r, id, patch) {
+  const [kind, key] = id.split("|");
+  const o = Object.assign({}, r);
+  if (kind === "step") {
+    o.steps = Object.assign({}, r.steps);
+    o.steps[key] = Object.assign({}, o.steps[key], patch.done != null ? { done: patch.done } : { plan: patch.plan });
+  } else if (kind === "rp") {
+    o.roleplays = (r.roleplays || []).map((x) => x.id === key ? Object.assign({}, x, patch) : x);
+  } else if (kind === "vd") {
+    o.videos = Object.assign({}, r.videos);
+    o.videos[key] = Object.assign({}, o.videos[key], patch.done != null ? { done: patch.done } : { due: patch.plan });
+  } else if (kind === "rt") {
+    o.retests = (r.retests || []).map((x) => x.id === key ? Object.assign({}, x, patch) : x);
+  } else if (kind === "hd") {
+    o.hiduke = Object.assign({}, r.hiduke, patch);
+  } else if (kind === "br") {
+    o.brother = Object.assign({}, r.brother, patch);
+  }
+  return o;
+}
+
+/* ══════════════════════════════════════════
+   採用後の育成（採用した学生だけのタブ）
+   ══════════════════════════════════════════ */
+function afterRows() {
+  const o = $("#aOwner") ? $("#aOwner").value : "";
+  const st = $("#aState") ? $("#aState").value : "live";
+  return RECRUITS
+    .filter((r) => isHired(r) && !isDropped(r))
+    .filter((r) => !o || r.owner === o)
+    .filter((r) => st === "all" ? true : st === "started" ? isStarted(r) : !isStarted(r))
+    .sort((a, b) => {
+      const na = nextOf(a), nb = nextOf(b);
+      const rank = { late: 0, soon: 1, calm: 2 };
+      return (rank[na.state] - rank[nb.state]) || (na.due || "9999").localeCompare(nb.due || "9999");
+    });
+}
+
+/* 1項目ぶんの行（予定日と「済」） */
+function itemRow(r, it) {
+  const late = !it.done && it.plan && daysBetween(TODAY, it.plan) < 0;
+  const soon = !it.done && it.plan && daysBetween(TODAY, it.plan) >= 0 && daysBetween(TODAY, it.plan) <= 3;
+  const cls = it.done ? "done" : late ? "late" : soon ? "soon" : "";
+  return '<tr class="irow ' + cls + '">' +
+    '<td class="l">' + esc(it.nm) + "</td>" +
+    '<td><input type="date" data-iplan="' + r.id + "|" + it.id + '" value="' + esc(it.plan || "") + '"></td>' +
+    '<td class="num">' + (it.done ? '<span class="tag ok">済</span>' : it.plan ? esc(leftText(it.plan)) : '<span class="note">未定</span>') + "</td>" +
+    '<td class="num"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer">' +
+      '<input type="checkbox" style="width:auto" data-idone="' + r.id + "|" + it.id + '"' + (it.done ? " checked" : "") + "> 済</label></td>" +
+    (it.extra ? '<td class="l">' + it.extra + "</td>" : '<td></td>') +
+    "</tr>";
+}
+
+function afterCard(r) {
+  const items = afterItems(r);
+  const nx = nextOf(r);
+  const prog = progressOf(r);
+  const late = items.filter((x) => !x.done && x.plan && daysBetween(TODAY, x.plan) < 0).length;
+  const limit = limitOf(r);
+  const names = ROSTER.map((x) => x.name);
+
+  /* グループごとに並べます */
+  const groups = ["研修", "ロープレ", "動画提出", "トークテスト", "その他"];
+  let body = "";
+  groups.forEach((g) => {
+    const list = items.filter((x) => x.group === g);
+    if (!list.length) return;
+    body += '<tr class="ghead"><td class="l" colspan="5">' + g + "</td></tr>";
+    list.forEach((it) => {
+      const x = Object.assign({}, it);
+      /* トークテストの行には判定を、ブラザーの行には担当者を出します */
+      if (it.id === "step|test") {
+        x.extra = '<select data-tresult="' + r.id + '" style="width:auto">' +
+          TEST_RESULTS.map((v) => '<option value="' + esc(v) + '"' + (v === r.testResult ? " selected" : "") + ">" + esc(v || "判定なし") + "</option>").join("") +
+          "</select>";
+      } else if (it.id.indexOf("rt|") === 0) {
+        const rt = (r.retests || []).find((y) => "rt|" + y.id === it.id) || {};
+        x.extra = '<select data-rtresult="' + r.id + "|" + rt.id + '" style="width:auto">' +
+          TEST_RESULTS.map((v) => '<option value="' + esc(v) + '"' + (v === rt.result ? " selected" : "") + ">" + esc(v || "判定なし") + "</option>").join("") +
+          '</select> <button class="btn danger small" data-rtdel="' + r.id + "|" + rt.id + '">削除</button>';
+      } else if (it.id === "br|brother") {
+        x.extra = '<select data-bname="' + r.id + '" style="width:auto"><option value="">ブラザー未定</option>' +
+          names.map((n) => '<option value="' + esc(n) + '"' + (n === r.brother.name ? " selected" : "") + ">" + esc(n) + "</option>").join("") +
+          "</select>";
+      } else if (it.id.indexOf("rp|") === 0) {
+        x.extra = '<button class="btn danger small" data-rpdel="' + r.id + "|" + it.id.slice(3) + '">削除</button>';
+      }
+      body += itemRow(r, x);
+    });
+    if (g === "ロープレ") {
+      body += '<tr><td class="l" colspan="5"><button class="btn ghost small" data-rpadd="' + r.id + '">＋ ロープレを追加</button></td></tr>';
+    }
+    if (g === "トークテスト" && (r.testResult === "再受験" || (r.retests || []).some((y) => y.result === "再受験"))) {
+      body += '<tr><td class="l" colspan="5"><button class="btn ghost small" data-rtadd="' + r.id + '">＋ 再受験を追加</button></td></tr>';
+    }
+  });
+
+  return '<div class="panel" data-after="' + r.id + '">' +
+    '<div class="who" style="margin-bottom:8px">' +
+      '<div class="avatar">' + esc((r.name || "？").slice(0, 1)) + "</div>" +
+      '<span class="nm">' + esc(r.name) + "</span>" +
+      '<span class="tag media">' + esc(r.media) + "</span>" +
+      (isKeeping(r) ? '<span class="tag ok">継続</span>' : isStarted(r) ? '<span class="tag">出勤中</span>' : '<span class="tag">初出勤前</span>') +
+      '<span class="label-sm">採用 ' + md(r.hireDate) + "／採用担当 " + esc(r.owner || "未設定") +
+        (r.trainer ? "／教育 " + esc(r.trainer) : "") + "</span>" +
+      '<span class="spacer"></span>' +
+      (late ? '<span class="tag bad">期限切れ ' + late + "件</span>" : "") +
+      '<span class="label-sm">進捗 ' + prog + "%</span>" +
+    "</div>" +
+    '<div class="mbar ' + (prog >= 100 ? "ok" : late ? "bad" : "") + '" style="width:100%;margin-bottom:10px"><i style="width:' + prog + '%"></i></div>' +
+    '<p class="next ' + nx.state + '" style="margin:0 0 8px">' +
+      (nx.kind === "done" ? "すべて完了" : "次：" + esc(nx.label)) +
+      (nx.due ? "・予定 " + md(nx.due) + "（" + leftText(nx.due) + "）" : "") +
+      (limit && !isStarted(r) ? '<span class="label-sm">　初出勤の期限 ' + md(limit) + "（" + leftText(limit) + "）</span>" : "") +
+    "</p>" +
+    '<div class="tscroll"><table class="t after"><thead><tr><th class="l">やること</th><th>予定日</th><th>期限まで</th><th>実施</th><th class="l">メモ・判定</th></tr></thead><tbody>' +
+    body + "</tbody></table></div>" +
+    '<div class="cardact" style="margin-top:10px">' +
+      '<button class="btn ghost small" data-edit="' + r.id + '">' + (OPEN === r.id ? "閉じる" : "応募情報を開く") + "</button>" +
+      (isStarted(r) ? "" : '<button class="btn small" data-node="' + r.id + '|start|start">初出勤にする</button>') +
+      '<button class="btn danger small" data-drop="' + r.id + '">離脱にする</button>' +
+    "</div>" +
+    (OPEN === r.id ? editHtml(r) : "") +
+    "</div>";
+}
+
+function renderAfter() {
+  if (!$("#afterList")) return;
+  const rows = afterRows();
+  const hired = RECRUITS.filter((r) => isHired(r) && !isDropped(r));
+  const lateN = hired.filter((r) => afterItems(r).some((x) => !x.done && x.plan && daysBetween(TODAY, x.plan) < 0)).length;
+  const retest = hired.filter((r) => r.testResult === "再受験" || (r.retests || []).some((y) => y.result === "再受験")).length;
+  const noBro = hired.filter((r) => !r.brother.done).length;
+  const tile = (k, v, sub, cls) =>
+    '<div class="tile"><span class="label-sm">' + k + '</span><b class="' + (cls || "") + '">' + v + '</b><span class="note">' + sub + "</span></div>";
+  $("#afterTiles").innerHTML =
+    tile("採用済み", hired.length + "名", "初出勤前 " + hired.filter((r) => !isStarted(r)).length + "名") +
+    tile("期限切れあり", lateN + "名", "予定日を過ぎた項目がある", lateN ? "cell-bad" : "") +
+    tile("トークテスト再受験", retest + "名", "火付けの対象", retest ? "cell-warn" : "") +
+    tile("ブラザー未接点", noBro + "名", "接点開始がまだ", noBro ? "cell-warn" : "");
+  $("#afterCount").textContent = rows.length + "名";
+  $("#afterList").innerHTML = rows.length
+    ? rows.map(afterCard).join("")
+    : '<div class="panel"><div class="empty">該当する学生がいません。</div></div>';
 }
 
 /* ══════════════════════════════════════════
@@ -1456,6 +1728,7 @@ function renderList() {
    ══════════════════════════════════════════ */
 function renderAll() {
   renderBoard();
+  renderAfter();
   renderGoal();
   renderFunnel();
   renderPerf();
@@ -1488,6 +1761,7 @@ function fillSelects() {
   if (ME && OWNERS.indexOf(ME.name) >= 0) $("#a-owner").value = ME.name;
   $("#p-stage").innerHTML = PLAN_STAGES.map((x) => '<option value="' + x.key + '">' + esc(x.nm) + "</option>").join("");
   $("#p-media").innerHTML = '<option value="">全媒体</option>' + MEDIA.map((m) => '<option value="' + esc(m) + '">' + esc(m) + "</option>").join("");
+  $("#aOwner").innerHTML = opts(OWNERS, "担当：すべて");
   $("#p-from").value = TODAY;
   $("#goalMonth").value = TODAY.slice(0, 7);
   $("#g-hire").value = GOAL.hire || "";
@@ -1540,7 +1814,7 @@ $("#addPlan").addEventListener("click", async () => {
 
 /* カード内の操作 */
 document.addEventListener("click", async (e) => {
-  const t = e.target.closest("[data-node],[data-edit],[data-del],[data-jump],[data-drop],[data-revive],[data-undrop],[data-seatnow],[data-hire],[data-reject],[data-plandel],[data-ledit]");
+  const t = e.target.closest("[data-node],[data-edit],[data-del],[data-jump],[data-drop],[data-revive],[data-undrop],[data-seatnow],[data-hire],[data-reject],[data-plandel],[data-ledit],[data-rpadd],[data-rpdel],[data-rtadd],[data-rtdel]");
   if (!t) return;
   if (t.disabled) return;
 
@@ -1558,7 +1832,7 @@ document.addEventListener("click", async (e) => {
     if (!r) return;
     OPEN = r.id;
     const hd = r.seatDate || TODAY;
-    await save(Object.assign({}, r, { hireDate: hd, status: "採用", steps: replanSteps(r, hd) }),
+    await save(Object.assign({}, r, { hireDate: hd, status: "採用" }, replanAfter(r, hd)),
       r.name + " さんを採用にしました。研修の予定日を確認してください");
     const el = document.querySelector('[data-card="' + r.id + '"]');
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1603,9 +1877,8 @@ document.addEventListener("click", async (e) => {
       await save(Object.assign({}, r, {
         hireDate: hd2,
         startDate: on ? "" : r.startDate,
-        status: on ? "着座" : "採用",
-        steps: replanSteps(r, hd2)
-      }), on ? "採用を取り消しました" : r.name + " さんを採用にしました。研修の予定日を確認してください");
+        status: on ? "着座" : "採用"
+      }, replanAfter(r, hd2)), on ? "採用を取り消しました" : r.name + " さんを採用にしました。研修の予定日を確認してください");
       return;
     }
     if (act === "start") {
@@ -1660,6 +1933,40 @@ document.addEventListener("click", async (e) => {
     return;
   }
 
+  /* ロープレを足す・消す */
+  if (t.dataset.rpadd) {
+    const r = byId(t.dataset.rpadd);
+    if (!r) return;
+    const list = (r.roleplays || []).slice();
+    const lastPlan = list.length ? list[list.length - 1].plan : r.hireDate;
+    list.push({ id: "rp" + Date.now().toString(36), plan: lastPlan ? addDays(lastPlan, 6) : "", done: false });
+    await save(Object.assign({}, r, { roleplays: list }), "ロープレを1回追加しました");
+    return;
+  }
+  if (t.dataset.rpdel) {
+    const [id, key] = t.dataset.rpdel.split("|");
+    const r = byId(id);
+    if (!r) return;
+    await save(Object.assign({}, r, { roleplays: (r.roleplays || []).filter((x) => x.id !== key) }), "ロープレを削除しました");
+    return;
+  }
+  /* トークテストの再受験を足す・消す */
+  if (t.dataset.rtadd) {
+    const r = byId(t.dataset.rtadd);
+    if (!r) return;
+    const list = (r.retests || []).slice();
+    const base = list.length ? list[list.length - 1].plan : r.steps.test.plan;
+    list.push({ id: "rt" + Date.now().toString(36), plan: base ? addDays(base, 7) : "", done: false, result: "" });
+    await save(Object.assign({}, r, { retests: list }), "再受験を1回追加しました");
+    return;
+  }
+  if (t.dataset.rtdel) {
+    const [id, key] = t.dataset.rtdel.split("|");
+    const r = byId(id);
+    if (!r) return;
+    await save(Object.assign({}, r, { retests: (r.retests || []).filter((x) => x.id !== key) }), "再受験を削除しました");
+    return;
+  }
   if (t.dataset.ledit) {
     LOPEN = LOPEN === t.dataset.ledit ? null : t.dataset.ledit;
     renderList();
@@ -1718,6 +2025,49 @@ document.addEventListener("change", async (e) => {
     return;
   }
 
+  /* 採用後の項目：予定日 */
+  if (el.dataset.iplan) {
+    const i = el.dataset.iplan.indexOf("|");
+    const r = byId(el.dataset.iplan.slice(0, i));
+    if (!r) return;
+    await save(patchItem(r, el.dataset.iplan.slice(i + 1), { plan: el.value }), "予定日を変えました");
+    return;
+  }
+  /* 採用後の項目：実施の「済」 */
+  if (el.dataset.idone) {
+    const i = el.dataset.idone.indexOf("|");
+    const r = byId(el.dataset.idone.slice(0, i));
+    if (!r) return;
+    await save(patchItem(r, el.dataset.idone.slice(i + 1), { done: el.checked }), el.checked ? "済にしました" : "未に戻しました");
+    return;
+  }
+  /* トークテストの判定 */
+  if (el.dataset.tresult) {
+    const r = byId(el.dataset.tresult);
+    if (!r) return;
+    const next = Object.assign({}, r, { testResult: el.value });
+    if (el.value) next.steps = Object.assign({}, r.steps, { test: Object.assign({}, r.steps.test, { done: true }) });
+    await save(next, "トークテストを「" + (el.value || "判定なし") + "」にしました");
+    return;
+  }
+  if (el.dataset.rtresult) {
+    const [id, key] = el.dataset.rtresult.split("|");
+    const r = byId(id);
+    if (!r) return;
+    await save(Object.assign({}, r, {
+      retests: (r.retests || []).map((x) => x.id === key ? Object.assign({}, x, { result: el.value, done: el.value ? true : x.done }) : x)
+    }), "再受験の判定を変えました");
+    return;
+  }
+  /* ブラザーの担当 */
+  if (el.dataset.bname) {
+    const r = byId(el.dataset.bname);
+    if (!r) return;
+    await save(Object.assign({}, r, { brother: Object.assign({}, r.brother, { name: el.value }) }), "ブラザーを設定しました");
+    return;
+  }
+  if (["aOwner", "aState"].indexOf(el.id) >= 0) { renderAfter(); return; }
+
   /* 段階のやり直し */
   if (el.dataset.stage) {
     const r = byId(el.dataset.stage);
@@ -1742,7 +2092,7 @@ document.addEventListener("change", async (e) => {
     /* 採用日は着座日と同じ日にします。予定日も採用日から引き直します。 */
     if (key === "seatDate" && el.value && isHired(next)) {
       next.hireDate = el.value;
-      next.steps = replanSteps(next, el.value);
+      Object.assign(next, replanAfter(next, el.value));
     }
     if (key === "hireDate" && el.value && ["応募", "着座"].indexOf(next.status) >= 0) next.status = "採用";
     if (key === "startDate" && el.value && next.status !== "継続") next.status = "出勤";

@@ -100,7 +100,7 @@ table.t tbody tr:hover{background:#F8FAFD}
 
 <header>
   <div class="hrow">
-    <div class="brand"><h1>大阪支店 営業ログ</h1><span id="verTxt">画面 v1</span></div>
+    <div class="brand"><h1>大阪支店 営業ログ</h1><span id="verTxt">画面 v2</span></div>
     <span class="label-sm" style="color:rgba(255,255,255,.8)">あなた</span>
     <select id="who" style="max-width:9em"></select>
     <span class="pill" id="modePill">接続中…</span>
@@ -220,6 +220,7 @@ table.t tbody tr:hover{background:#F8FAFD}
       </h3>
       <p class="note" style="margin-bottom:10px">
         メンバーごと、月ごとに設定します。空欄は0として扱います。
+        <b>直した欄だけ</b>が保存されるので、ほかの人が同時に別のメンバーの目標を変えていても、互いに消し合うことはありません。
       </p>
       <div class="tscroll"><table class="t" id="tgtTable"></table></div>
     </div>
@@ -575,6 +576,9 @@ async function call(fn, arg, msg) {
    ══════════════════════════════════════════ */
 let EDIT_LOG = null;
 let EDIT_DEAL = null;
+/* 目標設定で、実際に触った欄だけを覚えておきます。
+   ほかの人が同時に別のメンバーの目標を直しても、消し合わないようにするためです。 */
+let TGT_DIRTY = {};
 
 function renderAll() { renderMy(); renderInput(); renderTeam(); renderTargets(); }
 
@@ -619,14 +623,16 @@ $("#addDeal").addEventListener("click", async () => {
 /* 目標の保存 */
 $("#saveTargets").addEventListener("click", async () => {
   const ym = $("#tgtMonth").value || THIS_MONTH;
-  const map = Object.assign({}, TARGETS);
-  const month = Object.assign({}, map[ym]);
-  $$("[data-tg]").forEach((el) => {
-    const [name, key] = el.dataset.tg.split("|");
-    month[name] = Object.assign({}, month[name], { [key]: n0(el.value) });
+  const keys = Object.keys(TGT_DIRTY);
+  if (!keys.length) { flash("変更された欄がありません"); return; }
+  /* 触った欄だけを送ります */
+  const month = {};
+  keys.forEach((k) => {
+    const [name, key] = k.split("|");
+    month[name] = Object.assign({}, month[name], { [key]: TGT_DIRTY[k] });
   });
-  map[ym] = month;
-  await call("saveTargets", map, ym.slice(5) + "月の目標を保存しました");
+  TGT_DIRTY = {};
+  await call("saveTargets", { [ym]: month }, ym.slice(5) + "月の目標を保存しました（" + keys.length + "項目）");
 });
 
 /* 一覧の操作 */
@@ -666,7 +672,8 @@ document.addEventListener("change", async (e) => {
   if (["myMonth"].indexOf(el.id) >= 0) { renderMy(); return; }
   if (["histMonth"].indexOf(el.id) >= 0) { renderInput(); return; }
   if (["teamMonth"].indexOf(el.id) >= 0) { renderTeam(); return; }
-  if (["tgtMonth"].indexOf(el.id) >= 0) { renderTargets(); return; }
+  if (["tgtMonth"].indexOf(el.id) >= 0) { TGT_DIRTY = {}; renderTargets(); return; }
+  if (el.dataset.tg) { TGT_DIRTY[el.dataset.tg] = n0(el.value); return; }
 
   if (el.dataset.lf) {
     const i = el.dataset.lf.indexOf("|");
@@ -698,7 +705,7 @@ function apply(d) {
   LOGS = (d && d.logs) || [];
   DEALS = (d && d.deals) || [];
   TARGETS = (d && d.targets) || {};
-  if (d && d.version) $("#verTxt").textContent = "画面 v1 / " + d.version;
+  if (d && d.version) $("#verTxt").textContent = "画面 v2 / " + d.version;
 }
 
 async function boot() {
@@ -723,7 +730,7 @@ async function boot() {
 
   /* ほかの人の入力を取り込みます */
   setInterval(async () => {
-    if (BUSY || EDIT_LOG || EDIT_DEAL) return;
+    if (BUSY || EDIT_LOG || EDIT_DEAL || Object.keys(TGT_DIRTY).length) return;
     try {
       const d = await api("getData");
       apply(d);

@@ -165,7 +165,7 @@ table.t tbody tr:hover{background:#F8FAFD}
 <header>
   <div class="hrow">
     <div class="brand">
-      <h1>採用・育成ボード</h1><span>画面 v77</span>
+      <h1>採用・育成ボード</h1><span>画面 v78</span>
     </div>
     <a class="nav" href="./log.html">営業ログ</a>
     <a class="nav" href="./navi.html">目標ナビ</a>
@@ -198,6 +198,7 @@ table.t tbody tr:hover{background:#F8FAFD}
         <label class="f" for="a-media">応募媒体<select id="a-media"></select></label>
         <label class="f" for="a-date">応募日<input id="a-date" type="date"></label>
         <label class="f" for="a-owner">採用担当<select id="a-owner"></select></label>
+        <label class="f" for="a-trainer">教育担当<select id="a-trainer"></select></label>
         <button class="btn" id="addBtn">登録する</button>
       </div>
       <p class="note" style="margin-top:8px">
@@ -252,6 +253,22 @@ table.t tbody tr:hover{background:#F8FAFD}
   <!-- ══ 媒体別の歩留まり ══ -->
   <section data-sec="funnel" hidden>
     <div class="panel">
+      <h3>今月の採用目標 <span class="label-sm">採用目標から、必要な着座数・応募数を逆算します</span>
+        <span class="spacer"></span>
+        <input type="month" id="goalMonth" style="width:auto">
+      </h3>
+      <div class="fields add" style="margin-bottom:12px">
+        <label class="f" for="g-hire">採用目標（名）<input id="g-hire" type="number" min="0" placeholder="4"></label>
+        <label class="f" for="g-seatRate">採用率 %（着座→採用）<input id="g-seatRate" type="number" min="1" max="100" step="1" placeholder="空欄＝実績から自動"></label>
+        <label class="f" for="g-applyRate">着座率 %（応募→着座）<input id="g-applyRate" type="number" min="1" max="100" step="1" placeholder="空欄＝実績から自動"></label>
+        <button class="btn" id="saveGoal">目標を保存</button>
+      </div>
+      <div class="tiles" id="goalTiles"></div>
+      <div class="tscroll" style="margin-top:12px"><table class="t" id="goalTable"></table></div>
+      <p class="note" style="margin-top:8px" id="goalNote"></p>
+    </div>
+
+    <div class="panel">
       <h3>媒体別の歩留まり
         <span class="spacer"></span>
         <select id="fPeriod" style="width:auto">
@@ -283,7 +300,8 @@ table.t tbody tr:hover{background:#F8FAFD}
         <input type="month" id="perfMonth" style="width:auto">
       </h3>
       <p class="note" style="margin-bottom:10px">
-        営業ログの日報から自動で集計しています。「営業ログの氏名」を設定した人だけが対象です。
+        営業ログの日報から自動で集計しています。応募時の氏名でひもづけているので、設定は不要です。
+        ログ側の表記が違う場合だけ、育成ボードの詳細で指定してください。
       </p>
       <div class="tiles" id="perfTiles" style="margin-bottom:12px"></div>
       <div class="tscroll"><table class="t" id="perfTable"></table></div>
@@ -347,11 +365,17 @@ const TOKEN_KEY = "craft-sales-token";
 /* ── 設定 ──────────────────────────────── */
 /* 応募媒体。増やすときはここに足してください */
 const MEDIA = ["インフラ", "ゼロワン", "ココシロ"];
+const DEFAULT_MEDIA = "ココシロ";
+/* 採用担当 */
+const OWNERS = ["森野", "山﨑", "斉藤"];
+const DEFAULT_OWNER = "森野";
 /* 応募から初出勤までの上限日数 */
 const LIMIT_DAYS = 30;
 /* 着座の催促：応募から何日で催促するか／何日で離脱と判定するか */
 const SEAT_REMIND_DAYS = 7;
 const SEAT_DROP_DAYS = 14;
+/* 初出勤から何日たったら継続と判定するか */
+const KEEP_DAYS = 30;
 /* 育成のステップ。plan は応募日から何日後を予定にするか */
 const STEPS = [
   { key: "mendan", nm: "目標設定面談", short: "面", plan: 7 },
@@ -426,6 +450,7 @@ async function api(fn, ...args) {
 let ME = null;
 let RECRUITS = [];
 let PLANS = [];
+let GOAL = {};
 let LOGS = [];
 let ROSTER = [];
 let OPEN = null;      /* 編集中のカードID */
@@ -456,7 +481,7 @@ function setMode(state, txt) {
 /* 保存されている1件を、画面で使いやすい形に整えます */
 function norm(r) {
   const o = Object.assign({
-    id: "", name: "", media: MEDIA[0], owner: "", status: "応募",
+    id: "", name: "", media: DEFAULT_MEDIA, owner: DEFAULT_OWNER, trainer: "", status: "応募",
     applyDate: "", seatDate: "", hireDate: "", startDate: "", keepDate: "",
     dropDate: "", dropStage: "", dropReason: "", logName: "", note: "", revived: false
   }, r || {});
@@ -472,7 +497,16 @@ function norm(r) {
 const limitOf = (r) => r.applyDate ? addDays(r.applyDate, LIMIT_DAYS) : "";
 const isDropped = (r) => r.status === "離脱";
 const isStarted = (r) => !!r.startDate || r.status === "出勤" || r.status === "継続";
-const isKeeping = (r) => r.status === "継続";
+/* 継続は、初出勤から KEEP_DAYS 日たてば自動で判定します */
+const keepDueOf = (r) => r.startDate ? addDays(r.startDate, KEEP_DAYS) : "";
+function autoKeep(r) {
+  if (r.status === "離脱" || !r.startDate) return false;
+  const left = daysBetween(TODAY, keepDueOf(r));
+  return left != null && left <= 0;
+}
+const isKeeping = (r) => r.status === "継続" || autoKeep(r);
+/* 営業ログの氏名。応募時の氏名と同じ前提で、自動でひもづけます */
+const logNameOf = (r) => r.logName || r.name || "";
 const isSeated = (r) => !!r.seatDate || !!r.hireDate || isStarted(r) || ["着座", "採用", "出勤", "継続"].indexOf(r.status) >= 0;
 
 /* ── 着座待ちの管理 ──────────────────────
@@ -616,7 +650,7 @@ function cardHtml(r) {
     const st = r.steps[s.key];
     const late = !st.done && st.plan && daysBetween(TODAY, st.plan) < 0;
     const isNext = !st.done && nx.kind === "step" && nx.step === s.key;
-    const title = s.nm + (st.done ? "（済 " + md(st.date) + "）" : st.plan ? "（予定 " + md(st.plan) + "）" : "");
+    const title = s.nm + (st.done ? "（済）" : st.plan ? "（予定 " + md(st.plan) + "）" : "");
     if (i > 0) steps += '<i class="bar ' + (r.steps[STEPS[i - 1].key].done ? "done" : "") + '"></i>';
     steps += '<div class="step"><button class="dot ' + (st.done ? "done" : late ? "late" : isNext ? "now" : "") +
       '" data-step="' + r.id + "|" + s.key + '" title="' + esc(title) + '">' +
@@ -627,7 +661,8 @@ function cardHtml(r) {
     '" title="初出勤">' + (isStarted(r) ? "✓" : "出") + "</button></div>";
 
   const mediaTag = '<span class="tag media">' + esc(r.media) + "</span>";
-  const ownerTag = r.owner ? '<span class="label-sm">担当 ' + esc(r.owner) + "</span>" : "";
+  const ownerTag = '<span class="label-sm">採用 ' + esc(r.owner || "未設定") +
+    (r.trainer ? "／教育 " + esc(r.trainer) : "") + "</span>";
   const auto = autoDropped(r);
   const statusTag = isDropped(r) ? '<span class="tag bad">離脱・' + esc(dropNm(dropStageOf(r))) + "</span>"
     : auto ? '<span class="tag bad">離脱（自動判定）</span>'
@@ -671,7 +706,10 @@ function cardHtml(r) {
       '<div class="mbar ' + pcls + '"><i style="width:' + prog + '%"></i></div>' +
       (limit && !isStarted(r) && !effDropped(r)
         ? '<span class="deadline">初出勤の期限 <b>' + md(limit) + "</b>（" + leftText(limit) + "）</span>"
-        : r.startDate ? '<span class="deadline">初出勤 <b>' + md(r.startDate) + "</b></span>" : "") +
+        : r.startDate
+          ? '<span class="deadline">初出勤 <b>' + md(r.startDate) + "</b>" +
+            (isKeeping(r) ? "" : "<br>継続判定 " + md(keepDueOf(r)) + "（" + leftText(keepDueOf(r)) + "）") + "</span>"
+          : "") +
       '<div class="cardact">' + act +
         '<button class="btn ghost small" data-edit="' + r.id + '">' +
         (OPEN === r.id ? "閉じる" : "詳細・編集") + "</button></div>" +
@@ -688,11 +726,10 @@ function editHtml(r) {
 
   let stepRows = STEPS.map((s) => {
     const st = r.steps[s.key];
-    return '<div style="display:grid;gap:6px;grid-template-columns:auto 1fr 1fr;align-items:end">' +
-      '<label class="f" style="white-space:nowrap">' + s.nm +
-        '<span style="display:block;margin-top:6px"><input type="checkbox" style="width:auto" data-sdone="' + r.id + "|" + s.key + '"' + (st.done ? " checked" : "") + "> 済</span></label>" +
-      '<label class="f">予定日<input type="date" data-splan="' + r.id + "|" + s.key + '" value="' + esc(st.plan || "") + '"></label>' +
-      '<label class="f">実施日<input type="date" data-sdate="' + r.id + "|" + s.key + '" value="' + esc(st.date || "") + '"></label>' +
+    return '<div style="display:grid;gap:8px;grid-template-columns:1fr auto;align-items:end">' +
+      '<label class="f">' + s.nm + 'の予定日<input type="date" data-splan="' + r.id + "|" + s.key + '" value="' + esc(st.plan || "") + '"></label>' +
+      '<label class="f" style="white-space:nowrap">実施<span style="display:block;margin-top:6px">' +
+        '<input type="checkbox" style="width:auto" data-sdone="' + r.id + "|" + s.key + '"' + (st.done ? " checked" : "") + "> 済</span></label>" +
       "</div>";
   }).join("");
 
@@ -700,7 +737,8 @@ function editHtml(r) {
     '<div class="editgrid">' +
       '<label class="f">氏名<input type="text" data-f="' + r.id + '|name" value="' + esc(r.name) + '"></label>' +
       '<label class="f">媒体<select data-f="' + r.id + '|media">' + opt(MEDIA, r.media) + "</select></label>" +
-      '<label class="f">採用担当<select data-f="' + r.id + '|owner"><option value="">未設定</option>' + opt(names, r.owner) + "</select></label>" +
+      '<label class="f">採用担当<select data-f="' + r.id + '|owner">' + opt(OWNERS, r.owner) + "</select></label>" +
+      '<label class="f">教育担当<select data-f="' + r.id + '|trainer"><option value="">未設定</option>' + opt(names, r.trainer) + "</select></label>" +
       '<label class="f">状況<select data-f="' + r.id + '|status">' + opt(STATUS, r.status) + "</select></label>" +
     "</div>" +
     '<div class="editgrid" style="margin-top:10px">' +
@@ -713,7 +751,7 @@ function editHtml(r) {
     '<p class="note" style="margin:12px 0 6px"><b>研修の進捗</b></p>' +
     '<div style="display:grid;gap:8px">' + stepRows + "</div>" +
     '<div class="editgrid" style="margin-top:12px">' +
-      '<label class="f">営業ログの氏名<select data-f="' + r.id + '|logName"><option value="">未連携</option>' + opt(names, r.logName) + "</select></label>" +
+      '<label class="f">営業ログの氏名<select data-f="' + r.id + '|logName"><option value="">自動（' + esc(r.name) + "）</option>" + opt(names, r.logName) + "</select></label>" +
       dateF("dropDate", "離脱日", r.dropDate) +
       '<label class="f">離脱した段階<select data-f="' + r.id + '|dropStage"><option value="">自動（' + esc(dropNm(dropStageAuto(r))) + "）</option>" +
         DROP_STAGES.map((s) => '<option value="' + s.key + '"' + (s.key === r.dropStage ? " selected" : "") + ">" + esc(s.nm) + "</option>").join("") + "</select></label>" +
@@ -923,7 +961,7 @@ function perfOf(name, month) {
 function renderPerf() {
   const month = $("#perfMonth").value || "all";
   const kept = RECRUITS.filter((r) => isKeeping(r) || isStarted(r));
-  const rows = kept.map((r) => ({ r, p: r.logName ? perfOf(r.logName, month) : null }));
+  const rows = kept.map((r) => ({ r, p: logNameOf(r) ? perfOf(logNameOf(r), month) : null }));
   const linked = rows.filter((x) => x.p);
 
   const sum = (k) => linked.reduce((a, x) => a + (x.p[k] || 0), 0);
@@ -946,7 +984,7 @@ function renderPerf() {
     if (!p) {
       h += '<tr><td class="l"><b>' + esc(r.name) + '</b></td><td class="l">' + esc(r.media) + '</td><td class="l">' +
         md(r.startDate) + '</td><td class="num">' + (tenure == null ? "–" : tenure + "日") +
-        '</td><td class="l" colspan="9"><span class="note">営業ログの氏名が未連携です（育成ボードの詳細で設定できます）</span></td></tr>';
+        '</td><td class="l" colspan="9"><span class="note">氏名が未設定です</span></td></tr>';
       return;
     }
     h += '<tr><td class="l"><b>' + esc(r.name) + "</b>" + (isKeeping(r) ? ' <span class="tag ok">継続</span>' : "") + "</td>" +
@@ -976,19 +1014,134 @@ function renderPerf() {
 }
 
 
+
+/* ══════════════════════════════════════════
+   今月の採用目標と、そこから逆算した着座・応募の目標
+   ══════════════════════════════════════════ */
+/* 逆算に使う率がまだ決まっていないときの初期値 */
+const GOAL_FALLBACK = { seatRate: 50, hireRate: 50 };
+
+/* 直近90日の実績から、着座率と採用率を求めます */
+function recentRates() {
+  const from = addDays(TODAY, -90);
+  const list = RECRUITS.filter((r) => r.applyDate && r.applyDate >= from);
+  const ap = list.length;
+  const st = list.filter((r) => reached(r, "seat")).length;
+  const hi = list.filter((r) => reached(r, "hire")).length;
+  return {
+    seatRate: ap ? (st / ap) * 100 : null,
+    hireRate: st ? (hi / st) * 100 : null,
+    n: ap
+  };
+}
+/* 指定した月の実績 */
+function monthCounts(ym) {
+  const list = RECRUITS.filter((r) => r.applyDate && r.applyDate.slice(0, 7) === ym);
+  return {
+    apply: list.length,
+    /* 着座・採用・初出勤は、その月に「その日付が入った」人で数えます */
+    seat: RECRUITS.filter((r) => r.seatDate && r.seatDate.slice(0, 7) === ym).length,
+    hire: RECRUITS.filter((r) => r.hireDate && r.hireDate.slice(0, 7) === ym).length,
+    start: RECRUITS.filter((r) => r.startDate && r.startDate.slice(0, 7) === ym).length
+  };
+}
+/* 月の進み具合（今月なら経過日数、過去の月なら100%） */
+function monthPace(ym) {
+  const [y, m] = ym.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  const cur = TODAY.slice(0, 7);
+  if (ym < cur) return { done: last, last, q: 1 };
+  if (ym > cur) return { done: 0, last, q: 0 };
+  const d = Number(TODAY.slice(8, 10));
+  return { done: d, last, q: d / last };
+}
+
+function renderGoal() {
+  if (!$("#goalTiles")) return;
+  const ym = $("#goalMonth").value || TODAY.slice(0, 7);
+  const rec = recentRates();
+  const hire = Math.max(0, n0(GOAL.hire));
+  /* 率は手入力があればそれを、なければ直近の実績を、それも無ければ初期値を使います */
+  const hireRate = n0(GOAL.hireRate) || (rec.hireRate != null ? Math.round(rec.hireRate) : GOAL_FALLBACK.hireRate);
+  const seatRate = n0(GOAL.seatRate) || (rec.seatRate != null ? Math.round(rec.seatRate) : GOAL_FALLBACK.seatRate);
+  const seatNeed = hireRate > 0 ? Math.ceil(hire / (hireRate / 100)) : null;
+  const applyNeed = (seatNeed != null && seatRate > 0) ? Math.ceil(seatNeed / (seatRate / 100)) : null;
+
+  const c = monthCounts(ym);
+  const pace = monthPace(ym);
+  const rest = Math.max(0, pace.last - pace.done);
+
+  const tile = (k, v, sub, cls) =>
+    '<div class="tile"><span class="label-sm">' + k + '</span><b class="' + (cls || "") + '">' + v + '</b><span class="note">' + sub + "</span></div>";
+  $("#goalTiles").innerHTML =
+    tile("採用目標", hire + "名", ym.slice(5) + "月の目標") +
+    tile("必要な着座数", (seatNeed == null ? "–" : seatNeed + "名"), "採用率 " + hireRate + "% で逆算") +
+    tile("必要な応募数", (applyNeed == null ? "–" : applyNeed + "名"), "着座率 " + seatRate + "% で逆算") +
+    tile("月の進み", Math.round(pace.q * 100) + "%", pace.done + " / " + pace.last + "日（残り" + rest + "日）");
+
+  const row = (nm, need, now) => {
+    const q = need ? now / need : null;
+    /* 月の進み具合に対して足りているか */
+    const ok = q == null ? null : q >= pace.q * 0.95;
+    const cls = q == null ? "" : ok ? "cell-ok" : q >= pace.q * 0.7 ? "cell-warn" : "cell-bad";
+    const left = need == null ? null : Math.max(0, need - now);
+    const perDay = (left != null && rest > 0) ? left / rest : null;
+    return '<tr><td class="l"><b>' + nm + "</b></td>" +
+      '<td class="num">' + (need == null ? "–" : need + "名") + "</td>" +
+      '<td class="num"><b>' + now + "名</b></td>" +
+      '<td class="num ' + cls + '">' + (q == null ? "–" : Math.round(q * 100) + "%") + "</td>" +
+      '<td class="num">' + (left == null ? "–" : left + "名") + "</td>" +
+      '<td class="num">' + (perDay == null ? "–" : f1(perDay) + "名/日") + "</td></tr>";
+  };
+  $("#goalTable").innerHTML =
+    '<thead><tr><th class="l">段階</th><th>目標</th><th>実績</th><th>達成率</th><th>残り</th><th>残り日数での必要ペース</th></tr></thead><tbody>' +
+    row("応募", applyNeed, c.apply) +
+    row("着座", seatNeed, c.seat) +
+    row("採用", hire || null, c.hire) +
+    "</tbody>";
+
+  $("#goalNote").innerHTML =
+    "達成率の色は、月の進み（" + Math.round(pace.q * 100) + "%）に追いついているかで判定しています。" +
+    "逆算に使う率を空欄にすると、直近90日の実績（着座率 " +
+    (rec.seatRate == null ? "–" : f1(rec.seatRate) + "%") + "／採用率 " +
+    (rec.hireRate == null ? "–" : f1(rec.hireRate) + "%") + "・応募" + rec.n + "名）を使います。";
+}
+
+async function saveGoalNow() {
+  const g = {
+    hire: n0($("#g-hire").value),
+    hireRate: n0($("#g-seatRate").value),
+    seatRate: n0($("#g-applyRate").value)
+  };
+  SAVING = true;
+  setMode("", "保存しています…");
+  try {
+    const data = await api("saveRecruitGoal", g, apiToken());
+    applyShared(data);
+    setMode("ok", "目標を保存しました");
+    renderAll();
+  } catch (e) {
+    showErr((e && e.message) || "保存できませんでした");
+    setMode("bad", "保存に失敗");
+  }
+  SAVING = false;
+}
+
 /* ══════════════════════════════════════════
    施策（PDCA）
    開始日の前後で歩留まりを比べ、効果があったかを見ます
    ══════════════════════════════════════════ */
-/* 施策が狙う段階と、その段階の歩留まりの測り方 */
+/* 施策が狙う指標。率だけでなく、応募数・着座までの日数も選べます */
 const PLAN_STAGES = [
-  { key: "seat",  nm: "応募 → 着座",   from: "apply", to: "seat",  unit: "着座率" },
-  { key: "hire",  nm: "着座 → 採用",   from: "seat",  to: "hire",  unit: "採用率" },
-  { key: "start", nm: "採用 → 初出勤", from: "hire",  to: "start", unit: "出勤率" },
-  { key: "keep",  nm: "初出勤 → 継続", from: "start", to: "keep",  unit: "継続率" },
-  { key: "all",   nm: "応募 → 継続",   from: "apply", to: "keep",  unit: "通過率" }
+  { key: "applyCount", nm: "応募数",           type: "count", unit: "応募数" },
+  { key: "seat",  nm: "着座率（応募→着座）",   type: "rate", from: "apply", to: "seat",  unit: "着座率" },
+  { key: "hire",  nm: "採用率（着座→採用）",   type: "rate", from: "seat",  to: "hire",  unit: "採用率" },
+  { key: "start", nm: "出勤率（採用→初出勤）", type: "rate", from: "hire",  to: "start", unit: "出勤率" },
+  { key: "keep",  nm: "継続率（初出勤→継続）", type: "rate", from: "start", to: "keep",  unit: "継続率" },
+  { key: "all",   nm: "通過率（応募→継続）",   type: "rate", from: "apply", to: "keep",  unit: "通過率" },
+  { key: "seatDays", nm: "着座までの日数",     type: "days", unit: "着座までの日数" }
 ];
-const planStage = (k) => PLAN_STAGES.find((x) => x.key === k) || PLAN_STAGES[0];
+const planStage = (k) => PLAN_STAGES.find((x) => x.key === k) || PLAN_STAGES[1];
 
 function normPlan(x) {
   return Object.assign({
@@ -996,20 +1149,53 @@ function normPlan(x) {
     result: "", verdict: "", editedBy: "", editedAt: 0
   }, x || {});
 }
-/* 応募日が from〜to に入る応募者で、歩留まりを測ります */
-function rateIn(stageKey, media, from, to) {
-  const st = planStage(stageKey);
-  const list = RECRUITS.filter((r) => {
+/* 応募日が from〜to に入る応募者で、指標を測ります */
+function pickIn(media, from, to) {
+  return RECRUITS.filter((r) => {
     if (!r.applyDate) return false;
     if (media && r.media !== media) return false;
     if (from && r.applyDate < from) return false;
     if (to && r.applyDate > to) return false;
     return true;
   });
+}
+function rateIn(stageKey, media, from, to) {
+  const st = planStage(stageKey);
+  const list = pickIn(media, from, to);
+  if (st.type === "count") {
+    return { den: null, num: list.length, rate: list.length, type: "count" };
+  }
+  if (st.type === "days") {
+    const ds = list.filter((r) => r.applyDate && r.seatDate).map((r) => daysBetween(r.applyDate, r.seatDate));
+    const avg = ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : null;
+    return { den: ds.length, num: null, rate: avg, type: "days" };
+  }
   const den = list.filter((r) => reached(r, st.from)).length;
   const num = list.filter((r) => reached(r, st.to)).length;
-  return { den, num, rate: den ? num / den : null };
+  return { den, num, rate: den ? num / den : null, type: "rate" };
 }
+/* 指標の表示用。率は%、応募数は件、日数は日 */
+function metricTxt(st, v) {
+  if (v.rate == null) return "–";
+  if (st.type === "count") return v.rate + "件";
+  if (st.type === "days") return f1(v.rate) + "日";
+  return f1(v.rate * 100) + "%";
+}
+function metricDiff(st, a, b) {
+  if (a.rate == null || b.rate == null) return null;
+  if (st.type === "rate") return (b.rate - a.rate) * 100;
+  return b.rate - a.rate;
+}
+function diffTxt(st, d) {
+  if (d == null) return "–";
+  const sign = d > 0 ? "＋" : d < 0 ? "−" : "±";
+  const v = f1(Math.abs(d));
+  if (st.type === "rate") return sign + v + "pt";
+  if (st.type === "count") return sign + v + "件";
+  return sign + v + "日";
+}
+/* 日数は短いほど良いので、良し悪しの向きを分けます */
+const betterUp = (st) => st.type !== "days";
 /* 施策の開始日をはさんで、同じ長さの期間どうしを比べます */
 function comparePlan(p) {
   const st = planStage(p.stage);
@@ -1019,8 +1205,14 @@ function comparePlan(p) {
   const beforeTo = addDays(p.from, -1);
   const a = rateIn(p.stage, p.media, beforeFrom, beforeTo);
   const b = rateIn(p.stage, p.media, p.from, end);
-  const diff = (a.rate != null && b.rate != null) ? (b.rate - a.rate) * 100 : null;
-  return { st, span, beforeFrom, beforeTo, from: p.from, to: end, a, b, diff };
+  const diff = metricDiff(st, a, b);
+  /* ほかの指標にも変化が出ていないかを一緒に見ます */
+  const others = PLAN_STAGES.map((x) => {
+    const oa = rateIn(x.key, p.media, beforeFrom, beforeTo);
+    const ob = rateIn(x.key, p.media, p.from, end);
+    return { st: x, a: oa, b: ob, diff: metricDiff(x, oa, ob), target: x.key === p.stage };
+  });
+  return { st, span, beforeFrom, beforeTo, from: p.from, to: end, a, b, diff, others };
 }
 
 function renderPdca() {
@@ -1033,8 +1225,9 @@ function renderPdca() {
   }
   $("#planList").innerHTML = list.map((p) => {
     const c = comparePlan(p);
-    const cls = c.diff == null ? "" : c.diff > 2 ? "ok" : c.diff < -2 ? "bad" : "warn";
-    const sign = c.diff == null ? "" : (c.diff > 0 ? "＋" : c.diff < 0 ? "−" : "±");
+    const good = c.diff == null ? null : (betterUp(c.st) ? c.diff > 0 : c.diff < 0);
+    const flat = c.diff == null || Math.abs(c.diff) < (c.st.type === "rate" ? 2 : 0.5);
+    const cls = c.diff == null || flat ? "" : good ? "ok" : "bad";
     const verdictOpt = ["", "効果あり（継続）", "効果なし（中止）", "判断保留（継続観察）"]
       .map((v) => '<option value="' + esc(v) + '"' + (v === p.verdict ? " selected" : "") + ">" + esc(v || "未判定") + "</option>").join("");
     return '<div class="card" style="grid-template-columns:minmax(0,1fr) minmax(210px,290px)">' +
@@ -1068,17 +1261,29 @@ function renderPdca() {
         "</div>" +
       "</div>" +
       '<div class="right">' +
-        '<span class="label-sm">' + esc(c.st.unit) + "の変化</span>" +
+        '<span class="label-sm">ねらった指標：' + esc(c.st.unit) + "</span>" +
         '<b style="font-size:26px" class="' + (cls === "ok" ? "cell-ok" : cls === "bad" ? "cell-bad" : "") + '">' +
-          (c.diff == null ? "–" : sign + f1(Math.abs(c.diff)) + "pt") + "</b>" +
-        '<span class="deadline">実施前 ' + (c.a.rate == null ? "–" : pct(c.a.num, c.a.den)) +
-          "（" + c.a.num + "/" + c.a.den + "名）</span>" +
-        '<span class="deadline">実施後 <b>' + (c.b.rate == null ? "–" : pct(c.b.num, c.b.den)) +
-          "</b>（" + c.b.num + "/" + c.b.den + "名）</span>" +
+          diffTxt(c.st, c.diff) + "</b>" +
+        '<span class="deadline">実施前 ' + metricTxt(c.st, c.a) +
+          (c.a.den != null && c.a.num != null ? "（" + c.a.num + "/" + c.a.den + "名）" : "") + "</span>" +
+        '<span class="deadline">実施後 <b>' + metricTxt(c.st, c.b) + "</b>" +
+          (c.b.den != null && c.b.num != null ? "（" + c.b.num + "/" + c.b.den + "名）" : "") + "</span>" +
         '<span class="note" style="text-align:right">比較期間 ' + c.span + "日<br>" +
           md(c.beforeFrom) + "〜" + md(c.beforeTo) + " ⇔ " + md(c.from) + "〜" + md(c.to) + "</span>" +
-        (c.a.den < 3 || c.b.den < 3 ? '<span class="note" style="color:var(--warn)">母数が少ないため参考値です</span>' : "") +
+        ((c.a.den != null && c.a.den < 3) || (c.b.den != null && c.b.den < 3)
+          ? '<span class="note" style="color:var(--warn)">母数が少ないため参考値です</span>' : "") +
       "</div>" +
+      /* ねらった指標以外も動いていないかを確認します */
+      '<div class="editbox"><p class="note" style="margin:0 0 6px"><b>ほかの指標の動き</b>（◎がねらった指標）</p>' +
+        '<div class="tscroll"><table class="t" style="min-width:560px"><thead><tr><th class="l">指標</th><th>実施前</th><th>実施後</th><th>変化</th></tr></thead><tbody>' +
+        c.others.map((o) => {
+          const g = o.diff == null ? null : (betterUp(o.st) ? o.diff > 0 : o.diff < 0);
+          const fl = o.diff == null || Math.abs(o.diff) < (o.st.type === "rate" ? 2 : 0.5);
+          return '<tr><td class="l">' + (o.target ? "◎ " : "") + esc(o.st.unit) + "</td>" +
+            '<td class="num">' + metricTxt(o.st, o.a) + '</td><td class="num">' + metricTxt(o.st, o.b) + "</td>" +
+            '<td class="num ' + (o.diff == null || fl ? "" : g ? "cell-ok" : "cell-bad") + '">' + diffTxt(o.st, o.diff) + "</td></tr>";
+        }).join("") +
+        "</tbody></table></div></div>" +
     "</div>";
   }).join("");
 }
@@ -1107,20 +1312,21 @@ function renderList() {
   const st = $("#lStatus").value, mf = $("#lMedia").value;
   const rows = RECRUITS.filter((r) => (!st || r.status === st) && (!mf || r.media === mf))
     .slice().sort((a, b) => (b.applyDate || "").localeCompare(a.applyDate || ""));
-  let h = '<thead><tr><th class="l">氏名</th><th class="l">媒体</th><th class="l">担当</th><th class="l">状況</th>' +
+  let h = '<thead><tr><th class="l">氏名</th><th class="l">媒体</th><th class="l">採用担当</th><th class="l">教育担当</th><th class="l">状況</th>' +
     '<th class="l">応募</th><th class="l">着座</th><th class="l">採用</th><th class="l">初出勤</th><th class="l">継続</th>' +
     "<th>応募→出勤</th><th>進捗</th><th class=\"l\">備考</th></tr></thead><tbody>";
-  if (!rows.length) h += '<tr><td class="l" colspan="12"><span class="note">該当する応募者がいません。</span></td></tr>';
+  if (!rows.length) h += '<tr><td class="l" colspan="13"><span class="note">該当する応募者がいません。</span></td></tr>';
   rows.forEach((r) => {
     const span = r.applyDate && r.startDate ? daysBetween(r.applyDate, r.startDate) : null;
     const over = span != null && span > LIMIT_DAYS;
     h += '<tr><td class="l"><a href="#" data-jump="' + r.id + '" style="color:var(--accent);font-weight:700;text-decoration:none">' +
       esc(r.name) + "</a></td>" +
       '<td class="l">' + esc(r.media) + '</td><td class="l">' + esc(r.owner || "–") + "</td>" +
-      '<td class="l">' + (isDropped(r) ? '<span class="tag bad">離脱</span>' : isKeeping(r) ? '<span class="tag ok">継続</span>' : esc(r.status)) + "</td>" +
+      '<td class="l">' + esc(r.trainer || "–") + "</td>" +
+      '<td class="l">' + (effDropped(r) ? '<span class="tag bad">離脱</span>' : isKeeping(r) ? '<span class="tag ok">継続</span>' : esc(r.status)) + "</td>" +
       '<td class="l">' + md(r.applyDate) + '</td><td class="l">' + (md(r.seatDate) || "–") + "</td>" +
       '<td class="l">' + (md(r.hireDate) || "–") + '</td><td class="l">' + (md(r.startDate) || "–") + "</td>" +
-      '<td class="l">' + (md(r.keepDate) || "–") + "</td>" +
+      '<td class="l">' + (md(r.keepDate) || (isKeeping(r) ? md(keepDueOf(r)) : "–")) + "</td>" +
       '<td class="num ' + (over ? "cell-bad" : "") + '">' + (span == null ? "–" : span + "日") + "</td>" +
       '<td class="num">' + progressOf(r) + "%</td>" +
       '<td class="l"><span class="note">' + esc(r.note || "") + "</span></td></tr>";
@@ -1133,6 +1339,7 @@ function renderList() {
    ══════════════════════════════════════════ */
 function renderAll() {
   renderBoard();
+  renderGoal();
   renderFunnel();
   renderPerf();
   renderPdca();
@@ -1153,15 +1360,22 @@ function fillSelects() {
   const opts = (list, blank) => (blank ? '<option value="">' + blank + "</option>" : "") +
     list.map((x) => '<option value="' + esc(x) + '">' + esc(x) + "</option>").join("");
   $("#a-media").innerHTML = opts(MEDIA);
-  $("#a-owner").innerHTML = opts(names, "未設定");
+  $("#a-media").value = DEFAULT_MEDIA;
+  $("#a-owner").innerHTML = opts(OWNERS);
+  $("#a-owner").value = DEFAULT_OWNER;
+  $("#a-trainer").innerHTML = opts(names, "未設定");
   $("#fMedia").innerHTML = opts(MEDIA, "媒体：すべて");
-  $("#fOwner").innerHTML = opts(names, "担当：すべて");
+  $("#fOwner").innerHTML = opts(OWNERS, "担当：すべて");
   $("#lMedia").innerHTML = opts(MEDIA, "媒体：すべて");
   $("#lStatus").innerHTML = opts(STATUS, "状況：すべて");
-  if (ME && names.indexOf(ME.name) >= 0) $("#a-owner").value = ME.name;
+  if (ME && OWNERS.indexOf(ME.name) >= 0) $("#a-owner").value = ME.name;
   $("#p-stage").innerHTML = PLAN_STAGES.map((x) => '<option value="' + x.key + '">' + esc(x.nm) + "</option>").join("");
   $("#p-media").innerHTML = '<option value="">全媒体</option>' + MEDIA.map((m) => '<option value="' + esc(m) + '">' + esc(m) + "</option>").join("");
   $("#p-from").value = TODAY;
+  $("#goalMonth").value = TODAY.slice(0, 7);
+  $("#g-hire").value = GOAL.hire || "";
+  $("#g-seatRate").value = GOAL.hireRate || "";
+  $("#g-applyRate").value = GOAL.seatRate || "";
   $("#limitTxt").textContent = LIMIT_DAYS;
   $("#remindTxt").textContent = SEAT_REMIND_DAYS;
   $("#dropTxt").textContent = SEAT_DROP_DAYS;
@@ -1176,6 +1390,7 @@ $("#addBtn").addEventListener("click", async () => {
     name,
     media: $("#a-media").value,
     owner: $("#a-owner").value,
+    trainer: $("#a-trainer").value,
     applyDate,
     status: "応募"
   });
@@ -1188,6 +1403,8 @@ $("#addBtn").addEventListener("click", async () => {
 $("#a-name").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#addBtn").click(); });
 
 /* 施策の登録 */
+$("#saveGoal").addEventListener("click", saveGoalNow);
+
 $("#addPlan").addEventListener("click", async () => {
   const issue = $("#p-issue").value.trim();
   if (!issue) { showErr("課題を入れてください"); return; }
@@ -1282,7 +1499,7 @@ document.addEventListener("click", async (e) => {
     if (!r) return;
     const st = r.steps[key];
     const next = Object.assign({}, r, { steps: Object.assign({}, r.steps) });
-    next.steps[key] = Object.assign({}, st, { done: !st.done, date: !st.done ? TODAY : "" });
+    next.steps[key] = Object.assign({}, st, { done: !st.done });
     await save(next, (STEPS.find((s) => s.key === key) || {}).nm + "を" + (!st.done ? "済にしました" : "未にしました"));
     return;
   }
@@ -1306,6 +1523,7 @@ document.addEventListener("change", async (e) => {
   /* 絞り込みと並べ替え */
   if (["fMedia", "fOwner", "fSort", "fPeriod2"].indexOf(el.id) >= 0) { renderBoard(); return; }
   if (el.id === "fPeriod") { renderFunnel(); return; }
+  if (el.id === "goalMonth") { renderGoal(); return; }
   if (el.id === "perfMonth") { renderPerf(); return; }
   if (["lStatus", "lMedia"].indexOf(el.id) >= 0) { renderList(); return; }
 
@@ -1342,11 +1560,9 @@ document.addEventListener("change", async (e) => {
       });
     }
   } else if (sd) {
-    next.steps[key] = Object.assign({}, next.steps[key], { done: el.checked, date: el.checked ? (next.steps[key].date || TODAY) : "" });
+    next.steps[key] = Object.assign({}, next.steps[key], { done: el.checked });
   } else if (sp) {
     next.steps[key] = Object.assign({}, next.steps[key], { plan: el.value });
-  } else if (dt) {
-    next.steps[key] = Object.assign({}, next.steps[key], { date: el.value, done: el.value ? true : next.steps[key].done });
   }
   await save(next, "保存しました");
 });
@@ -1357,6 +1573,7 @@ document.addEventListener("change", async (e) => {
 function applyShared(d) {
   RECRUITS = ((d && d.recruits) || []).map(norm);
   PLANS = ((d && d.recruitPlans) || []).map(normPlan);
+  GOAL = (d && d.recruitGoal) || {};
   if (d && d.logs) LOGS = d.logs;
 }
 

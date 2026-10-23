@@ -126,6 +126,9 @@ table.t tbody tr:hover{background:#F8FAFD}
 .dot.done{background:var(--ok);border-color:var(--ok);color:#fff}
 .dot.late{border-color:var(--shu);color:var(--shu)}
 .dot.now{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.dot.lock{background:#F1F4F8;border-color:#E6EAF0;color:#B4BCC8;cursor:not-allowed}
+.dot:disabled{cursor:default}
+.dot.lock:hover{border-color:#E6EAF0}
 .bar{width:26px;height:2px;background:var(--line);flex:0 0 auto}
 .bar.done{background:var(--ok)}
 .next{margin:4px 0 0;font-size:12px;font-weight:700}
@@ -165,7 +168,7 @@ table.t tbody tr:hover{background:#F8FAFD}
 <header>
   <div class="hrow">
     <div class="brand">
-      <h1>採用・育成ボード</h1><span>画面 v78</span>
+      <h1>採用・育成ボード</h1><span>画面 v79</span>
     </div>
     <a class="nav" href="./log.html">営業ログ</a>
     <a class="nav" href="./navi.html">目標ナビ</a>
@@ -486,6 +489,9 @@ function norm(r) {
     dropDate: "", dropStage: "", dropReason: "", logName: "", note: "", revived: false
   }, r || {});
   if (DROP_ALIAS[o.dropStage]) o.dropStage = DROP_ALIAS[o.dropStage];
+  /* 前後の空白などで媒体が一致しなくなるのを防ぎます */
+  o.media = String(o.media || "").trim() || DEFAULT_MEDIA;
+  o.name = String(o.name || "").trim();
   o.steps = Object.assign({}, r && r.steps);
   STEPS.forEach((s) => {
     o.steps[s.key] = Object.assign({ done: false, date: "", plan: "" }, o.steps[s.key]);
@@ -508,6 +514,8 @@ const isKeeping = (r) => r.status === "継続" || autoKeep(r);
 /* 営業ログの氏名。応募時の氏名と同じ前提で、自動でひもづけます */
 const logNameOf = (r) => r.logName || r.name || "";
 const isSeated = (r) => !!r.seatDate || !!r.hireDate || isStarted(r) || ["着座", "採用", "出勤", "継続"].indexOf(r.status) >= 0;
+/* 採用まで進んだ人。研修の入力は、ここを過ぎてから始めます */
+const isHired = (r) => !!r.hireDate || isStarted(r) || ["採用", "出勤", "継続"].indexOf(r.status) >= 0;
 
 /* ── 着座待ちの管理 ──────────────────────
    応募から SEAT_REMIND_DAYS 日で催促、SEAT_DROP_DAYS 日で離脱と判定します。 */
@@ -537,9 +545,12 @@ const seatDueOf = (r) => r.applyDate ? addDays(r.applyDate, SEAT_REMIND_DAYS) : 
 
 /* 進捗率：研修4つ＋初出勤の5つで数えます */
 function progressOf(r) {
-  let done = STEPS.filter((s) => r.steps[s.key].done).length;
+  let done = 0;
+  if (isSeated(r)) done += 1;
+  if (isHired(r)) done += 1;
+  done += STEPS.filter((s) => r.steps[s.key].done).length;
   if (isStarted(r)) done += 1;
-  return Math.round((done / (STEPS.length + 1)) * 100);
+  return Math.round((done / (STEPS.length + 3)) * 100);
 }
 
 /* 次にやること。期限の状態（late / soon / calm）も返します */
@@ -644,21 +655,32 @@ function cardHtml(r) {
   const cls = isKeeping(r) ? "done" : nx.state === "late" ? "late" : nx.state === "soon" ? "soon" : "";
   const pcls = prog >= 100 ? "ok" : nx.state === "late" ? "bad" : nx.state === "soon" ? "warn" : "";
 
-  /* ステップの丸 */
-  let steps = "";
-  STEPS.forEach((s, i) => {
+  /* 応募 → 着座 → 採用 → 研修4つ → 初出勤 をひと続きで表示します。
+     研修の丸は、採用を押すまで押せません。 */
+  const hired = isHired(r);
+  const nodes = [
+    { key: "apply", short: "応", nm: "応募", done: true, lock: true },
+    { key: "seat",  short: "着", nm: "着座", done: isSeated(r), act: "seat" },
+    { key: "hire",  short: "採", nm: "採用", done: hired, act: "hire", lock: !isSeated(r) }
+  ].concat(STEPS.map((s) => {
     const st = r.steps[s.key];
-    const late = !st.done && st.plan && daysBetween(TODAY, st.plan) < 0;
-    const isNext = !st.done && nx.kind === "step" && nx.step === s.key;
-    const title = s.nm + (st.done ? "（済）" : st.plan ? "（予定 " + md(st.plan) + "）" : "");
-    if (i > 0) steps += '<i class="bar ' + (r.steps[STEPS[i - 1].key].done ? "done" : "") + '"></i>';
-    steps += '<div class="step"><button class="dot ' + (st.done ? "done" : late ? "late" : isNext ? "now" : "") +
-      '" data-step="' + r.id + "|" + s.key + '" title="' + esc(title) + '">' +
-      (st.done ? "✓" : s.short) + "</button></div>";
+    return {
+      key: s.key, short: s.short, nm: s.nm, done: st.done, act: "step", lock: !hired,
+      late: hired && !st.done && st.plan && daysBetween(TODAY, st.plan) < 0,
+      now: hired && !st.done && nx.kind === "step" && nx.step === s.key,
+      plan: st.plan
+    };
+  })).concat([{ key: "start", short: "出", nm: "初出勤", done: isStarted(r), act: "start", lock: !hired }]);
+
+  let steps = "";
+  nodes.forEach((nd, i) => {
+    if (i > 0) steps += '<i class="bar ' + (nodes[i - 1].done ? "done" : "") + '"></i>';
+    const title = nd.nm + (nd.done ? "（済）" : nd.lock ? "（採用後に入力します）" : nd.plan ? "（予定 " + md(nd.plan) + "）" : "");
+    const cls = nd.done ? "done" : nd.lock ? "lock" : nd.late ? "late" : nd.now ? "now" : "";
+    const attr = nd.lock || !nd.act ? ' disabled aria-disabled="true"' : ' data-node="' + r.id + "|" + nd.act + "|" + nd.key + '"';
+    steps += '<div class="step"><button class="dot ' + cls + '"' + attr + ' title="' + esc(title) + '">' +
+      (nd.done ? "✓" : nd.short) + "</button></div>";
   });
-  steps += '<i class="bar ' + (STEPS.every((s) => r.steps[s.key].done) ? "done" : "") + '"></i>';
-  steps += '<div class="step"><button class="dot ' + (isStarted(r) ? "done" : "") + '" data-start="' + r.id +
-    '" title="初出勤">' + (isStarted(r) ? "✓" : "出") + "</button></div>";
 
   const mediaTag = '<span class="tag media">' + esc(r.media) + "</span>";
   const ownerTag = '<span class="label-sm">採用 ' + esc(r.owner || "未設定") +
@@ -680,14 +702,23 @@ function cardHtml(r) {
           (SEAT_DROP_DAYS - al.days) + "日後に自動で離脱と判定されます。") +
     "</div>";
 
-  /* ワンタップの離脱判定（段階は自動で決まります） */
+  /* 状況に応じたボタン。着座したら「採用」「不採用」が出ます */
   const stage = dropStageAuto(r);
-  const act = isDropped(r)
-    ? '<button class="btn ghost small" data-undrop="' + r.id + '">離脱を取り消す</button>'
-    : auto
-      ? '<button class="btn ghost small" data-revive="' + r.id + '">やりとり再開</button>' +
-        '<button class="btn danger small" data-drop="' + r.id + '">離脱を確定</button>'
-      : '<button class="btn danger small" data-drop="' + r.id + '" title="' + esc(dropNm(stage)) + 'で離脱として記録します">離脱にする</button>';
+  let act;
+  if (isDropped(r)) {
+    act = '<button class="btn ghost small" data-undrop="' + r.id + '">離脱を取り消す</button>';
+  } else if (auto) {
+    act = '<button class="btn ghost small" data-revive="' + r.id + '">やりとり再開</button>' +
+      '<button class="btn danger small" data-drop="' + r.id + '">離脱を確定</button>';
+  } else if (!isSeated(r)) {
+    act = '<button class="btn ghost small" data-seatnow="' + r.id + '">着座にする</button>' +
+      '<button class="btn danger small" data-drop="' + r.id + '">離脱にする</button>';
+  } else if (!hired) {
+    act = '<button class="btn small" data-hire="' + r.id + '">採用</button>' +
+      '<button class="btn danger small" data-reject="' + r.id + '">不採用</button>';
+  } else {
+    act = '<button class="btn danger small" data-drop="' + r.id + '" title="' + esc(dropNm(stage)) + 'で離脱として記録します">離脱にする</button>';
+  }
 
   return '<div class="card ' + cls + '" data-card="' + r.id + '">' +
     '<div>' +
@@ -744,12 +775,13 @@ function editHtml(r) {
     '<div class="editgrid" style="margin-top:10px">' +
       dateF("applyDate", "応募日", r.applyDate) +
       dateF("seatDate", "着座日", r.seatDate) +
-      dateF("hireDate", "採用日", r.hireDate) +
-      dateF("startDate", "初出勤日", r.startDate) +
-      dateF("keepDate", "継続判定日", r.keepDate) +
+      (isHired(r) ? dateF("startDate", "初出勤日", r.startDate) : "") +
     "</div>" +
-    '<p class="note" style="margin:12px 0 6px"><b>研修の進捗</b></p>' +
-    '<div style="display:grid;gap:8px">' + stepRows + "</div>" +
+    (isHired(r)
+      ? '<p class="note" style="margin:12px 0 6px"><b>研修の予定日</b>（実施したら上の丸を押してください）</p>' +
+        '<div style="display:grid;gap:8px">' + stepRows + "</div>"
+      : '<p class="note" style="margin:12px 0 6px;padding:9px 11px;background:#F8FAFD;border-radius:8px">' +
+        "目標設定面談・研修の予定日は、<b>採用にしてから</b>入力します。着座したら「採用」か「不採用」を押してください。</p>") +
     '<div class="editgrid" style="margin-top:12px">' +
       '<label class="f">営業ログの氏名<select data-f="' + r.id + '|logName"><option value="">自動（' + esc(r.name) + "）</option>" + opt(names, r.logName) + "</select></label>" +
       dateF("dropDate", "離脱日", r.dropDate) +
@@ -807,6 +839,12 @@ function renderBoard() {
       '<td class="num">' + (avg == null ? "–" : f1(avg) + "日") + "</td></tr>";
   };
   MEDIA.forEach((m) => { sh += seatRow(m, src.filter((r) => r.media === m)); });
+  /* 既定の3媒体に当てはまらない値があっても、見落とさないよう行を出します */
+  const others = src.filter((r) => MEDIA.indexOf(r.media) < 0);
+  if (others.length) {
+    const names = Array.from(new Set(others.map((r) => r.media || "（未設定）"))).join("、");
+    sh += seatRow("その他（" + names + "）", others);
+  }
   sh += seatRow("合計", src, true);
   $("#seatTable").innerHTML = sh + "</tbody>";
 
@@ -1423,8 +1461,86 @@ $("#addPlan").addEventListener("click", async () => {
 
 /* カード内の操作 */
 document.addEventListener("click", async (e) => {
-  const t = e.target.closest("[data-step],[data-start],[data-edit],[data-del],[data-jump],[data-drop],[data-revive],[data-undrop],[data-planedit],[data-plandel],[data-planfield]");
+  const t = e.target.closest("[data-node],[data-edit],[data-del],[data-jump],[data-drop],[data-revive],[data-undrop],[data-seatnow],[data-hire],[data-reject],[data-plandel]");
   if (!t) return;
+  if (t.disabled) return;
+
+  /* 着座にする */
+  if (t.dataset.seatnow) {
+    const r = byId(t.dataset.seatnow);
+    if (!r) return;
+    await save(Object.assign({}, r, { seatDate: r.seatDate || TODAY, status: "着座", revived: true }),
+      r.name + " さんを着座にしました");
+    return;
+  }
+  /* 採用。採用日は着座日と同じにします */
+  if (t.dataset.hire) {
+    const r = byId(t.dataset.hire);
+    if (!r) return;
+    OPEN = r.id;
+    await save(Object.assign({}, r, { hireDate: r.seatDate || TODAY, status: "採用" }),
+      r.name + " さんを採用にしました。研修の予定日を入れてください");
+    const el = document.querySelector('[data-card="' + r.id + '"]');
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  /* 不採用。着座→不採用の離脱として記録します */
+  if (t.dataset.reject) {
+    const r = byId(t.dataset.reject);
+    if (!r) return;
+    const reason = prompt(
+      r.name + " さんを不採用にします。\n理由があれば入れてください（空欄のままでも登録できます）。",
+      r.dropReason || "不採用"
+    );
+    if (reason === null) return;
+    await save(Object.assign({}, r, {
+      status: "離脱", dropStage: "afterSeat", dropDate: r.dropDate || TODAY,
+      dropReason: reason.trim(), revived: false
+    }), r.name + " さんを不採用にしました");
+    return;
+  }
+  /* ステッパーの丸 */
+  if (t.dataset.node) {
+    const [id, act, key] = t.dataset.node.split("|");
+    const r = byId(id);
+    if (!r) return;
+    if (act === "seat") {
+      const on = isSeated(r);
+      if (on && !confirm(r.name + " さんの着座を取り消しますか？")) return;
+      await save(Object.assign({}, r, {
+        seatDate: on ? "" : TODAY,
+        hireDate: on ? "" : r.hireDate,
+        status: on ? "応募" : "着座",
+        revived: true
+      }), on ? "着座を取り消しました" : r.name + " さんを着座にしました");
+      return;
+    }
+    if (act === "hire") {
+      const on = isHired(r);
+      if (on && !confirm(r.name + " さんの採用を取り消しますか？")) return;
+      if (!on) OPEN = r.id;
+      await save(Object.assign({}, r, {
+        hireDate: on ? "" : (r.seatDate || TODAY),
+        startDate: on ? "" : r.startDate,
+        status: on ? "着座" : "採用"
+      }), on ? "採用を取り消しました" : r.name + " さんを採用にしました。研修の予定日を入れてください");
+      return;
+    }
+    if (act === "start") {
+      const on = isStarted(r);
+      await save(Object.assign({}, r, {
+        startDate: on ? "" : TODAY,
+        status: on ? "採用" : "出勤"
+      }), on ? "初出勤を取り消しました" : r.name + " さんが初出勤になりました");
+      return;
+    }
+    const st = r.steps[key];
+    if (!st) return;
+    const next = Object.assign({}, r, { steps: Object.assign({}, r.steps) });
+    next.steps[key] = Object.assign({}, st, { done: !st.done });
+    await save(next, (STEPS.find((x) => x.key === key) || {}).nm + "を" + (!st.done ? "済にしました" : "未にしました"));
+    return;
+  }
 
   /* ワンタップの離脱判定。段階は自動で決まり、理由は任意です */
   if (t.dataset.drop) {
@@ -1493,27 +1609,6 @@ document.addEventListener("click", async (e) => {
     SAVING = false;
     return;
   }
-  if (t.dataset.step) {
-    const [id, key] = t.dataset.step.split("|");
-    const r = byId(id);
-    if (!r) return;
-    const st = r.steps[key];
-    const next = Object.assign({}, r, { steps: Object.assign({}, r.steps) });
-    next.steps[key] = Object.assign({}, st, { done: !st.done });
-    await save(next, (STEPS.find((s) => s.key === key) || {}).nm + "を" + (!st.done ? "済にしました" : "未にしました"));
-    return;
-  }
-  if (t.dataset.start) {
-    const r = byId(t.dataset.start);
-    if (!r) return;
-    const on = isStarted(r);
-    const next = Object.assign({}, r, {
-      startDate: on ? "" : TODAY,
-      status: on ? "採用" : "出勤"
-    });
-    await save(next, on ? "初出勤を取り消しました" : r.name + " さんが初出勤になりました");
-    return;
-  }
 });
 
 /* 編集欄の変更（離れたときに保存） */
@@ -1549,6 +1644,8 @@ document.addEventListener("change", async (e) => {
     next[key] = el.value;
     /* 日付を入れたら、状況も自動で進めます（手で直すこともできます） */
     if (key === "seatDate" && el.value && next.status === "応募") next.status = "着座";
+    /* 採用日は着座日と同じ日にします */
+    if (key === "seatDate" && el.value && isHired(next)) next.hireDate = el.value;
     if (key === "hireDate" && el.value && ["応募", "着座"].indexOf(next.status) >= 0) next.status = "採用";
     if (key === "startDate" && el.value && next.status !== "継続") next.status = "出勤";
     if (key === "keepDate" && el.value) next.status = "継続";

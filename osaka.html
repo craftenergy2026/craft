@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>大阪支店 営業ログ</title>
+<style>
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#172033; --muted:#5B6577; --line:#DCE1EA;
+  --accent:#1B5E54; --accent-ink:#FFFFFF; --accent-soft:#E2F0EC;
+  --shu:#C8442F; --shu-soft:#FBE7E3; --ok:#2E7D4F; --ok-soft:#E2F2E8;
+  --warn:#A8670F; --warn-soft:#FBF0DC;
+  --r:10px;
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink); font-size:14px; line-height:1.65;
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;
+  -webkit-text-size-adjust:100%; padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.num{font-variant-numeric:tabular-nums}
+
+header{position:sticky;top:0;z-index:20;background:var(--accent);color:#fff;padding:9px 14px}
+.hrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:1180px;margin:0 auto}
+.brand{display:flex;align-items:baseline;gap:8px;margin-right:auto}
+.brand h1{margin:0;font-size:17px;font-weight:800;letter-spacing:.02em}
+.brand span{font-size:11px;opacity:.75}
+header select{width:auto;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);font-weight:700}
+header select option{color:#172033}
+.pill{font-size:11px;border-radius:99px;padding:3px 10px;background:rgba(255,255,255,.18)}
+.pill.ok{background:#D8F0E2;color:#1C5C38}
+.pill.bad{background:#FBE7E3;color:#8E2A1B}
+
+nav.tabs{position:sticky;top:45px;z-index:19;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto}
+nav.tabs .inner{display:flex;gap:2px;max-width:1180px;margin:0 auto;padding:0 10px}
+nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);
+  font:inherit;font-weight:700;font-size:13px;padding:11px 14px;white-space:nowrap;cursor:pointer}
+nav.tabs button[aria-selected=true]{color:var(--accent);border-bottom-color:var(--accent)}
+
+main{max-width:1180px;margin:0 auto;padding:16px 14px 60px}
+section[hidden]{display:none}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.panel h2{margin:0 0 4px;font-size:16px}
+.panel h3{margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.spacer{flex:1}
+.note{margin:0;color:var(--muted);font-size:12px;line-height:1.7}
+.label-sm{font-size:11px;font-weight:400;color:var(--muted)}
+
+input,select,textarea{font:inherit;font-size:15px;color:var(--ink);background:#fff;border:1px solid var(--line);
+  border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+label.f{display:block;font-size:12px;font-weight:600;color:var(--muted)}
+label.f input,label.f select{margin-top:4px}
+.btn{font:inherit;font-weight:700;font-size:13px;border-radius:8px;padding:9px 14px;cursor:pointer;
+  background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent)}
+.btn:hover{opacity:.9}
+.btn.ghost{background:#fff;color:var(--accent)}
+.btn.small{font-size:12px;padding:5px 10px}
+.btn.danger{background:#fff;color:var(--shu);border-color:#E8BDB4}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.fields{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));align-items:end}
+
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.t{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+table.t th,table.t td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.t th{background:var(--accent-soft);color:var(--accent);font-size:12px}
+table.t th.l,table.t td.l{text-align:left}
+table.t tbody tr:hover{background:#F8FAFD}
+.cell-ok{color:var(--ok);font-weight:700}
+.cell-warn{color:var(--warn);font-weight:700}
+.cell-bad{color:var(--shu);font-weight:700}
+
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(135px,1fr))}
+.tile{background:#F8FAFD;border:1px solid var(--line);border-radius:var(--r);padding:11px 12px}
+.tile .label-sm{display:block}
+.tile b{display:block;font-size:22px;line-height:1.3;font-variant-numeric:tabular-nums}
+.tile .note{font-size:11px}
+.mbar{height:7px;border-radius:99px;background:#E7ECF3;overflow:hidden;margin-top:6px}
+.mbar i{display:block;height:100%;background:var(--accent)}
+.mbar.ok i{background:var(--ok)} .mbar.warn i{background:var(--warn)} .mbar.bad i{background:var(--shu)}
+
+.funnel{display:grid;gap:8px}
+.frow{display:grid;grid-template-columns:5.5em 1fr 5em;gap:10px;align-items:center;font-size:13px}
+.frow .bar{height:22px;border-radius:6px;background:#E7ECF3;overflow:hidden}
+.frow .bar i{display:block;height:100%;background:var(--accent);opacity:.85}
+.conn{font-size:12px;color:var(--muted);padding-left:6.3em}
+.chip{background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:1px 6px;font-weight:700}
+.tag{font-size:11px;font-weight:700;border-radius:5px;padding:1px 7px;background:#EEF2F7;color:var(--muted)}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}
+.tag.bad{background:var(--shu-soft);color:var(--shu)}
+.empty{padding:24px 10px;text-align:center;color:var(--muted);font-size:13px}
+.err{background:var(--shu-soft);color:var(--shu);border-radius:var(--r);padding:10px 12px;font-size:12px;margin-bottom:12px;font-weight:700}
+.okmsg{background:var(--ok-soft);color:var(--ok);border-radius:var(--r);padding:10px 12px;font-size:12px;margin-bottom:12px;font-weight:700}
+@media(max-width:720px){ nav.tabs{top:44px} .frow{grid-template-columns:4.6em 1fr 4.4em} .conn{padding-left:0} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <div class="brand"><h1>大阪支店 営業ログ</h1><span id="verTxt">画面 v1</span></div>
+    <span class="label-sm" style="color:rgba(255,255,255,.8)">あなた</span>
+    <select id="who" style="max-width:9em"></select>
+    <span class="pill" id="modePill">接続中…</span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="inner">
+    <button data-tab="my" aria-selected="true">マイ成績</button>
+    <button data-tab="input" aria-selected="false">日報入力</button>
+    <button data-tab="team" aria-selected="false">支店全体</button>
+    <button data-tab="target" aria-selected="false">目標設定</button>
+  </div>
+</nav>
+
+<main>
+  <div id="err" class="err" hidden></div>
+  <div id="msg" class="okmsg" hidden></div>
+
+  <!-- ══ マイ成績 ══ -->
+  <section data-sec="my">
+    <div class="panel">
+      <h3><span id="myName"></span> さんの成績
+        <span class="spacer"></span>
+        <input type="month" id="myMonth" style="width:auto">
+      </h3>
+      <div class="tiles" id="myTiles"></div>
+    </div>
+
+    <div class="panel">
+      <h3>目標に対する進捗 <span class="label-sm" id="paceTxt"></span></h3>
+      <div class="tscroll"><table class="t" id="myTable"></table></div>
+      <p class="note" style="margin-top:8px">
+        達成率の色は、月の進み具合に追いついているかで判定しています。月初に赤くなることはありません。
+      </p>
+    </div>
+
+    <div class="panel">
+      <h3>歩留まり <span class="label-sm">どこで止まっているか</span></h3>
+      <div class="funnel" id="myFunnel"></div>
+    </div>
+
+    <div class="panel">
+      <h3>商談を登録する <span class="label-sm">アポから商談になったら、1件ずつ登録してください</span></h3>
+      <div class="fields">
+        <label class="f" for="d-date">商談日<input id="d-date" type="date"></label>
+        <label class="f" for="d-customer">顧客名<input id="d-customer" type="text" placeholder="例：山田"></label>
+        <label class="f" for="d-shodan">商談
+          <select id="d-shodan"><option value="1">実施した</option><option value="0">まだ（予定）</option></select></label>
+        <label class="f" for="d-keiyaku">契約
+          <select id="d-keiyaku"><option value="0">なし</option><option value="1">契約した</option></select></label>
+        <button class="btn" id="addDeal">登録する</button>
+      </div>
+      <label class="f" style="margin-top:10px" for="d-note">備考<input id="d-note" type="text" placeholder="次回の約束、ネックなど"></label>
+      <p class="note" style="margin-top:8px">
+        商談数と契約数は、ここで登録した件数から自動で数えます。日報には対面数とアポ数だけ入れてください。
+      </p>
+      <div class="tscroll" style="margin-top:12px"><table class="t" id="myDeals"></table></div>
+    </div>
+  </section>
+
+  <!-- ══ 日報入力 ══ -->
+  <section data-sec="input" hidden>
+    <div class="panel">
+      <h3>日報を入力 <span class="label-sm" id="inputWho"></span></h3>
+      <div class="fields">
+        <label class="f" for="l-date">日付<input id="l-date" type="date"></label>
+        <label class="f" for="l-kind">区分
+          <select id="l-kind"><option value="出勤">出勤</option><option value="研修">研修</option></select></label>
+        <label class="f" for="l-taimen">対面数<input id="l-taimen" type="number" min="0" placeholder="0"></label>
+        <label class="f" for="l-apo">アポ数<input id="l-apo" type="number" min="0" placeholder="0"></label>
+        <button class="btn" id="addLog">保存する</button>
+      </div>
+      <p class="note" style="margin-top:8px">
+        同じ日にもう一度保存すると、その日の内容を上書きします。出勤数・研修数は、この区分から自動で数えます。
+      </p>
+    </div>
+
+    <div class="panel">
+      <h3>入力履歴 <span class="label-sm">自分の日報だけ直せます</span>
+        <span class="spacer"></span>
+        <input type="month" id="histMonth" style="width:auto">
+      </h3>
+      <div class="tscroll"><table class="t" id="histTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ══ 支店全体 ══ -->
+  <section data-sec="team" hidden>
+    <div class="panel">
+      <h3>支店全体
+        <span class="spacer"></span>
+        <input type="month" id="teamMonth" style="width:auto">
+      </h3>
+      <div class="tiles" id="teamTiles"></div>
+    </div>
+    <div class="panel">
+      <h3>メンバー別 <span class="label-sm">見出しを押すと並べ替えます</span></h3>
+      <div class="tscroll"><table class="t" id="teamTable"></table></div>
+      <p class="note" style="margin-top:8px">
+        達成率は契約数の目標に対するものです。色は月の進み具合との比較で付けています。
+      </p>
+    </div>
+    <div class="panel">
+      <h3>週別の推移 <span class="label-sm">週は土曜はじまり</span></h3>
+      <div class="tscroll"><table class="t" id="weekTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ══ 目標設定 ══ -->
+  <section data-sec="target" hidden>
+    <div class="panel">
+      <h3>目標設定
+        <span class="spacer"></span>
+        <input type="month" id="tgtMonth" style="width:auto">
+        <button class="btn" id="saveTargets">目標を保存</button>
+      </h3>
+      <p class="note" style="margin-bottom:10px">
+        メンバーごと、月ごとに設定します。空欄は0として扱います。
+      </p>
+      <div class="tscroll"><table class="t" id="tgtTable"></table></div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ══════════════════════════════════════════
+   ここに Apps Script のウェブアプリURLを貼り付けてください
+   （大阪支店用に新しく作ったプロジェクトのもの。末尾が /exec）
+   ══════════════════════════════════════════ */
+const API_URL = "https://script.google.com/macros/s/AKfycbwbJ3SoL1fUul01GHunDsuj5wosSdGzVQvbAVCjAb9wvSS_-EWVYoR7oYf8H_4FhVSKfw/exec";
+
+/* 大阪支店のメンバー。Code.gs の MEMBERS と同じ並びにしてください */
+const MEMBERS = [
+  "大内祐樹", "寺廻令", "瀬尾竜汰", "野瀬貴由樹", "神田拡也",
+  "松本陽仁", "岩下凛", "小坂萌依", "山口竜輝", "前田尚大"
+];
+
+/* 見る指標 */
+const METRICS = [
+  { key: "taimen",  nm: "対面数" },
+  { key: "apo",     nm: "アポ数" },
+  { key: "shodan",  nm: "商談数" },
+  { key: "keiyaku", nm: "契約数" },
+  { key: "shukkin", nm: "出勤数" },
+  { key: "kenshu",  nm: "研修数" }
+];
+/* 歩留まり */
+const RATES = [
+  { nm: "対面アポ率", from: "taimen",  to: "apo" },
+  { nm: "アポ商談率", from: "apo",     to: "shodan" },
+  { nm: "商談契約率", from: "shodan",  to: "keiyaku" }
+];
+const WHO_KEY = "osaka-log-who";
+const TAB_KEY = "osaka-log-tab";
+
+/* ── 共通 ───────────────────────────────── */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.prototype.slice.call(document.querySelectorAll(s));
+const pad = (n) => String(n).padStart(2, "0");
+const ymd = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const NOW = new Date();
+const TODAY = ymd(NOW);
+const THIS_MONTH = TODAY.slice(0, 7);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const n0 = (v) => { const x = Number(v); return isFinite(x) ? x : 0; };
+const f1 = (v) => (v == null || !isFinite(v)) ? "–" : (Math.round(v * 10) / 10).toLocaleString("ja-JP");
+const pctTxt = (a, b) => (b > 0 ? Math.round((a / b) * 1000) / 10 + "%" : "–");
+const md = (iso) => iso ? Number(iso.slice(5, 7)) + "/" + Number(iso.slice(8, 10)) : "";
+const WD = ["日", "月", "火", "水", "木", "金", "土"];
+const dowOf = (iso) => iso ? WD[new Date(iso + "T00:00:00").getDay()] : "";
+/* その日が属する週の土曜日 */
+function satOf(iso) {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+  return ymd(d);
+}
+/* 月の進み具合（0〜1）。過去の月は1 */
+function monthPace(ym) {
+  if (ym < THIS_MONTH) return 1;
+  if (ym > THIS_MONTH) return 0;
+  const [y, m] = ym.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return NOW.getDate() / last;
+}
+
+/* ── 通信 ───────────────────────────────── */
+async function api(fn, ...args) {
+  if (!API_URL || API_URL.indexOf("script.google.com") < 0) {
+    throw new Error("接続先が設定されていません。osaka.html の API_URL を書き換えてください。");
+  }
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ fn, args })
+  });
+  if (!res.ok) throw new Error("サーバーに接続できませんでした");
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.result;
+}
+
+/* ── 状態 ───────────────────────────────── */
+let LOGS = [];
+let DEALS = [];
+let TARGETS = {};
+let ME = MEMBERS[0];
+let BUSY = false;
+
+function showErr(m) { const e = $("#err"); if (!m) { e.hidden = true; return; } e.textContent = m; e.hidden = false; }
+function flash(m) {
+  const e = $("#msg");
+  e.textContent = m; e.hidden = false;
+  setTimeout(() => { e.hidden = true; }, 3000);
+}
+function setMode(state, txt) { const p = $("#modePill"); p.textContent = txt; p.className = "pill" + (state ? " " + state : ""); }
+
+/* ══════════════════════════════════════════
+   集計
+   ══════════════════════════════════════════ */
+const inMonth = (iso, ym) => !!iso && iso.slice(0, 7) === ym;
+
+/* 1人分、または全員分の実績 */
+function totals(name, ym, from, to) {
+  const okDate = (iso) => {
+    if (!iso) return false;
+    if (ym && !inMonth(iso, ym)) return false;
+    if (from && iso < from) return false;
+    if (to && iso > to) return false;
+    return true;
+  };
+  const logs = LOGS.filter((l) => (!name || l.name === name) && okDate(l.date));
+  const deals = DEALS.filter((d) => (!name || d.name === name) && okDate(d.date));
+  return {
+    taimen: logs.reduce((a, l) => a + n0(l.taimen), 0),
+    apo: logs.reduce((a, l) => a + n0(l.apo), 0),
+    shodan: deals.filter((d) => n0(d.shodan) > 0).length,
+    keiyaku: deals.filter((d) => n0(d.keiyaku) > 0).length,
+    shukkin: logs.filter((l) => l.kind === "出勤").length,
+    kenshu: logs.filter((l) => l.kind === "研修").length
+  };
+}
+/* 目標。月ごと・メンバーごと */
+function targetOf(name, ym) {
+  const t = (TARGETS[ym] || {})[name] || {};
+  const o = {};
+  METRICS.forEach((m) => (o[m.key] = n0(t[m.key])));
+  return o;
+}
+/* 達成率の色。月の進みに追いついているか */
+function paceClass(cur, tgt, q) {
+  if (!tgt) return "";
+  const r = cur / tgt;
+  return r >= q * 0.95 ? "cell-ok" : r >= q * 0.7 ? "cell-warn" : "cell-bad";
+}
+
+/* ══════════════════════════════════════════
+   マイ成績
+   ══════════════════════════════════════════ */
+function renderMy() {
+  const ym = $("#myMonth").value || THIS_MONTH;
+  const cur = totals(ME, ym);
+  const tgt = targetOf(ME, ym);
+  const q = monthPace(ym);
+  $("#myName").textContent = ME;
+  $("#paceTxt").textContent = "月の進み " + Math.round(q * 100) + "%";
+
+  const tile = (k, v, sub, cls) =>
+    '<div class="tile"><span class="label-sm">' + k + '</span><b class="' + (cls || "") + '">' + v + '</b><span class="note">' + sub + "</span></div>";
+  $("#myTiles").innerHTML = METRICS.map((m) => {
+    const t = tgt[m.key], c = cur[m.key];
+    const bar = t > 0 ? Math.min(100, (c / t) * 100) : 0;
+    const cls = paceClass(c, t, q);
+    return '<div class="tile"><span class="label-sm">' + m.nm + "</span>" +
+      '<b class="' + cls + '">' + c + (t > 0 ? '<span class="note" style="display:inline;font-size:12px"> / ' + t + "</span>" : "") + "</b>" +
+      (t > 0
+        ? '<div class="mbar ' + (cls === "cell-ok" ? "ok" : cls === "cell-warn" ? "warn" : cls === "cell-bad" ? "bad" : "") + '"><i style="width:' + bar + '%"></i></div>' +
+          '<span class="note">達成 ' + Math.round((c / t) * 100) + "%</span>"
+        : '<span class="note">目標なし</span>') +
+      "</div>";
+  }).join("");
+
+  /* 目標に対する進捗 */
+  const [y, mo] = ym.split("-").map(Number);
+  const lastDay = new Date(y, mo, 0).getDate();
+  const restDays = ym === THIS_MONTH ? Math.max(0, lastDay - NOW.getDate() + 1) : 0;
+  let h = '<thead><tr><th class="l">指標</th><th>目標</th><th>実績</th><th>達成率</th><th>残り</th>' +
+    (restDays ? "<th>1日あたり</th>" : "") + "</tr></thead><tbody>";
+  METRICS.forEach((m) => {
+    const t = tgt[m.key], c = cur[m.key];
+    const left = Math.max(0, t - c);
+    h += '<tr><td class="l">' + m.nm + "</td>" +
+      '<td class="num">' + (t || "–") + '</td><td class="num"><b>' + c + "</b></td>" +
+      '<td class="num ' + paceClass(c, t, q) + '">' + (t ? Math.round((c / t) * 100) + "%" : "–") + "</td>" +
+      '<td class="num">' + (t ? left : "–") + "</td>" +
+      (restDays ? '<td class="num">' + (t && left ? f1(left / restDays) : "–") + "</td>" : "") +
+      "</tr>";
+  });
+  $("#myTable").innerHTML = h + "</tbody>";
+
+  /* 歩留まり */
+  const maxV = Math.max(cur.taimen, 1);
+  let f = "";
+  ["taimen", "apo", "shodan", "keiyaku"].forEach((k, i) => {
+    const m = METRICS.find((x) => x.key === k);
+    const v = cur[k];
+    f += '<div class="frow"><span>' + m.nm + '</span><div class="bar"><i style="width:' +
+      Math.min(100, (v / maxV) * 100) + '%"></i></div><span class="num" style="text-align:right"><b>' + v + "</b></span></div>";
+    const r = RATES.find((x) => x.from === k);
+    if (r) f += '<div class="conn">↓ ' + r.nm + ' <span class="chip">' + pctTxt(cur[r.to], cur[r.from]) + "</span></div>";
+  });
+  $("#myFunnel").innerHTML = f;
+
+  /* 自分の商談一覧 */
+  const mine = DEALS.filter((d) => d.name === ME && inMonth(d.date, ym))
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  let dh = '<thead><tr><th class="l">商談日</th><th class="l">顧客名</th><th class="l">商談</th><th class="l">契約</th><th class="l">備考</th><th></th></tr></thead><tbody>';
+  if (!mine.length) dh += '<tr><td class="l" colspan="6"><span class="note">この月に登録した商談はありません。</span></td></tr>';
+  mine.forEach((d) => {
+    dh += '<tr><td class="l">' + md(d.date) + "（" + dowOf(d.date) + "）</td>" +
+      '<td class="l">' + esc(d.customer || "—") + "</td>" +
+      '<td class="l">' + (n0(d.shodan) ? '<span class="tag ok">実施</span>' : '<span class="tag">予定</span>') + "</td>" +
+      '<td class="l">' + (n0(d.keiyaku) ? '<span class="tag ok">契約</span>' : '<span class="note">—</span>') + "</td>" +
+      '<td class="l"><span class="note">' + esc(d.note || "") + "</span></td>" +
+      '<td><button class="btn ghost small" data-dedit="' + d.id + '">修正</button>' +
+      ' <button class="btn danger small" data-ddel="' + d.id + '">削除</button></td></tr>';
+    if (EDIT_DEAL === d.id) {
+      dh += '<tr><td class="l" colspan="6" style="background:#F8FAFD"><div class="fields" style="padding:6px 0">' +
+        '<label class="f">商談日<input type="date" data-df="' + d.id + '|date" value="' + esc(d.date) + '"></label>' +
+        '<label class="f">顧客名<input type="text" data-df="' + d.id + '|customer" value="' + esc(d.customer || "") + '"></label>' +
+        '<label class="f">商談<select data-df="' + d.id + '|shodan"><option value="1"' + (n0(d.shodan) ? " selected" : "") + '>実施した</option>' +
+          '<option value="0"' + (!n0(d.shodan) ? " selected" : "") + '>まだ（予定）</option></select></label>' +
+        '<label class="f">契約<select data-df="' + d.id + '|keiyaku"><option value="0"' + (!n0(d.keiyaku) ? " selected" : "") + '>なし</option>' +
+          '<option value="1"' + (n0(d.keiyaku) ? " selected" : "") + '>契約した</option></select></label>' +
+        '<label class="f">備考<input type="text" data-df="' + d.id + '|note" value="' + esc(d.note || "") + '"></label>' +
+        "</div></td></tr>";
+    }
+  });
+  $("#myDeals").innerHTML = dh + "</tbody>";
+}
+
+/* ══════════════════════════════════════════
+   日報入力
+   ══════════════════════════════════════════ */
+function renderInput() {
+  $("#inputWho").textContent = ME + " さんとして入力します";
+  const ym = $("#histMonth").value || THIS_MONTH;
+  const rows = LOGS.filter((l) => l.name === ME && inMonth(l.date, ym))
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  let h = '<thead><tr><th class="l">日付</th><th class="l">区分</th><th>対面数</th><th>アポ数</th><th></th></tr></thead><tbody>';
+  if (!rows.length) h += '<tr><td class="l" colspan="5"><span class="note">この月の日報はまだありません。</span></td></tr>';
+  rows.forEach((l) => {
+    h += '<tr><td class="l">' + md(l.date) + "（" + dowOf(l.date) + "）</td>" +
+      '<td class="l">' + (l.kind === "研修" ? '<span class="tag">研修</span>' : '<span class="tag ok">出勤</span>') + "</td>" +
+      '<td class="num">' + n0(l.taimen) + '</td><td class="num">' + n0(l.apo) + "</td>" +
+      '<td><button class="btn ghost small" data-ledit="' + l.id + '">修正</button>' +
+      ' <button class="btn danger small" data-ldel="' + l.id + '">削除</button></td></tr>';
+    if (EDIT_LOG === l.id) {
+      h += '<tr><td class="l" colspan="5" style="background:#F8FAFD"><div class="fields" style="padding:6px 0">' +
+        '<label class="f">日付<input type="date" data-lf="' + l.id + '|date" value="' + esc(l.date) + '"></label>' +
+        '<label class="f">区分<select data-lf="' + l.id + '|kind"><option value="出勤"' + (l.kind !== "研修" ? " selected" : "") + '>出勤</option>' +
+          '<option value="研修"' + (l.kind === "研修" ? " selected" : "") + '>研修</option></select></label>' +
+        '<label class="f">対面数<input type="number" min="0" data-lf="' + l.id + '|taimen" value="' + n0(l.taimen) + '"></label>' +
+        '<label class="f">アポ数<input type="number" min="0" data-lf="' + l.id + '|apo" value="' + n0(l.apo) + '"></label>' +
+        "</div></td></tr>";
+    }
+  });
+  $("#histTable").innerHTML = h + "</tbody>";
+}
+
+/* ══════════════════════════════════════════
+   支店全体
+   ══════════════════════════════════════════ */
+let SORT = { key: "keiyaku", dir: -1 };
+function renderTeam() {
+  const ym = $("#teamMonth").value || THIS_MONTH;
+  const q = monthPace(ym);
+  const all = totals("", ym);
+  const tgtAll = {};
+  METRICS.forEach((m) => (tgtAll[m.key] = MEMBERS.reduce((a, n) => a + targetOf(n, ym)[m.key], 0)));
+
+  $("#teamTiles").innerHTML = METRICS.map((m) => {
+    const c = all[m.key], t = tgtAll[m.key];
+    const cls = paceClass(c, t, q);
+    return '<div class="tile"><span class="label-sm">' + m.nm + "</span>" +
+      '<b class="' + cls + '">' + c + (t ? '<span class="note" style="display:inline;font-size:12px"> / ' + t + "</span>" : "") + "</b>" +
+      '<span class="note">' + (t ? "達成 " + Math.round((c / t) * 100) + "%" : "目標なし") + "</span></div>";
+  }).join("");
+
+  const rows = MEMBERS.map((n) => {
+    const c = totals(n, ym), t = targetOf(n, ym);
+    return { name: n, c, t, rate: t.keiyaku ? c.keiyaku / t.keiyaku : -1 };
+  }).sort((a, b) => {
+    const k = SORT.key;
+    const va = k === "rate" ? a.rate : a.c[k];
+    const vb = k === "rate" ? b.rate : b.c[k];
+    return (va - vb) * SORT.dir || a.name.localeCompare(b.name);
+  });
+
+  let h = '<thead><tr><th class="l">メンバー</th>' +
+    METRICS.map((m) => '<th data-sort="' + m.key + '" style="cursor:pointer">' + m.nm + (SORT.key === m.key ? (SORT.dir > 0 ? " ▲" : " ▼") : "") + "</th>").join("") +
+    '<th data-sort="rate" style="cursor:pointer">契約の達成率' + (SORT.key === "rate" ? (SORT.dir > 0 ? " ▲" : " ▼") : "") + "</th>" +
+    RATES.map((r) => "<th>" + r.nm + "</th>").join("") + "</tr></thead><tbody>";
+  rows.forEach((r) => {
+    h += '<tr><td class="l"><b>' + esc(r.name) + "</b></td>" +
+      METRICS.map((m) => '<td class="num ' + paceClass(r.c[m.key], r.t[m.key], q) + '">' + r.c[m.key] +
+        (r.t[m.key] ? '<span class="note"> /' + r.t[m.key] + "</span>" : "") + "</td>").join("") +
+      '<td class="num ' + paceClass(r.c.keiyaku, r.t.keiyaku, q) + '">' + (r.t.keiyaku ? Math.round(r.rate * 100) + "%" : "–") + "</td>" +
+      RATES.map((x) => '<td class="num">' + pctTxt(r.c[x.to], r.c[x.from]) + "</td>").join("") + "</tr>";
+  });
+  h += '<tr style="background:#F8FAFD"><td class="l"><b>合計</b></td>' +
+    METRICS.map((m) => '<td class="num"><b>' + all[m.key] + "</b>" + (tgtAll[m.key] ? '<span class="note"> /' + tgtAll[m.key] + "</span>" : "") + "</td>").join("") +
+    '<td class="num">' + (tgtAll.keiyaku ? Math.round((all.keiyaku / tgtAll.keiyaku) * 100) + "%" : "–") + "</td>" +
+    RATES.map((x) => '<td class="num">' + pctTxt(all[x.to], all[x.from]) + "</td>").join("") + "</tr>";
+  $("#teamTable").innerHTML = h + "</tbody>";
+
+  /* 週別 */
+  const dates = LOGS.filter((l) => inMonth(l.date, ym)).map((l) => l.date)
+    .concat(DEALS.filter((d) => inMonth(d.date, ym)).map((d) => d.date));
+  const weeks = Array.from(new Set(dates.map(satOf))).sort();
+  let wh = '<thead><tr><th class="l">週</th>' + METRICS.map((m) => "<th>" + m.nm + "</th>").join("") +
+    RATES.map((r) => "<th>" + r.nm + "</th>").join("") + "</tr></thead><tbody>";
+  if (!weeks.length) wh += '<tr><td class="l" colspan="10"><span class="note">この月の入力はまだありません。</span></td></tr>';
+  weeks.forEach((w) => {
+    const to = ymd(new Date(new Date(w + "T00:00:00").getTime() + 6 * 86400000));
+    const c = totals("", "", w, to);
+    wh += '<tr><td class="l">' + md(w) + "〜" + md(to) + "</td>" +
+      METRICS.map((m) => '<td class="num">' + c[m.key] + "</td>").join("") +
+      RATES.map((x) => '<td class="num">' + pctTxt(c[x.to], c[x.from]) + "</td>").join("") + "</tr>";
+  });
+  $("#weekTable").innerHTML = wh + "</tbody>";
+}
+
+/* ══════════════════════════════════════════
+   目標設定
+   ══════════════════════════════════════════ */
+function renderTargets() {
+  const ym = $("#tgtMonth").value || THIS_MONTH;
+  let h = '<thead><tr><th class="l">メンバー</th>' + METRICS.map((m) => "<th>" + m.nm + "</th>").join("") + "</tr></thead><tbody>";
+  MEMBERS.forEach((n) => {
+    const t = targetOf(n, ym);
+    h += '<tr><td class="l"><b>' + esc(n) + "</b></td>" +
+      METRICS.map((m) => '<td><input type="number" min="0" style="width:6em;text-align:right" data-tg="' +
+        esc(n) + "|" + m.key + '" value="' + (t[m.key] || "") + '"></td>').join("") + "</tr>";
+  });
+  $("#tgtTable").innerHTML = h + "</tbody>";
+}
+
+/* ══════════════════════════════════════════
+   保存
+   ══════════════════════════════════════════ */
+async function call(fn, arg, msg) {
+  if (BUSY) return;
+  BUSY = true;
+  setMode("", "保存しています…");
+  showErr("");
+  try {
+    const d = await api(fn, arg);
+    apply(d);
+    setMode("ok", "保存しました");
+    if (msg) flash(msg);
+    renderAll();
+  } catch (e) {
+    showErr((e && e.message) || "保存できませんでした");
+    setMode("bad", "保存に失敗");
+  }
+  BUSY = false;
+}
+
+/* ══════════════════════════════════════════
+   画面の制御
+   ══════════════════════════════════════════ */
+let EDIT_LOG = null;
+let EDIT_DEAL = null;
+
+function renderAll() { renderMy(); renderInput(); renderTeam(); renderTargets(); }
+
+function switchTab(name) {
+  if (!document.querySelector('section[data-sec="' + name + '"]')) name = "my";
+  $$("nav.tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+  $$("main section").forEach((s) => (s.hidden = s.dataset.sec !== name));
+  try { localStorage.setItem(TAB_KEY, name); } catch (e) {}
+}
+$$("nav.tabs button").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
+
+/* 日報の保存 */
+$("#addLog").addEventListener("click", async () => {
+  const date = $("#l-date").value;
+  if (!date) { showErr("日付を入れてください"); return; }
+  await call("upsertLog", {
+    id: "", name: ME, date, dow: dowOf(date),
+    kind: $("#l-kind").value,
+    taimen: n0($("#l-taimen").value),
+    apo: n0($("#l-apo").value)
+  }, md(date) + " の日報を保存しました");
+  $("#l-taimen").value = "";
+  $("#l-apo").value = "";
+});
+
+/* 商談の登録 */
+$("#addDeal").addEventListener("click", async () => {
+  const date = $("#d-date").value;
+  if (!date) { showErr("商談日を入れてください"); return; }
+  await call("upsertDeal", {
+    id: "", name: ME, date,
+    customer: $("#d-customer").value.trim(),
+    shodan: n0($("#d-shodan").value),
+    keiyaku: n0($("#d-keiyaku").value),
+    note: $("#d-note").value.trim()
+  }, "商談を登録しました");
+  $("#d-customer").value = "";
+  $("#d-note").value = "";
+  $("#d-keiyaku").value = "0";
+});
+
+/* 目標の保存 */
+$("#saveTargets").addEventListener("click", async () => {
+  const ym = $("#tgtMonth").value || THIS_MONTH;
+  const map = Object.assign({}, TARGETS);
+  const month = Object.assign({}, map[ym]);
+  $$("[data-tg]").forEach((el) => {
+    const [name, key] = el.dataset.tg.split("|");
+    month[name] = Object.assign({}, month[name], { [key]: n0(el.value) });
+  });
+  map[ym] = month;
+  await call("saveTargets", map, ym.slice(5) + "月の目標を保存しました");
+});
+
+/* 一覧の操作 */
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("[data-ledit],[data-ldel],[data-dedit],[data-ddel],[data-sort]");
+  if (!t) return;
+  if (t.dataset.sort) {
+    const k = t.dataset.sort;
+    SORT = { key: k, dir: SORT.key === k ? -SORT.dir : -1 };
+    renderTeam();
+    return;
+  }
+  if (t.dataset.ledit) { EDIT_LOG = EDIT_LOG === t.dataset.ledit ? null : t.dataset.ledit; renderInput(); return; }
+  if (t.dataset.dedit) { EDIT_DEAL = EDIT_DEAL === t.dataset.dedit ? null : t.dataset.dedit; renderMy(); return; }
+  if (t.dataset.ldel) {
+    if (!confirm("この日報を削除します。よろしいですか？")) return;
+    await call("deleteLog", t.dataset.ldel, "日報を削除しました");
+    return;
+  }
+  if (t.dataset.ddel) {
+    if (!confirm("この商談を削除します。よろしいですか？")) return;
+    await call("deleteDeal", t.dataset.ddel, "商談を削除しました");
+    return;
+  }
+});
+
+/* 入力欄の変更 */
+document.addEventListener("change", async (e) => {
+  const el = e.target;
+  if (el.id === "who") {
+    ME = el.value;
+    try { localStorage.setItem(WHO_KEY, ME); } catch (err) {}
+    EDIT_LOG = null; EDIT_DEAL = null;
+    renderAll();
+    return;
+  }
+  if (["myMonth"].indexOf(el.id) >= 0) { renderMy(); return; }
+  if (["histMonth"].indexOf(el.id) >= 0) { renderInput(); return; }
+  if (["teamMonth"].indexOf(el.id) >= 0) { renderTeam(); return; }
+  if (["tgtMonth"].indexOf(el.id) >= 0) { renderTargets(); return; }
+
+  if (el.dataset.lf) {
+    const i = el.dataset.lf.indexOf("|");
+    const id = el.dataset.lf.slice(0, i), key = el.dataset.lf.slice(i + 1);
+    const l = LOGS.find((x) => x.id === id);
+    if (!l) return;
+    const next = Object.assign({}, l);
+    next[key] = (key === "taimen" || key === "apo") ? n0(el.value) : el.value;
+    if (key === "date") next.dow = dowOf(el.value);
+    await call("upsertLog", next, "日報を直しました");
+    return;
+  }
+  if (el.dataset.df) {
+    const i = el.dataset.df.indexOf("|");
+    const id = el.dataset.df.slice(0, i), key = el.dataset.df.slice(i + 1);
+    const d = DEALS.find((x) => x.id === id);
+    if (!d) return;
+    const next = Object.assign({}, d);
+    next[key] = (key === "shodan" || key === "keiyaku") ? n0(el.value) : el.value;
+    await call("upsertDeal", next, "商談を直しました");
+    return;
+  }
+});
+
+/* ══════════════════════════════════════════
+   起動
+   ══════════════════════════════════════════ */
+function apply(d) {
+  LOGS = (d && d.logs) || [];
+  DEALS = (d && d.deals) || [];
+  TARGETS = (d && d.targets) || {};
+  if (d && d.version) $("#verTxt").textContent = "画面 v1 / " + d.version;
+}
+
+async function boot() {
+  $("#who").innerHTML = MEMBERS.map((n) => '<option value="' + esc(n) + '">' + esc(n) + "</option>").join("");
+  try { const w = localStorage.getItem(WHO_KEY); if (w && MEMBERS.indexOf(w) >= 0) ME = w; } catch (e) {}
+  $("#who").value = ME;
+  [["#myMonth", THIS_MONTH], ["#histMonth", THIS_MONTH], ["#teamMonth", THIS_MONTH], ["#tgtMonth", THIS_MONTH]]
+    .forEach(([sel, v]) => ($(sel).value = v));
+  $("#l-date").value = TODAY;
+  $("#d-date").value = TODAY;
+  try { const t = localStorage.getItem(TAB_KEY); if (t) switchTab(t); } catch (e) {}
+
+  try {
+    const d = await api("getData");
+    apply(d);
+    setMode("ok", "接続中");
+  } catch (e) {
+    showErr("サーバーに接続できませんでした：" + ((e && e.message) || e));
+    setMode("bad", "未接続");
+  }
+  renderAll();
+
+  /* ほかの人の入力を取り込みます */
+  setInterval(async () => {
+    if (BUSY || EDIT_LOG || EDIT_DEAL) return;
+    try {
+      const d = await api("getData");
+      apply(d);
+      renderAll();
+    } catch (e) {}
+  }, 30000);
+}
+boot();
+</script>
+</body>
+</html>

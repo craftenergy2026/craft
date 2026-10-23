@@ -139,6 +139,9 @@ table.t tbody tr:hover{background:#F8FAFD}
 .deadline{font-size:12px;color:var(--muted)}
 .deadline b{font-size:15px;color:var(--ink)}
 .cardact{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.alert{margin-top:7px;border-radius:8px;padding:7px 10px;font-size:12px;line-height:1.6}
+.alert.warn{background:var(--warn-soft);color:#7A4A08}
+.alert.bad{background:var(--shu-soft);color:#8E2A1B}
 
 /* ── 編集パネル ── */
 .editbox{border-top:1px solid var(--line);margin-top:10px;padding-top:10px;grid-column:1/-1}
@@ -162,7 +165,7 @@ table.t tbody tr:hover{background:#F8FAFD}
 <header>
   <div class="hrow">
     <div class="brand">
-      <h1>採用・育成ボード</h1><span>画面 v76</span>
+      <h1>採用・育成ボード</h1><span>画面 v77</span>
     </div>
     <a class="nav" href="./log.html">営業ログ</a>
     <a class="nav" href="./navi.html">目標ナビ</a>
@@ -176,6 +179,7 @@ table.t tbody tr:hover{background:#F8FAFD}
     <button data-tab="board" aria-selected="true">育成ボード</button>
     <button data-tab="funnel" aria-selected="false">媒体別の歩留まり</button>
     <button data-tab="perf" aria-selected="false">継続後の実績</button>
+    <button data-tab="pdca" aria-selected="false">施策（PDCA）</button>
     <button data-tab="list" aria-selected="false">応募者一覧</button>
   </div>
 </nav>
@@ -183,6 +187,7 @@ table.t tbody tr:hover{background:#F8FAFD}
 <main>
   <div id="banner" class="banner" hidden></div>
   <div id="err" class="err" hidden></div>
+  <datalist id="dropReasons"></datalist>
 
   <!-- ══ 育成ボード ══ -->
   <section data-sec="board">
@@ -198,6 +203,22 @@ table.t tbody tr:hover{background:#F8FAFD}
       <p class="note" style="margin-top:8px">
         登録すると、応募日から逆算した研修の予定日（目標設定面談・営業研修・トーク研修・テスト）と、初出勤の期限が自動で入ります。
         期限は応募日から <b id="limitTxt">30</b> 日後です。
+      </p>
+    </div>
+
+    <div class="panel">
+      <h3>媒体ごとの応募数と着座率
+        <span class="spacer"></span>
+        <select id="fPeriod2" style="width:auto">
+          <option value="all">全期間</option>
+          <option value="90">直近3か月</option>
+          <option value="30">直近1か月</option>
+        </select>
+      </h3>
+      <div class="tscroll"><table class="t" id="seatTable"></table></div>
+      <p class="note" style="margin-top:8px">
+        応募から <b id="remindTxt">7</b> 日たっても着座日が決まらない人は「催促対象」、
+        <b id="dropTxt">14</b> 日を過ぎた人は「返信なし」として離脱（応募→着座）に数えています。
       </p>
     </div>
 
@@ -276,6 +297,31 @@ table.t tbody tr:hover{background:#F8FAFD}
     </div>
   </section>
 
+  <!-- ══ 施策（PDCA） ══ -->
+  <section data-sec="pdca" hidden>
+    <div class="panel">
+      <h3>施策を登録 <span class="label-sm">課題と対策を書いて、実施前後の歩留まりで検証します</span></h3>
+      <div class="fields add">
+        <label class="f" for="p-stage">対象の段階<select id="p-stage"></select></label>
+        <label class="f" for="p-media">対象の媒体<select id="p-media"></select></label>
+        <label class="f" for="p-from">開始日<input id="p-from" type="date"></label>
+      </div>
+      <div style="display:grid;gap:10px;margin-top:10px">
+        <label class="f" for="p-issue">課題<input id="p-issue" type="text" placeholder="例：インフラからの応募に返信しても着座まで進まない"></label>
+        <label class="f" for="p-action">対策<input id="p-action" type="text" placeholder="例：応募当日に電話、翌日までに日程の候補を3つ送る"></label>
+      </div>
+      <div style="margin-top:12px"><button class="btn" id="addPlan">施策を登録</button></div>
+      <p class="note" style="margin-top:8px">
+        登録すると、開始日より前と後で歩留まりがどう変わったかを自動で比べます。比べる期間は、開始日からの経過日数に合わせて同じ長さをとります。
+      </p>
+    </div>
+
+    <div class="panel">
+      <h3>実施中・検証中の施策 <span class="label-sm" id="planCount"></span></h3>
+      <div id="planList"></div>
+    </div>
+  </section>
+
   <!-- ══ 応募者一覧 ══ -->
   <section data-sec="list" hidden>
     <div class="panel">
@@ -303,6 +349,9 @@ const TOKEN_KEY = "craft-sales-token";
 const MEDIA = ["インフラ", "ゼロワン", "ココシロ"];
 /* 応募から初出勤までの上限日数 */
 const LIMIT_DAYS = 30;
+/* 着座の催促：応募から何日で催促するか／何日で離脱と判定するか */
+const SEAT_REMIND_DAYS = 7;
+const SEAT_DROP_DAYS = 14;
 /* 育成のステップ。plan は応募日から何日後を予定にするか */
 const STEPS = [
   { key: "mendan", nm: "目標設定面談", short: "面", plan: 7 },
@@ -319,6 +368,18 @@ const STAGES = [
   { key: "keep",  nm: "継続", dateKey: "keepDate" }
 ];
 const STATUS = ["応募", "着座", "採用", "出勤", "継続", "離脱"];
+/* 離脱した段階。いまの状況から自動で判定します */
+const DROP_STAGES = [
+  { key: "beforeSeat",  nm: "応募→着座",   hint: "返信なし・着座に至らず" },
+  { key: "afterSeat",   nm: "着座→不採用", hint: "不採用・本人辞退" },
+  { key: "beforeStart", nm: "採用→初出勤", hint: "初出勤を迎える前に離脱" },
+  { key: "afterStart",  nm: "初出勤以降",  hint: "出勤したが早期に離脱" }
+];
+/* 以前の表記からの読み替え */
+const DROP_ALIAS = { "応募後": "beforeSeat", "着座後": "afterSeat", "採用後": "beforeStart", "出勤後": "afterStart" };
+const dropNm = (k) => (DROP_STAGES.find((s) => s.key === k) || {}).nm || "（未記入）";
+/* よく使う離脱理由。選ぶだけで入るようにしています */
+const DROP_REASONS = ["返信なし", "日程が合わない", "他社に決まった", "学業都合", "本人辞退", "条件が合わない", "不採用", "勤務が続かず"];
 
 /* ── 共通 ──────────────────────────────── */
 const $ = (s) => document.querySelector(s);
@@ -364,6 +425,7 @@ async function api(fn, ...args) {
 /* ── 状態 ──────────────────────────────── */
 let ME = null;
 let RECRUITS = [];
+let PLANS = [];
 let LOGS = [];
 let ROSTER = [];
 let OPEN = null;      /* 編集中のカードID */
@@ -396,8 +458,9 @@ function norm(r) {
   const o = Object.assign({
     id: "", name: "", media: MEDIA[0], owner: "", status: "応募",
     applyDate: "", seatDate: "", hireDate: "", startDate: "", keepDate: "",
-    dropDate: "", dropStage: "", dropReason: "", logName: "", note: ""
+    dropDate: "", dropStage: "", dropReason: "", logName: "", note: "", revived: false
   }, r || {});
+  if (DROP_ALIAS[o.dropStage]) o.dropStage = DROP_ALIAS[o.dropStage];
   o.steps = Object.assign({}, r && r.steps);
   STEPS.forEach((s) => {
     o.steps[s.key] = Object.assign({ done: false, date: "", plan: "" }, o.steps[s.key]);
@@ -410,6 +473,33 @@ const limitOf = (r) => r.applyDate ? addDays(r.applyDate, LIMIT_DAYS) : "";
 const isDropped = (r) => r.status === "離脱";
 const isStarted = (r) => !!r.startDate || r.status === "出勤" || r.status === "継続";
 const isKeeping = (r) => r.status === "継続";
+const isSeated = (r) => !!r.seatDate || !!r.hireDate || isStarted(r) || ["着座", "採用", "出勤", "継続"].indexOf(r.status) >= 0;
+
+/* ── 着座待ちの管理 ──────────────────────
+   応募から SEAT_REMIND_DAYS 日で催促、SEAT_DROP_DAYS 日で離脱と判定します。 */
+const seatWaitDays = (r) => (!r.applyDate || isSeated(r)) ? null : daysBetween(r.applyDate, TODAY);
+function seatAlert(r) {
+  if (isDropped(r) || isSeated(r) || r.revived) return null;
+  const d = seatWaitDays(r);
+  if (d == null) return null;
+  if (d >= SEAT_DROP_DAYS) return { level: "drop", days: d };
+  if (d >= SEAT_REMIND_DAYS) return { level: "remind", days: d };
+  return null;
+}
+/* 2週間returnが無く、自動で離脱とみなしている人 */
+const autoDropped = (r) => { const a = seatAlert(r); return !!a && a.level === "drop"; };
+/* 集計でも画面でも、これを「離脱」として扱います */
+const effDropped = (r) => isDropped(r) || autoDropped(r);
+/* いまの進み具合から、離脱した段階を自動で決めます */
+function dropStageAuto(r) {
+  if (isStarted(r)) return "afterStart";
+  if (r.hireDate || r.status === "採用") return "beforeStart";
+  if (isSeated(r)) return "afterSeat";
+  return "beforeSeat";
+}
+const dropStageOf = (r) => r.dropStage || dropStageAuto(r);
+/* 着座の催促期限 */
+const seatDueOf = (r) => r.applyDate ? addDays(r.applyDate, SEAT_REMIND_DAYS) : "";
 
 /* 進捗率：研修4つ＋初出勤の5つで数えます */
 function progressOf(r) {
@@ -421,6 +511,16 @@ function progressOf(r) {
 /* 次にやること。期限の状態（late / soon / calm）も返します */
 function nextOf(r) {
   if (isDropped(r)) return { label: "離脱", due: r.dropDate, state: "calm", kind: "drop" };
+  /* まず着座。応募から1週間で催促、2週間で離脱の判定です */
+  if (!isSeated(r)) {
+    const a = seatAlert(r);
+    return {
+      label: a && a.level === "drop" ? "返信なし（離脱と判定）" : a ? "着座の催促" : "着座日を決める",
+      due: seatDueOf(r),
+      state: a ? (a.level === "drop" ? "late" : "soon") : dueState(seatDueOf(r)),
+      kind: "seat"
+    };
+  }
   const pending = STEPS.find((s) => !r.steps[s.key].done);
   if (pending) {
     const due = r.steps[pending.key].plan || "";
@@ -528,9 +628,31 @@ function cardHtml(r) {
 
   const mediaTag = '<span class="tag media">' + esc(r.media) + "</span>";
   const ownerTag = r.owner ? '<span class="label-sm">担当 ' + esc(r.owner) + "</span>" : "";
-  const statusTag = isDropped(r) ? '<span class="tag bad">離脱</span>'
+  const auto = autoDropped(r);
+  const statusTag = isDropped(r) ? '<span class="tag bad">離脱・' + esc(dropNm(dropStageOf(r))) + "</span>"
+    : auto ? '<span class="tag bad">離脱（自動判定）</span>'
     : isKeeping(r) ? '<span class="tag ok">継続</span>'
     : '<span class="tag">' + esc(r.status) + "</span>";
+
+  /* 着座待ちのアラート */
+  const al = seatAlert(r);
+  const alertHtml = !al ? "" :
+    '<div class="alert ' + (al.level === "drop" ? "bad" : "warn") + '">' +
+      (al.level === "drop"
+        ? "<b>応募から " + al.days + "日、着座が決まっていません。</b>　" + SEAT_DROP_DAYS +
+          "日を過ぎたため離脱（応募→着座）として集計しています。連絡がついた場合は「やりとり再開」を押してください。"
+        : "<b>応募から " + al.days + "日が経過。着座の催促をしてください。</b>　" +
+          (SEAT_DROP_DAYS - al.days) + "日後に自動で離脱と判定されます。") +
+    "</div>";
+
+  /* ワンタップの離脱判定（段階は自動で決まります） */
+  const stage = dropStageAuto(r);
+  const act = isDropped(r)
+    ? '<button class="btn ghost small" data-undrop="' + r.id + '">離脱を取り消す</button>'
+    : auto
+      ? '<button class="btn ghost small" data-revive="' + r.id + '">やりとり再開</button>' +
+        '<button class="btn danger small" data-drop="' + r.id + '">離脱を確定</button>'
+      : '<button class="btn danger small" data-drop="' + r.id + '" title="' + esc(dropNm(stage)) + 'で離脱として記録します">離脱にする</button>';
 
   return '<div class="card ' + cls + '" data-card="' + r.id + '">' +
     '<div>' +
@@ -538,17 +660,20 @@ function cardHtml(r) {
         '<span class="nm">' + esc(r.name) + "</span>" + mediaTag + statusTag + ownerTag + "</div>" +
       '<div class="steps">' + steps + "</div>" +
       '<p class="next ' + nx.state + '">' +
-        (nx.kind === "done" ? "育成完了" : "次：" + esc(nx.label)) +
-        (nx.due ? "・予定 " + md(nx.due) + "（" + leftText(nx.due) + "）" : "") +
+        (nx.kind === "done" ? "育成完了" : nx.kind === "drop" ? "離脱" : "次：" + esc(nx.label)) +
+        (nx.due && nx.kind !== "drop" ? "・予定 " + md(nx.due) + "（" + leftText(nx.due) + "）" : "") +
       "</p>" +
+      alertHtml +
+      (isDropped(r) && r.dropReason ? '<p class="note">理由：' + esc(r.dropReason) + "</p>" : "") +
     "</div>" +
     '<div class="right">' +
       '<span class="label-sm">進捗 ' + prog + "%</span>" +
       '<div class="mbar ' + pcls + '"><i style="width:' + prog + '%"></i></div>' +
-      (limit && !isStarted(r)
+      (limit && !isStarted(r) && !effDropped(r)
         ? '<span class="deadline">初出勤の期限 <b>' + md(limit) + "</b>（" + leftText(limit) + "）</span>"
         : r.startDate ? '<span class="deadline">初出勤 <b>' + md(r.startDate) + "</b></span>" : "") +
-      '<div class="cardact"><button class="btn ghost small" data-edit="' + r.id + '">' +
+      '<div class="cardact">' + act +
+        '<button class="btn ghost small" data-edit="' + r.id + '">' +
         (OPEN === r.id ? "閉じる" : "詳細・編集") + "</button></div>" +
     "</div>" +
     (OPEN === r.id ? editHtml(r) : "") +
@@ -590,9 +715,9 @@ function editHtml(r) {
     '<div class="editgrid" style="margin-top:12px">' +
       '<label class="f">営業ログの氏名<select data-f="' + r.id + '|logName"><option value="">未連携</option>' + opt(names, r.logName) + "</select></label>" +
       dateF("dropDate", "離脱日", r.dropDate) +
-      '<label class="f">離脱した段階<select data-f="' + r.id + '|dropStage"><option value="">—</option>' +
-        opt(["応募後", "着座後", "採用後", "出勤後"], r.dropStage) + "</select></label>" +
-      '<label class="f">離脱理由<input type="text" data-f="' + r.id + '|dropReason" value="' + esc(r.dropReason) + '" placeholder="例：学業都合"></label>' +
+      '<label class="f">離脱した段階<select data-f="' + r.id + '|dropStage"><option value="">自動（' + esc(dropNm(dropStageAuto(r))) + "）</option>" +
+        DROP_STAGES.map((s) => '<option value="' + s.key + '"' + (s.key === r.dropStage ? " selected" : "") + ">" + esc(s.nm) + "</option>").join("") + "</select></label>" +
+      '<label class="f">離脱理由<input type="text" list="dropReasons" data-f="' + r.id + '|dropReason" value="' + esc(r.dropReason) + '" placeholder="例：返信なし"></label>' +
     "</div>" +
     '<label class="f" style="margin-top:10px">備考<input type="text" data-f="' + r.id + '|note" value="' + esc(r.note) + '" placeholder="面談での様子、つまずいている点など"></label>' +
     '<p class="note" style="margin-top:8px">営業ログの氏名を設定すると、「継続後の実績」タブに日報の数字が出ます。</p>' +
@@ -604,20 +729,48 @@ function editHtml(r) {
 
 function renderBoard() {
   const all = filtered();
+  /* 自動で離脱と判定した人も、確定するまでは催促できるようボードに残します */
   const live = sortBoard(all.filter((r) => !isDropped(r) && !isStarted(r)));
   const done = sortBoard(all.filter((r) => isStarted(r) && !isDropped(r)));
-  const dropped = all.filter(isDropped);
+  const dropped = all.filter(effDropped);
 
-  const late = live.filter((r) => nextOf(r).state === "late").length;
-  const soon = live.filter((r) => nextOf(r).state === "soon").length;
+  const remind = all.filter((r) => { const a = seatAlert(r); return a && a.level === "remind"; }).length;
+  const silent = all.filter(autoDropped).length;
+  const late = live.filter((r) => !autoDropped(r) && nextOf(r).state === "late").length;
   const tile = (k, v, sub, cls) =>
     '<div class="tile"><span class="label-sm">' + k + '</span><b class="' + (cls || "") + '">' + v + '</b><span class="note">' + sub + "</span></div>";
   $("#boardTiles").innerHTML =
     tile("育成中", live.length + "名", "初出勤を待っている人") +
-    tile("予定を超過", late + "名", "すぐに声かけを", late ? "cell-bad" : "") +
-    tile("3日以内が期限", soon + "名", "今週中に実施", soon ? "cell-warn" : "") +
+    tile("着座の催促", remind + "名", "応募から" + SEAT_REMIND_DAYS + "日以上", remind ? "cell-warn" : "") +
+    tile("返信なし", silent + "名", SEAT_DROP_DAYS + "日経過・離脱と判定", silent ? "cell-bad" : "") +
+    tile("予定を超過", late + "名", "研修・初出勤の遅れ", late ? "cell-bad" : "") +
     tile("出勤済み", done.length + "名", "継続 " + done.filter(isKeeping).length + "名") +
     tile("離脱", dropped.length + "名", "応募 " + all.length + "名のうち", dropped.length ? "cell-warn" : "");
+
+  /* 媒体ごとの応募数と着座率 */
+  const src = RECRUITS.filter((r) => inPeriodBy(r, $("#fPeriod2").value));
+  let sh = '<thead><tr><th class="l">媒体</th><th>応募数</th><th>着座</th><th>着座率</th>' +
+    "<th>着座待ち</th><th>催促対象</th><th>返信なし</th><th>平均着座日数</th></tr></thead><tbody>";
+  const seatRow = (label, list, strong) => {
+    const ap = list.length;
+    const st = list.filter(isSeated).length;
+    const waiting = list.filter((r) => !isSeated(r) && !isDropped(r));
+    const rem = waiting.filter((r) => { const a = seatAlert(r); return a && a.level === "remind"; }).length;
+    const sil = waiting.filter(autoDropped).length;
+    const ds = list.filter((r) => r.applyDate && r.seatDate).map((r) => daysBetween(r.applyDate, r.seatDate));
+    const avg = ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : null;
+    const q = ap ? st / ap : null;
+    const cls = q == null ? "" : q >= 0.6 ? "cell-ok" : q >= 0.35 ? "cell-warn" : "cell-bad";
+    return '<tr' + (strong ? ' style="background:#F8FAFD"' : "") + '><td class="l"><b>' + esc(label) + "</b></td>" +
+      '<td class="num">' + ap + '</td><td class="num">' + st + "</td>" +
+      '<td class="num ' + cls + '"><b>' + pct(st, ap) + "</b></td>" +
+      '<td class="num">' + (waiting.length - sil) + '</td><td class="num ' + (rem ? "cell-warn" : "") + '">' + rem + "</td>" +
+      '<td class="num ' + (sil ? "cell-bad" : "") + '">' + sil + "</td>" +
+      '<td class="num">' + (avg == null ? "–" : f1(avg) + "日") + "</td></tr>";
+  };
+  MEDIA.forEach((m) => { sh += seatRow(m, src.filter((r) => r.media === m)); });
+  sh += seatRow("合計", src, true);
+  $("#seatTable").innerHTML = sh + "</tbody>";
 
   $("#boardCount").textContent = live.length + "名";
   $("#board").innerHTML = live.length
@@ -626,17 +779,19 @@ function renderBoard() {
   $("#boardDone").innerHTML = done.length
     ? done.map(cardHtml).join("")
     : '<div class="empty">まだ初出勤までたどり着いた人がいません。</div>';
+  const dl = $("#dropReasons");
+  if (dl) dl.innerHTML = DROP_REASONS.map((x) => '<option value="' + esc(x) + '">').join("");
 }
 
 /* ══════════════════════════════════════════
    媒体別の歩留まり
    ══════════════════════════════════════════ */
-function inPeriod(r) {
-  const v = $("#fPeriod").value;
-  if (v === "all" || !r.applyDate) return true;
+function inPeriodBy(r, v) {
+  if (!v || v === "all" || !r.applyDate) return true;
   const left = daysBetween(r.applyDate, TODAY);
   return left != null && left <= Number(v);
 }
+const inPeriod = (r) => inPeriodBy(r, $("#fPeriod").value);
 /* 段階に到達しているか。後の段階に進んでいれば前の段階も通過とみなします */
 function reached(r, key) {
   const order = ["apply", "seat", "hire", "start", "keep"];
@@ -701,18 +856,25 @@ function renderFunnel() {
   $("#ownerTable").innerHTML = oh + "</tbody>";
 
   /* 離脱の内訳 */
-  const dropped = list.filter(isDropped);
-  const stages = ["応募後", "着座後", "採用後", "出勤後", "（未記入）"];
-  let dh = '<thead><tr><th class="l">離脱した段階</th><th>人数</th><th>割合</th><th class="l">媒体の内訳</th><th class="l">理由</th></tr></thead><tbody>';
-  if (!dropped.length) dh += '<tr><td class="l" colspan="5"><span class="note">離脱の記録はまだありません。</span></td></tr>';
-  stages.forEach((st) => {
-    const rows = dropped.filter((r) => (r.dropStage || "（未記入）") === st);
+  const dropped = list.filter(effDropped);
+  let dh = '<thead><tr><th class="l">離脱した段階</th><th>人数</th><th>割合</th><th>その段階に到達した人のうち</th>' +
+    '<th class="l">媒体の内訳</th><th class="l">主な理由</th></tr></thead><tbody>';
+  if (!dropped.length) dh += '<tr><td class="l" colspan="6"><span class="note">離脱の記録はまだありません。</span></td></tr>';
+  /* その段階に到達した母数（応募→着座なら応募者全員、着座→不採用なら着座した人） */
+  const baseOf = { beforeSeat: "apply", afterSeat: "seat", beforeStart: "hire", afterStart: "start" };
+  DROP_STAGES.forEach((st) => {
+    const rows = dropped.filter((r) => dropStageOf(r) === st.key);
     if (!rows.length) return;
+    const denom = list.filter((r) => reached(r, baseOf[st.key])).length;
     const byMedia = MEDIA.map((m) => m + " " + rows.filter((r) => r.media === m).length).join("・");
-    const reasons = Array.from(new Set(rows.map((r) => r.dropReason).filter(Boolean))).slice(0, 4).join("、");
-    dh += '<tr><td class="l">' + esc(st) + '</td><td class="num">' + rows.length + '</td><td class="num">' +
-      pct(rows.length, dropped.length) + '</td><td class="l"><span class="note">' + esc(byMedia) +
-      '</span></td><td class="l"><span class="note">' + esc(reasons || "—") + "</span></td></tr>";
+    const reasons = Array.from(new Set(rows.map((r) => r.dropReason).filter(Boolean))).slice(0, 5).join("、");
+    const q = denom ? rows.length / denom : null;
+    const cls = q == null ? "" : q >= 0.5 ? "cell-bad" : q >= 0.25 ? "cell-warn" : "";
+    dh += '<tr><td class="l"><b>' + esc(st.nm) + '</b><br><span class="note">' + esc(st.hint) + "</span></td>" +
+      '<td class="num">' + rows.length + '</td><td class="num">' + pct(rows.length, dropped.length) + "</td>" +
+      '<td class="num ' + cls + '">' + pct(rows.length, denom) + '<br><span class="note">母数 ' + denom + "名</span></td>" +
+      '<td class="l"><span class="note">' + esc(byMedia) + "</span></td>" +
+      '<td class="l"><span class="note">' + esc(reasons || "—") + "</span></td></tr>";
   });
   $("#dropTable").innerHTML = dh + "</tbody>";
 }
@@ -813,6 +975,131 @@ function renderPerf() {
   $("#perfMedia").innerHTML = mh + "</tbody>";
 }
 
+
+/* ══════════════════════════════════════════
+   施策（PDCA）
+   開始日の前後で歩留まりを比べ、効果があったかを見ます
+   ══════════════════════════════════════════ */
+/* 施策が狙う段階と、その段階の歩留まりの測り方 */
+const PLAN_STAGES = [
+  { key: "seat",  nm: "応募 → 着座",   from: "apply", to: "seat",  unit: "着座率" },
+  { key: "hire",  nm: "着座 → 採用",   from: "seat",  to: "hire",  unit: "採用率" },
+  { key: "start", nm: "採用 → 初出勤", from: "hire",  to: "start", unit: "出勤率" },
+  { key: "keep",  nm: "初出勤 → 継続", from: "start", to: "keep",  unit: "継続率" },
+  { key: "all",   nm: "応募 → 継続",   from: "apply", to: "keep",  unit: "通過率" }
+];
+const planStage = (k) => PLAN_STAGES.find((x) => x.key === k) || PLAN_STAGES[0];
+
+function normPlan(x) {
+  return Object.assign({
+    id: "", stage: "seat", media: "", from: "", to: "", issue: "", action: "",
+    result: "", verdict: "", editedBy: "", editedAt: 0
+  }, x || {});
+}
+/* 応募日が from〜to に入る応募者で、歩留まりを測ります */
+function rateIn(stageKey, media, from, to) {
+  const st = planStage(stageKey);
+  const list = RECRUITS.filter((r) => {
+    if (!r.applyDate) return false;
+    if (media && r.media !== media) return false;
+    if (from && r.applyDate < from) return false;
+    if (to && r.applyDate > to) return false;
+    return true;
+  });
+  const den = list.filter((r) => reached(r, st.from)).length;
+  const num = list.filter((r) => reached(r, st.to)).length;
+  return { den, num, rate: den ? num / den : null };
+}
+/* 施策の開始日をはさんで、同じ長さの期間どうしを比べます */
+function comparePlan(p) {
+  const st = planStage(p.stage);
+  const end = p.to || TODAY;
+  const span = Math.max(1, daysBetween(p.from, end) || 1);
+  const beforeFrom = addDays(p.from, -span);
+  const beforeTo = addDays(p.from, -1);
+  const a = rateIn(p.stage, p.media, beforeFrom, beforeTo);
+  const b = rateIn(p.stage, p.media, p.from, end);
+  const diff = (a.rate != null && b.rate != null) ? (b.rate - a.rate) * 100 : null;
+  return { st, span, beforeFrom, beforeTo, from: p.from, to: end, a, b, diff };
+}
+
+function renderPdca() {
+  if (!$("#planList")) return;
+  const list = PLANS.slice().sort((x, y) => (y.from || "").localeCompare(x.from || ""));
+  $("#planCount").textContent = list.length + "件";
+  if (!list.length) {
+    $("#planList").innerHTML = '<div class="empty">まだ施策がありません。歩留まりの弱いところを見つけたら、課題と対策を登録してください。</div>';
+    return;
+  }
+  $("#planList").innerHTML = list.map((p) => {
+    const c = comparePlan(p);
+    const cls = c.diff == null ? "" : c.diff > 2 ? "ok" : c.diff < -2 ? "bad" : "warn";
+    const sign = c.diff == null ? "" : (c.diff > 0 ? "＋" : c.diff < 0 ? "−" : "±");
+    const verdictOpt = ["", "効果あり（継続）", "効果なし（中止）", "判断保留（継続観察）"]
+      .map((v) => '<option value="' + esc(v) + '"' + (v === p.verdict ? " selected" : "") + ">" + esc(v || "未判定") + "</option>").join("");
+    return '<div class="card" style="grid-template-columns:minmax(0,1fr) minmax(210px,290px)">' +
+      "<div>" +
+        '<div class="who">' +
+          '<span class="tag media">' + esc(c.st.nm) + "</span>" +
+          '<span class="tag">' + esc(p.media || "全媒体") + "</span>" +
+          '<span class="label-sm">' + md(p.from) + "〜" + (p.to ? md(p.to) : "実施中") + "</span>" +
+          (p.verdict ? '<span class="tag ' + (p.verdict.indexOf("効果あり") === 0 ? "ok" : p.verdict.indexOf("効果なし") === 0 ? "bad" : "warn") + '">' + esc(p.verdict) + "</span>" : "") +
+        "</div>" +
+        '<p style="margin:6px 0 2px;font-weight:700">課題：' + esc(p.issue) + "</p>" +
+        '<p class="note" style="color:var(--ink)">対策：' + esc(p.action || "—") + "</p>" +
+        '<div class="editgrid" style="margin-top:10px">' +
+          '<label class="f">対象の段階<select data-planfield="' + p.id + '|stage">' +
+            PLAN_STAGES.map((x) => '<option value="' + x.key + '"' + (x.key === p.stage ? " selected" : "") + ">" + esc(x.nm) + "</option>").join("") + "</select></label>" +
+          '<label class="f">対象の媒体<select data-planfield="' + p.id + '|media"><option value="">全媒体</option>' +
+            MEDIA.map((m) => '<option value="' + esc(m) + '"' + (m === p.media ? " selected" : "") + ">" + esc(m) + "</option>").join("") + "</select></label>" +
+          '<label class="f">開始日<input type="date" data-planfield="' + p.id + '|from" value="' + esc(p.from) + '"></label>' +
+          '<label class="f">終了日<input type="date" data-planfield="' + p.id + '|to" value="' + esc(p.to) + '"></label>' +
+        "</div>" +
+        '<div class="editgrid" style="margin-top:10px">' +
+          '<label class="f">課題<input type="text" data-planfield="' + p.id + '|issue" value="' + esc(p.issue) + '"></label>' +
+          '<label class="f">対策<input type="text" data-planfield="' + p.id + '|action" value="' + esc(p.action) + '"></label>' +
+        "</div>" +
+        '<div class="editgrid" style="margin-top:10px">' +
+          '<label class="f">判定<select data-planfield="' + p.id + '|verdict">' + verdictOpt + "</select></label>" +
+          '<label class="f">わかったこと<input type="text" data-planfield="' + p.id + '|result" value="' + esc(p.result) + '" placeholder="次に活かす気づき"></label>' +
+        "</div>" +
+        '<div class="cardact" style="margin-top:10px">' +
+          '<button class="btn danger small" data-plandel="' + p.id + '">この施策を削除</button>' +
+        "</div>" +
+      "</div>" +
+      '<div class="right">' +
+        '<span class="label-sm">' + esc(c.st.unit) + "の変化</span>" +
+        '<b style="font-size:26px" class="' + (cls === "ok" ? "cell-ok" : cls === "bad" ? "cell-bad" : "") + '">' +
+          (c.diff == null ? "–" : sign + f1(Math.abs(c.diff)) + "pt") + "</b>" +
+        '<span class="deadline">実施前 ' + (c.a.rate == null ? "–" : pct(c.a.num, c.a.den)) +
+          "（" + c.a.num + "/" + c.a.den + "名）</span>" +
+        '<span class="deadline">実施後 <b>' + (c.b.rate == null ? "–" : pct(c.b.num, c.b.den)) +
+          "</b>（" + c.b.num + "/" + c.b.den + "名）</span>" +
+        '<span class="note" style="text-align:right">比較期間 ' + c.span + "日<br>" +
+          md(c.beforeFrom) + "〜" + md(c.beforeTo) + " ⇔ " + md(c.from) + "〜" + md(c.to) + "</span>" +
+        (c.a.den < 3 || c.b.den < 3 ? '<span class="note" style="color:var(--warn)">母数が少ないため参考値です</span>' : "") +
+      "</div>" +
+    "</div>";
+  }).join("");
+}
+
+async function savePlan(entry, label) {
+  if (SAVING) return;
+  SAVING = true;
+  setMode("", "保存しています…");
+  showErr("");
+  try {
+    const data = await api("saveRecruitPlan", entry, apiToken());
+    applyShared(data);
+    setMode("ok", label || "保存しました");
+    renderAll();
+  } catch (e) {
+    showErr((e && e.message) || "保存できませんでした");
+    setMode("bad", "保存に失敗");
+  }
+  SAVING = false;
+}
+
 /* ══════════════════════════════════════════
    応募者一覧
    ══════════════════════════════════════════ */
@@ -848,6 +1135,7 @@ function renderAll() {
   renderBoard();
   renderFunnel();
   renderPerf();
+  renderPdca();
   renderList();
 }
 function switchTab(name) {
@@ -871,7 +1159,12 @@ function fillSelects() {
   $("#lMedia").innerHTML = opts(MEDIA, "媒体：すべて");
   $("#lStatus").innerHTML = opts(STATUS, "状況：すべて");
   if (ME && names.indexOf(ME.name) >= 0) $("#a-owner").value = ME.name;
+  $("#p-stage").innerHTML = PLAN_STAGES.map((x) => '<option value="' + x.key + '">' + esc(x.nm) + "</option>").join("");
+  $("#p-media").innerHTML = '<option value="">全媒体</option>' + MEDIA.map((m) => '<option value="' + esc(m) + '">' + esc(m) + "</option>").join("");
+  $("#p-from").value = TODAY;
   $("#limitTxt").textContent = LIMIT_DAYS;
+  $("#remindTxt").textContent = SEAT_REMIND_DAYS;
+  $("#dropTxt").textContent = SEAT_DROP_DAYS;
 }
 
 /* 登録 */
@@ -894,10 +1187,63 @@ $("#addBtn").addEventListener("click", async () => {
 });
 $("#a-name").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#addBtn").click(); });
 
+/* 施策の登録 */
+$("#addPlan").addEventListener("click", async () => {
+  const issue = $("#p-issue").value.trim();
+  if (!issue) { showErr("課題を入れてください"); return; }
+  $("#addPlan").disabled = true;
+  await savePlan(normPlan({
+    stage: $("#p-stage").value,
+    media: $("#p-media").value,
+    from: $("#p-from").value || TODAY,
+    issue,
+    action: $("#p-action").value.trim()
+  }), "施策を登録しました");
+  $("#addPlan").disabled = false;
+  $("#p-issue").value = "";
+  $("#p-action").value = "";
+});
+
 /* カード内の操作 */
 document.addEventListener("click", async (e) => {
-  const t = e.target.closest("[data-step],[data-start],[data-edit],[data-del],[data-jump]");
+  const t = e.target.closest("[data-step],[data-start],[data-edit],[data-del],[data-jump],[data-drop],[data-revive],[data-undrop],[data-planedit],[data-plandel],[data-planfield]");
   if (!t) return;
+
+  /* ワンタップの離脱判定。段階は自動で決まり、理由は任意です */
+  if (t.dataset.drop) {
+    const r = byId(t.dataset.drop);
+    if (!r) return;
+    const stage = dropStageAuto(r);
+    const reason = prompt(
+      r.name + " さんを「" + dropNm(stage) + "」で離脱にします。\n理由があれば入れてください（空欄のままでも登録できます）。\n" +
+      "例：" + DROP_REASONS.join("・"),
+      r.dropReason || (stage === "beforeSeat" ? "返信なし" : "")
+    );
+    if (reason === null) return;
+    await save(Object.assign({}, r, {
+      status: "離脱",
+      dropStage: stage,
+      dropDate: r.dropDate || TODAY,
+      dropReason: reason.trim(),
+      revived: false
+    }), r.name + " さんを離脱（" + dropNm(stage) + "）にしました");
+    return;
+  }
+  if (t.dataset.revive) {
+    const r = byId(t.dataset.revive);
+    if (!r) return;
+    await save(Object.assign({}, r, { revived: true }), r.name + " さんのやりとりを再開しました");
+    return;
+  }
+  if (t.dataset.undrop) {
+    const r = byId(t.dataset.undrop);
+    if (!r) return;
+    const back = isStarted(r) ? "出勤" : r.hireDate ? "採用" : isSeated(r) ? "着座" : "応募";
+    await save(Object.assign({}, r, {
+      status: back, dropDate: "", dropStage: "", dropReason: "", revived: true
+    }), "離脱を取り消しました");
+    return;
+  }
 
   if (t.dataset.jump) {
     e.preventDefault();
@@ -916,6 +1262,18 @@ document.addEventListener("click", async (e) => {
   if (t.dataset.del) {
     const r = byId(t.dataset.del);
     if (r) await removeRecruit(r.id, r.name);
+    return;
+  }
+  if (t.dataset.plandel) {
+    if (!confirm("この施策の記録を削除します。よろしいですか？")) return;
+    SAVING = true;
+    try {
+      const data = await api("deleteRecruitPlan", t.dataset.plandel, apiToken());
+      applyShared(data);
+      setMode("ok", "削除しました");
+      renderAll();
+    } catch (e) { showErr((e && e.message) || "削除できませんでした"); }
+    SAVING = false;
     return;
   }
   if (t.dataset.step) {
@@ -946,10 +1304,19 @@ document.addEventListener("change", async (e) => {
   const el = e.target;
 
   /* 絞り込みと並べ替え */
-  if (["fMedia", "fOwner", "fSort"].indexOf(el.id) >= 0) { renderBoard(); return; }
+  if (["fMedia", "fOwner", "fSort", "fPeriod2"].indexOf(el.id) >= 0) { renderBoard(); return; }
   if (el.id === "fPeriod") { renderFunnel(); return; }
   if (el.id === "perfMonth") { renderPerf(); return; }
   if (["lStatus", "lMedia"].indexOf(el.id) >= 0) { renderList(); return; }
+
+  /* 施策の編集 */
+  if (el.dataset.planfield) {
+    const [pid, pkey] = el.dataset.planfield.split("|");
+    const cur = PLANS.find((x) => x.id === pid);
+    if (!cur) return;
+    await savePlan(Object.assign({}, cur, { [pkey]: el.value }), "施策を更新しました");
+    return;
+  }
 
   const f = el.dataset.f, sd = el.dataset.sdone, sp = el.dataset.splan, dt = el.dataset.sdate;
   if (!f && !sd && !sp && !dt) return;
@@ -989,6 +1356,7 @@ document.addEventListener("change", async (e) => {
    ══════════════════════════════════════════ */
 function applyShared(d) {
   RECRUITS = ((d && d.recruits) || []).map(norm);
+  PLANS = ((d && d.recruitPlans) || []).map(normPlan);
   if (d && d.logs) LOGS = d.logs;
 }
 

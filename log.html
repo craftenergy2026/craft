@@ -313,7 +313,6 @@ const FUNNEL = [
 /* メンバー名簿（役割と個人目標）／実績はすべて日報ログから集計します */
 const MEMBERS = [
   /* ── 東京支店 ── */
-  { name: "坂神", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 700, apo: 18, shodan: 5, kanko: 2, rate: 28 } },
   { name: "沼口", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 35, shodan: 5, kanko: 2, rate: 14 } },
   { name: "鄭", branch: "東京", role: "アポインター", target: { shukkin: 11, taio: 700, apo: 20, shodan: 8, kanko: 2, rate: 40 } },
   { name: "佐伯", branch: "東京", role: "アポインター", target: { shukkin: 11, taio: 480, apo: 20, shodan: 4, kanko: 2, rate: 20 } },
@@ -322,7 +321,6 @@ const MEMBERS = [
   { name: "藤代", branch: "東京", role: "アポインター", target: { shukkin: 8, taio: 480, apo: 16, shodan: 5, kanko: 3, rate: 31 } },
   { name: "山﨑", branch: "東京", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
   { name: "三瀬", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
-  { name: "廣世", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
   { name: "大川", branch: "東京", role: "クローザー", target: { shukkin: 4, taio: 200, apo: 16, shodan: 4, kanko: 2, rate: 25 } },
   { name: "森野", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
   { name: "斉藤", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
@@ -359,13 +357,13 @@ const powerOf = (v) =>
 const DEFAULT_ROSTER_META = (() => {
   const m = {};
   const put = (names, key, val) => names.forEach((n) => { m[n] = { ...(m[n] || {}), [key]: val }; });
-  put(["保坂", "扇田", "石", "廣世", "塚原", "新井田", "樋熊"], "rank", "trainee");
+  put(["保坂", "扇田", "石", "塚原", "新井田", "樋熊"], "rank", "trainee");
   put(["藤代", "鄭", "伊藤"], "rank", "bronze");
   put(["佐伯", "三瀬"], "rank", "silver");
-  put(["山﨑", "坂神", "大川", "沼口", "森野"], "rank", "gold");
-  put(["佐伯", "坂神", "山﨑"], "gen", 1);
+  put(["山﨑", "大川", "沼口", "森野"], "rank", "gold");
+  put(["佐伯", "山﨑"], "gen", 1);
   put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", 2);
-  put(["扇田", "保坂", "廣世", "塚原", "新井田", "樋熊"], "gen", 3);
+  put(["扇田", "保坂", "塚原", "新井田", "樋熊"], "gen", 3);
   return m;
 })();
 const KAN_NUM = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
@@ -755,10 +753,18 @@ function powerRankMap(rows) {
 /* ───────── 進捗未達のアラート ─────────
    月の進み具合（経過日数の割合）に対して、達成率が遅れている人を拾います。
    週次の面談で「誰と何を話すか」をすぐ出せるようにするのが目的です。 */
-/* アラートを見る人。ここに入れた人の画面に「要フォロー」が出ます */
+/* アラートを見る人。ここに入れた人の画面にだけ「要フォロー」が出ます */
 const ALERT_TO = ["森野"];
+/* 対象にする支店と役割。週次面談の相手だけに絞ります */
+const ALERT_BRANCH = "東京";
+const ALERT_ROLE = "アポインター";
+/* 上の条件に当てはまっても、対象から外す人 */
+const ALERT_EXCLUDE = ["伊藤"];
 /* 達成率が、月の進みの何割を下回ったら遅れとみなすか */
 const ALERT_RATIO = 0.8;
+/* アラートの対象メンバー */
+const alertMembers = () =>
+  MEMBERS.filter((m) => m.branch === ALERT_BRANCH && m.role === ALERT_ROLE && ALERT_EXCLUDE.indexOf(m.name) < 0);
 /* 見る指標 */
 const ALERT_ITEMS = [
   { key: "shukkin", nm: "出勤", tkey: "shukkin" },
@@ -776,9 +782,9 @@ function monthProgress(month) {
 }
 
 /* メンバーごとの遅れを計算します */
-function behindRows(stats, targets, month, branch) {
+function behindRows(stats, targets, month) {
   const q = monthProgress(month);
-  return membersIn(branch)
+  return alertMembers()
     .map((m) => {
       const v = stats.members[m.name] || {};
       const mi = stats.byMember[m.name] || 0;
@@ -2708,10 +2714,10 @@ const MONTH_SERIES = [
 ];
 
 /* 週次の面談用：進捗が遅れているメンバーの一覧 */
-function FollowUpAlert({ stats, targets, month, branch, onPick }) {
+function FollowUpAlert({ stats, targets, month, onPick }) {
   const [open, setOpen] = useState(true);
   const [all, setAll] = useState(false);
-  const rows = useMemo(() => behindRows(stats, targets, month, branch), [stats, targets, month, branch]);
+  const rows = useMemo(() => behindRows(stats, targets, month), [stats, targets, month]);
   const q = monthProgress(month);
   /* 日報がまだない人は名前だけまとめ、実際に話すべき人を上に出します */
   const noLog = rows.filter((r) => r.noLog);
@@ -2723,7 +2729,7 @@ function FollowUpAlert({ stats, targets, month, branch, onPick }) {
         <div className="flex items-center gap-3">
           <CheckCircle2 size={18} className="shrink-0 text-emerald-600" />
           <p className="text-sm font-bold text-emerald-800">
-            進捗が遅れているメンバーはいません（月の進み {Math.round(q * 100)}%）
+            {ALERT_BRANCH}支店の{ALERT_ROLE}に、進捗の遅れはありません（月の進み {Math.round(q * 100)}%）
           </p>
         </div>
       </Card>
@@ -2804,6 +2810,7 @@ function FollowUpAlert({ stats, targets, month, branch, onPick }) {
             <p className="text-sm text-slate-600">日報を出しているメンバーに、進捗の遅れはありません。</p>
           )}
           <p className="mt-3 text-xs leading-relaxed text-amber-800">
+            対象は{ALERT_BRANCH}支店の{ALERT_ROLE}（{ALERT_EXCLUDE.join("・")}を除く）{alertMembers().length}名です。
             達成率が「月の進み × {Math.round(ALERT_RATIO * 100)}%」を下回った項目を出しています。名前を押すとメンバー別分析に移動します。
           </p>
         </div>
@@ -2859,8 +2866,8 @@ function Dashboard({ excl, setExcl, showBanner, onOpenModal, onGoMishodan, stats
         </div>
       )}
 
-      {(ALERT_TO.indexOf(currentUser) >= 0 || isAdmin) && (
-        <FollowUpAlert stats={stats} targets={targets} month={month} branch={branch} onPick={onPickMember} />
+      {ALERT_TO.indexOf(currentUser) >= 0 && (
+        <FollowUpAlert stats={stats} targets={targets} month={month} onPick={onPickMember} />
       )}
 
       <header className="mb-8">
@@ -4274,13 +4281,14 @@ function MishodanPage({ deals, onPatchDeal, stats, currentUser, canEdit, editPol
    4. 週別・月別集計
    ══════════════════════════════════════════ */
 /* フェーズ内訳（インターホン〜アポ）の、週別・月別の推移 */
-function PhaseTrend({ logs, month, branch }) {
+function PhaseTrend({ logs, month, branch, fixedName, title }) {
   const [span, setSpan] = useState("week");
-  const [name, setName] = useState("all");
+  const [name, setName] = useState(fixedName || "all");
+  const who = fixedName || name;
 
   const mine = useMemo(
-    () => logs.filter((l) => (name === "all" ? (branch === "all" || branchOf(l.name) === branch) : l.name === name)),
-    [logs, name, branch]
+    () => logs.filter((l) => (who === "all" ? (branch === "all" || branchOf(l.name) === branch) : l.name === who)),
+    [logs, who, branch]
   );
 
   /* 週別（その月の土曜始まり）／月別（日報のある月すべて） */
@@ -4318,7 +4326,7 @@ function PhaseTrend({ logs, month, branch }) {
   return (
     <section className="mb-10">
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <SectionTitle note="件数と、その期間の合計に占める割合">フェーズ別の推移</SectionTitle>
+        <SectionTitle note="件数と、その期間の合計に占める割合">{title || "フェーズ別の推移"}</SectionTitle>
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
             {[{ k: "week", l: "週別" }, { k: "month", l: "月別" }].map((x) => (
@@ -4332,16 +4340,18 @@ function PhaseTrend({ logs, month, branch }) {
               </button>
             ))}
           </div>
-          <select
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none"
-          >
-            <option value="all">全員</option>
-            {membersIn(branch).map((m) => (
-              <option key={m.name} value={m.name}>{m.name}</option>
-            ))}
-          </select>
+          {!fixedName && (
+            <select
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="all">全員</option>
+              {membersIn(branch).map((m) => (
+                <option key={m.name} value={m.name}>{m.name}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -4800,6 +4810,14 @@ function MemberAnalysis({ excl, setExcl, stats, targets, goal, branch, setBranch
       </section>
 
       <TrendPanel logs={logs} deals={deals} name={m.name} goal={goal} title={`${m.name} さんの日別・週別`} />
+
+      <PhaseTrend
+        logs={logs}
+        month={month}
+        branch={branch}
+        fixedName={m.name}
+        title={`${m.name} さんのフェーズ別の推移`}
+      />
 
       <TrendSection
         logs={logs}
@@ -6491,7 +6509,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v81</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v82</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">

@@ -350,7 +350,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
       <div class="brand"><div class="brand-mark">営</div>
 <a href="./log.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">営業ログへ</a>
 <a href="./recruit.html" id="recruitLink" hidden style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">育成ボードへ</a>
-<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v81</span></div>
+<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v82</span></div>
       <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
       <span class="pill" id="whoPill" style="margin-right:8px"></span><span class="pill" id="modePill">接続中…</span>
       <span class="me" id="meBox"></span>
@@ -2059,19 +2059,19 @@ let ROSTER_META = {};   /* { 氏名: { rank, gen } } */
 const DEFAULT_META = (() => {
   const m = {};
   const put = (names, key, val) => names.forEach(n => { m[n] = Object.assign({}, m[n], { [key]: val }); });
-  put(["保坂", "扇田", "石", "廣世", "塚原", "新井田", "樋熊"], "rank", "trainee");
+  put(["保坂", "扇田", "石", "塚原", "新井田", "樋熊"], "rank", "trainee");
   put(["藤代", "鄭", "伊藤"], "rank", "bronze");
   put(["佐伯", "三瀬"], "rank", "silver");
-  put(["山﨑", "坂神", "大川", "沼口", "森野"], "rank", "gold");
+  put(["山﨑", "大川", "沼口", "森野"], "rank", "gold");
 
   put(["沼口", "佐伯", "山﨑", "三瀬"], "mgmt", "brother");
   put(["橋本", "熊澤"], "mgmt", "am");
   put(["森野"], "mgmt", "mgr");
   put(["斉藤"], "mgmt", "exec");
 
-  put(["佐伯", "坂神", "山﨑"], "gen", 1);
+  put(["佐伯", "山﨑"], "gen", 1);
   put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", 2);
-  put(["扇田", "保坂", "廣世", "塚原", "新井田", "樋熊"], "gen", 3);
+  put(["扇田", "保坂", "塚原", "新井田", "樋熊"], "gen", 3);
   return m;
 })();
 

@@ -168,7 +168,7 @@ table.t tbody tr:hover{background:#F8FAFD}
 <header>
   <div class="hrow">
     <div class="brand">
-      <h1>採用・育成ボード</h1><span>画面 v79</span>
+      <h1>採用・育成ボード</h1><span>画面 v81</span>
     </div>
     <a class="nav" href="./log.html">営業ログ</a>
     <a class="nav" href="./navi.html">目標ナビ</a>
@@ -205,8 +205,8 @@ table.t tbody tr:hover{background:#F8FAFD}
         <button class="btn" id="addBtn">登録する</button>
       </div>
       <p class="note" style="margin-top:8px">
-        登録すると、応募日から逆算した研修の予定日（目標設定面談・営業研修・トーク研修・テスト）と、初出勤の期限が自動で入ります。
-        期限は応募日から <b id="limitTxt">30</b> 日後です。
+        登録したら、まず着座日を決めて「採用」か「不採用」を押します。
+        目標設定面談・研修・テスト・初出勤の予定日は<b>採用を押してから</b>決まり、採用日からの日数で管理します（初出勤の期限は採用から <b id="limitTxt">30</b> 日）。
       </p>
     </div>
 
@@ -221,6 +221,7 @@ table.t tbody tr:hover{background:#F8FAFD}
       </h3>
       <div class="tscroll"><table class="t" id="seatTable"></table></div>
       <p class="note" style="margin-top:8px">
+        「着座待ち」は、採用・不採用がまだ出ていない人です（着座日を入れただけの人も含みます）。
         応募から <b id="remindTxt">7</b> 日たっても着座日が決まらない人は「催促対象」、
         <b id="dropTxt">14</b> 日を過ぎた人は「返信なし」として離脱（応募→着座）に数えています。
       </p>
@@ -372,14 +373,14 @@ const DEFAULT_MEDIA = "ココシロ";
 /* 採用担当 */
 const OWNERS = ["森野", "山﨑", "斉藤"];
 const DEFAULT_OWNER = "森野";
-/* 応募から初出勤までの上限日数 */
+/* 採用から初出勤までの上限日数（研修の予定日も採用日からの日数で決めます） */
 const LIMIT_DAYS = 30;
 /* 着座の催促：応募から何日で催促するか／何日で離脱と判定するか */
 const SEAT_REMIND_DAYS = 7;
 const SEAT_DROP_DAYS = 14;
 /* 初出勤から何日たったら継続と判定するか */
 const KEEP_DAYS = 30;
-/* 育成のステップ。plan は応募日から何日後を予定にするか */
+/* 育成のステップ。plan は採用日から何日後を予定にするか */
 const STEPS = [
   { key: "mendan", nm: "目標設定面談", short: "面", plan: 7 },
   { key: "eigyo",  nm: "営業研修",     short: "営", plan: 14 },
@@ -495,12 +496,22 @@ function norm(r) {
   o.steps = Object.assign({}, r && r.steps);
   STEPS.forEach((s) => {
     o.steps[s.key] = Object.assign({ done: false, date: "", plan: "" }, o.steps[s.key]);
-    if (!o.steps[s.key].plan && o.applyDate) o.steps[s.key].plan = addDays(o.applyDate, s.plan);
+    /* 予定日は採用日から数えます。採用前は空のままです。 */
+    if (!o.steps[s.key].plan && o.hireDate) o.steps[s.key].plan = addDays(o.hireDate, s.plan);
   });
   return o;
 }
-/* 初出勤の期限 */
-const limitOf = (r) => r.applyDate ? addDays(r.applyDate, LIMIT_DAYS) : "";
+/* 採用日をもとに、未実施の研修の予定日を引き直します */
+function replanSteps(r, hireDate) {
+  const steps = Object.assign({}, r.steps);
+  STEPS.forEach((s) => {
+    const st = steps[s.key] || { done: false, plan: "" };
+    if (!st.done) steps[s.key] = Object.assign({}, st, { plan: hireDate ? addDays(hireDate, s.plan) : "" });
+  });
+  return steps;
+}
+/* 初出勤の期限（採用から LIMIT_DAYS 日） */
+const limitOf = (r) => r.hireDate ? addDays(r.hireDate, LIMIT_DAYS) : "";
 const isDropped = (r) => r.status === "離脱";
 const isStarted = (r) => !!r.startDate || r.status === "出勤" || r.status === "継続";
 /* 継続は、初出勤から KEEP_DAYS 日たてば自動で判定します */
@@ -516,6 +527,8 @@ const logNameOf = (r) => r.logName || r.name || "";
 const isSeated = (r) => !!r.seatDate || !!r.hireDate || isStarted(r) || ["着座", "採用", "出勤", "継続"].indexOf(r.status) >= 0;
 /* 採用まで進んだ人。研修の入力は、ここを過ぎてから始めます */
 const isHired = (r) => !!r.hireDate || isStarted(r) || ["採用", "出勤", "継続"].indexOf(r.status) >= 0;
+/* 採用・不採用がまだ決まっていない人。着座日を入れただけの人もここに含みます。 */
+const isPending = (r) => !isHired(r) && !isDropped(r) && !autoDropped(r);
 
 /* ── 着座待ちの管理 ──────────────────────
    応募から SEAT_REMIND_DAYS 日で催促、SEAT_DROP_DAYS 日で離脱と判定します。 */
@@ -566,6 +579,11 @@ function nextOf(r) {
       kind: "seat"
     };
   }
+  /* 着座の日程は決まったが、採用・不採用がまだ出ていない人 */
+  if (!isHired(r)) {
+    return { label: "採用・不採用の判定", due: r.seatDate || "", state: dueState(r.seatDate || ""), kind: "decide" };
+  }
+  /* ここから先は採用後。予定日は採用日から数えています */
   const pending = STEPS.find((s) => !r.steps[s.key].done);
   if (pending) {
     const due = r.steps[pending.key].plan || "";
@@ -806,11 +824,13 @@ function renderBoard() {
 
   const remind = all.filter((r) => { const a = seatAlert(r); return a && a.level === "remind"; }).length;
   const silent = all.filter(autoDropped).length;
+  const pending = all.filter(isPending).length;
   const late = live.filter((r) => !autoDropped(r) && nextOf(r).state === "late").length;
   const tile = (k, v, sub, cls) =>
     '<div class="tile"><span class="label-sm">' + k + '</span><b class="' + (cls || "") + '">' + v + '</b><span class="note">' + sub + "</span></div>";
   $("#boardTiles").innerHTML =
     tile("育成中", live.length + "名", "初出勤を待っている人") +
+    tile("着座待ち", pending + "名", "採用・不採用がまだの人") +
     tile("着座の催促", remind + "名", "応募から" + SEAT_REMIND_DAYS + "日以上", remind ? "cell-warn" : "") +
     tile("返信なし", silent + "名", SEAT_DROP_DAYS + "日経過・離脱と判定", silent ? "cell-bad" : "") +
     tile("予定を超過", late + "名", "研修・初出勤の遅れ", late ? "cell-bad" : "") +
@@ -824,9 +844,12 @@ function renderBoard() {
   const seatRow = (label, list, strong) => {
     const ap = list.length;
     const st = list.filter(isSeated).length;
-    const waiting = list.filter((r) => !isSeated(r) && !isDropped(r));
-    const rem = waiting.filter((r) => { const a = seatAlert(r); return a && a.level === "remind"; }).length;
-    const sil = waiting.filter(autoDropped).length;
+    /* 着座待ち＝採用・不採用がまだ出ていない人。着座日だけ入れた人も含みます。 */
+    const pending = list.filter(isPending);
+    const dated = pending.filter(isSeated).length;      /* 着座日は決まっているが判定前 */
+    const undated = pending.length - dated;             /* 着座日もまだ */
+    const rem = pending.filter((r) => { const a = seatAlert(r); return a && a.level === "remind"; }).length;
+    const sil = list.filter(autoDropped).length;
     const ds = list.filter((r) => r.applyDate && r.seatDate).map((r) => daysBetween(r.applyDate, r.seatDate));
     const avg = ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : null;
     const q = ap ? st / ap : null;
@@ -834,7 +857,9 @@ function renderBoard() {
     return '<tr' + (strong ? ' style="background:#F8FAFD"' : "") + '><td class="l"><b>' + esc(label) + "</b></td>" +
       '<td class="num">' + ap + '</td><td class="num">' + st + "</td>" +
       '<td class="num ' + cls + '"><b>' + pct(st, ap) + "</b></td>" +
-      '<td class="num">' + (waiting.length - sil) + '</td><td class="num ' + (rem ? "cell-warn" : "") + '">' + rem + "</td>" +
+      '<td class="num"><b>' + pending.length + "</b>" +
+        (pending.length ? '<br><span class="note">日程待ち' + undated + "・判定待ち" + dated + "</span>" : "") + "</td>" +
+      '<td class="num ' + (rem ? "cell-warn" : "") + '">' + rem + "</td>" +
       '<td class="num ' + (sil ? "cell-bad" : "") + '">' + sil + "</td>" +
       '<td class="num">' + (avg == null ? "–" : f1(avg) + "日") + "</td></tr>";
   };
@@ -1352,10 +1377,10 @@ function renderList() {
     .slice().sort((a, b) => (b.applyDate || "").localeCompare(a.applyDate || ""));
   let h = '<thead><tr><th class="l">氏名</th><th class="l">媒体</th><th class="l">採用担当</th><th class="l">教育担当</th><th class="l">状況</th>' +
     '<th class="l">応募</th><th class="l">着座</th><th class="l">採用</th><th class="l">初出勤</th><th class="l">継続</th>' +
-    "<th>応募→出勤</th><th>進捗</th><th class=\"l\">備考</th></tr></thead><tbody>";
+    "<th>採用→出勤</th><th>進捗</th><th class=\"l\">備考</th></tr></thead><tbody>";
   if (!rows.length) h += '<tr><td class="l" colspan="13"><span class="note">該当する応募者がいません。</span></td></tr>';
   rows.forEach((r) => {
-    const span = r.applyDate && r.startDate ? daysBetween(r.applyDate, r.startDate) : null;
+    const span = r.hireDate && r.startDate ? daysBetween(r.hireDate, r.startDate) : null;
     const over = span != null && span > LIMIT_DAYS;
     h += '<tr><td class="l"><a href="#" data-jump="' + r.id + '" style="color:var(--accent);font-weight:700;text-decoration:none">' +
       esc(r.name) + "</a></td>" +
@@ -1478,8 +1503,9 @@ document.addEventListener("click", async (e) => {
     const r = byId(t.dataset.hire);
     if (!r) return;
     OPEN = r.id;
-    await save(Object.assign({}, r, { hireDate: r.seatDate || TODAY, status: "採用" }),
-      r.name + " さんを採用にしました。研修の予定日を入れてください");
+    const hd = r.seatDate || TODAY;
+    await save(Object.assign({}, r, { hireDate: hd, status: "採用", steps: replanSteps(r, hd) }),
+      r.name + " さんを採用にしました。研修の予定日を確認してください");
     const el = document.querySelector('[data-card="' + r.id + '"]');
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
@@ -1519,11 +1545,13 @@ document.addEventListener("click", async (e) => {
       const on = isHired(r);
       if (on && !confirm(r.name + " さんの採用を取り消しますか？")) return;
       if (!on) OPEN = r.id;
+      const hd2 = on ? "" : (r.seatDate || TODAY);
       await save(Object.assign({}, r, {
-        hireDate: on ? "" : (r.seatDate || TODAY),
+        hireDate: hd2,
         startDate: on ? "" : r.startDate,
-        status: on ? "着座" : "採用"
-      }), on ? "採用を取り消しました" : r.name + " さんを採用にしました。研修の予定日を入れてください");
+        status: on ? "着座" : "採用",
+        steps: replanSteps(r, hd2)
+      }), on ? "採用を取り消しました" : r.name + " さんを採用にしました。研修の予定日を確認してください");
       return;
     }
     if (act === "start") {
@@ -1644,18 +1672,16 @@ document.addEventListener("change", async (e) => {
     next[key] = el.value;
     /* 日付を入れたら、状況も自動で進めます（手で直すこともできます） */
     if (key === "seatDate" && el.value && next.status === "応募") next.status = "着座";
-    /* 採用日は着座日と同じ日にします */
-    if (key === "seatDate" && el.value && isHired(next)) next.hireDate = el.value;
+    /* 採用日は着座日と同じ日にします。予定日も採用日から引き直します。 */
+    if (key === "seatDate" && el.value && isHired(next)) {
+      next.hireDate = el.value;
+      next.steps = replanSteps(next, el.value);
+    }
     if (key === "hireDate" && el.value && ["応募", "着座"].indexOf(next.status) >= 0) next.status = "採用";
     if (key === "startDate" && el.value && next.status !== "継続") next.status = "出勤";
     if (key === "keepDate" && el.value) next.status = "継続";
     if (key === "dropDate" && el.value) next.status = "離脱";
-    /* 応募日を変えたら、まだ実施していない研修の予定日を引き直します */
-    if (key === "applyDate" && el.value) {
-      STEPS.forEach((s) => {
-        if (!next.steps[s.key].done) next.steps[s.key] = Object.assign({}, next.steps[s.key], { plan: addDays(el.value, s.plan) });
-      });
-    }
+    /* 研修の予定日は採用日から決まるため、応募日を変えても動かしません */
   } else if (sd) {
     next.steps[key] = Object.assign({}, next.steps[key], { done: el.checked });
   } else if (sp) {

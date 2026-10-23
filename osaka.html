@@ -100,7 +100,7 @@ table.t tbody tr:hover{background:#F8FAFD}
 
 <header>
   <div class="hrow">
-    <div class="brand"><h1>大阪支店 営業ログ</h1><span id="verTxt">画面 v2</span></div>
+    <div class="brand"><h1>大阪支店 営業ログ</h1><span id="verTxt">画面 v3</span></div>
     <span class="label-sm" style="color:rgba(255,255,255,.8)">あなた</span>
     <select id="who" style="max-width:9em"></select>
     <span class="pill" id="modePill">接続中…</span>
@@ -156,7 +156,8 @@ table.t tbody tr:hover{background:#F8FAFD}
       </div>
       <label class="f" style="margin-top:10px" for="d-note">備考<input id="d-note" type="text" placeholder="次回の約束、ネックなど"></label>
       <p class="note" style="margin-top:8px">
-        商談数と契約数は、ここで登録した件数から自動で数えます。日報には対面数とアポ数だけ入れてください。
+        ここは顧客ごとの記録用です。集計に使う商談数・契約数は<b>日報に入れた数字</b>です。
+        日報入力の「この日の商談から入れる」を押すと、その日にここで登録した件数が日報に入ります。
       </p>
       <div class="tscroll" style="margin-top:12px"><table class="t" id="myDeals"></table></div>
     </div>
@@ -168,14 +169,24 @@ table.t tbody tr:hover{background:#F8FAFD}
       <h3>日報を入力 <span class="label-sm" id="inputWho"></span></h3>
       <div class="fields">
         <label class="f" for="l-date">日付<input id="l-date" type="date"></label>
-        <label class="f" for="l-kind">区分
-          <select id="l-kind"><option value="出勤">出勤</option><option value="研修">研修</option></select></label>
         <label class="f" for="l-taimen">対面数<input id="l-taimen" type="number" min="0" placeholder="0"></label>
         <label class="f" for="l-apo">アポ数<input id="l-apo" type="number" min="0" placeholder="0"></label>
+        <label class="f" for="l-shodan">商談数<input id="l-shodan" type="number" min="0" placeholder="0"></label>
+        <label class="f" for="l-keiyaku">契約数<input id="l-keiyaku" type="number" min="0" placeholder="0"></label>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px">
+        <span class="label-sm" style="font-weight:600">その日の区分</span>
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="l-shukkin" style="width:auto" checked> 出勤</label>
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="l-kenshu" style="width:auto"> 研修</label>
+        <span class="spacer"></span>
+        <button class="btn ghost small" id="fillFromDeals">この日の商談から入れる</button>
         <button class="btn" id="addLog">保存する</button>
       </div>
       <p class="note" style="margin-top:8px">
-        同じ日にもう一度保存すると、その日の内容を上書きします。出勤数・研修数は、この区分から自動で数えます。
+        出勤と研修は<b>両方にチェックできます</b>（同じ日に両方やった場合）。どちらもチェックしなければ、出勤数にも研修数にも数えません。
+        同じ日にもう一度保存すると、その日の内容を上書きします。
       </p>
     </div>
 
@@ -334,14 +345,21 @@ function totals(name, ym, from, to) {
     return true;
   };
   const logs = LOGS.filter((l) => (!name || l.name === name) && okDate(l.date));
-  const deals = DEALS.filter((d) => (!name || d.name === name) && okDate(d.date));
   return {
     taimen: logs.reduce((a, l) => a + n0(l.taimen), 0),
     apo: logs.reduce((a, l) => a + n0(l.apo), 0),
-    shodan: deals.filter((d) => n0(d.shodan) > 0).length,
-    keiyaku: deals.filter((d) => n0(d.keiyaku) > 0).length,
-    shukkin: logs.filter((l) => l.kind === "出勤").length,
-    kenshu: logs.filter((l) => l.kind === "研修").length
+    shodan: logs.reduce((a, l) => a + n0(l.shodan), 0),
+    keiyaku: logs.reduce((a, l) => a + n0(l.keiyaku), 0),
+    shukkin: logs.filter((l) => n0(l.shukkin) > 0).length,
+    kenshu: logs.filter((l) => n0(l.kenshu) > 0).length
+  };
+}
+/* その日に登録されている商談から、商談数と契約数を数えます */
+function dealsOf(name, date) {
+  const list = DEALS.filter((d) => d.name === name && d.date === date);
+  return {
+    shodan: list.filter((d) => n0(d.shodan) > 0).length,
+    keiyaku: list.filter((d) => n0(d.keiyaku) > 0).length
   };
 }
 /* 目標。月ごと・メンバーごと */
@@ -451,21 +469,30 @@ function renderInput() {
   const ym = $("#histMonth").value || THIS_MONTH;
   const rows = LOGS.filter((l) => l.name === ME && inMonth(l.date, ym))
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-  let h = '<thead><tr><th class="l">日付</th><th class="l">区分</th><th>対面数</th><th>アポ数</th><th></th></tr></thead><tbody>';
-  if (!rows.length) h += '<tr><td class="l" colspan="5"><span class="note">この月の日報はまだありません。</span></td></tr>';
+  let h = '<thead><tr><th class="l">日付</th><th class="l">区分</th><th>対面数</th><th>アポ数</th><th>商談数</th><th>契約数</th><th></th></tr></thead><tbody>';
+  if (!rows.length) h += '<tr><td class="l" colspan="7"><span class="note">この月の日報はまだありません。</span></td></tr>';
   rows.forEach((l) => {
+    const kinds = (n0(l.shukkin) ? '<span class="tag ok">出勤</span>' : "") +
+      (n0(l.kenshu) ? ' <span class="tag">研修</span>' : "") ||
+      '<span class="note">—</span>';
     h += '<tr><td class="l">' + md(l.date) + "（" + dowOf(l.date) + "）</td>" +
-      '<td class="l">' + (l.kind === "研修" ? '<span class="tag">研修</span>' : '<span class="tag ok">出勤</span>') + "</td>" +
+      '<td class="l">' + kinds + "</td>" +
       '<td class="num">' + n0(l.taimen) + '</td><td class="num">' + n0(l.apo) + "</td>" +
+      '<td class="num">' + n0(l.shodan) + '</td><td class="num">' + n0(l.keiyaku) + "</td>" +
       '<td><button class="btn ghost small" data-ledit="' + l.id + '">修正</button>' +
       ' <button class="btn danger small" data-ldel="' + l.id + '">削除</button></td></tr>';
     if (EDIT_LOG === l.id) {
-      h += '<tr><td class="l" colspan="5" style="background:#F8FAFD"><div class="fields" style="padding:6px 0">' +
+      h += '<tr><td class="l" colspan="7" style="background:#F8FAFD"><div class="fields" style="padding:6px 0">' +
         '<label class="f">日付<input type="date" data-lf="' + l.id + '|date" value="' + esc(l.date) + '"></label>' +
-        '<label class="f">区分<select data-lf="' + l.id + '|kind"><option value="出勤"' + (l.kind !== "研修" ? " selected" : "") + '>出勤</option>' +
-          '<option value="研修"' + (l.kind === "研修" ? " selected" : "") + '>研修</option></select></label>' +
         '<label class="f">対面数<input type="number" min="0" data-lf="' + l.id + '|taimen" value="' + n0(l.taimen) + '"></label>' +
         '<label class="f">アポ数<input type="number" min="0" data-lf="' + l.id + '|apo" value="' + n0(l.apo) + '"></label>' +
+        '<label class="f">商談数<input type="number" min="0" data-lf="' + l.id + '|shodan" value="' + n0(l.shodan) + '"></label>' +
+        '<label class="f">契約数<input type="number" min="0" data-lf="' + l.id + '|keiyaku" value="' + n0(l.keiyaku) + '"></label>' +
+        '</div><div style="display:flex;gap:16px;padding:0 0 6px">' +
+        '<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" style="width:auto" data-lk="' +
+          l.id + '|shukkin"' + (n0(l.shukkin) ? " checked" : "") + "> 出勤</label>" +
+        '<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" style="width:auto" data-lk="' +
+          l.id + '|kenshu"' + (n0(l.kenshu) ? " checked" : "") + "> 研修</label>" +
         "</div></td></tr>";
     }
   });
@@ -596,12 +623,24 @@ $("#addLog").addEventListener("click", async () => {
   if (!date) { showErr("日付を入れてください"); return; }
   await call("upsertLog", {
     id: "", name: ME, date, dow: dowOf(date),
-    kind: $("#l-kind").value,
+    shukkin: $("#l-shukkin").checked ? 1 : 0,
+    kenshu: $("#l-kenshu").checked ? 1 : 0,
     taimen: n0($("#l-taimen").value),
-    apo: n0($("#l-apo").value)
+    apo: n0($("#l-apo").value),
+    shodan: n0($("#l-shodan").value),
+    keiyaku: n0($("#l-keiyaku").value)
   }, md(date) + " の日報を保存しました");
-  $("#l-taimen").value = "";
-  $("#l-apo").value = "";
+  ["#l-taimen", "#l-apo", "#l-shodan", "#l-keiyaku"].forEach((x) => ($(x).value = ""));
+});
+
+/* その日に登録した商談から、商談数と契約数を入れます */
+$("#fillFromDeals").addEventListener("click", () => {
+  const date = $("#l-date").value;
+  if (!date) { showErr("先に日付を選んでください"); return; }
+  const c = dealsOf(ME, date);
+  $("#l-shodan").value = c.shodan;
+  $("#l-keiyaku").value = c.keiyaku;
+  flash(md(date) + " の商談 " + c.shodan + "件・契約 " + c.keiyaku + "件 を入れました");
 });
 
 /* 商談の登録 */
@@ -675,13 +714,21 @@ document.addEventListener("change", async (e) => {
   if (["tgtMonth"].indexOf(el.id) >= 0) { TGT_DIRTY = {}; renderTargets(); return; }
   if (el.dataset.tg) { TGT_DIRTY[el.dataset.tg] = n0(el.value); return; }
 
+  if (el.dataset.lk) {
+    const i = el.dataset.lk.indexOf("|");
+    const id = el.dataset.lk.slice(0, i), key = el.dataset.lk.slice(i + 1);
+    const l = LOGS.find((x) => x.id === id);
+    if (!l) return;
+    await call("upsertLog", Object.assign({}, l, { [key]: el.checked ? 1 : 0 }), "日報を直しました");
+    return;
+  }
   if (el.dataset.lf) {
     const i = el.dataset.lf.indexOf("|");
     const id = el.dataset.lf.slice(0, i), key = el.dataset.lf.slice(i + 1);
     const l = LOGS.find((x) => x.id === id);
     if (!l) return;
     const next = Object.assign({}, l);
-    next[key] = (key === "taimen" || key === "apo") ? n0(el.value) : el.value;
+    next[key] = (key === "date") ? el.value : n0(el.value);
     if (key === "date") next.dow = dowOf(el.value);
     await call("upsertLog", next, "日報を直しました");
     return;
@@ -701,11 +748,23 @@ document.addEventListener("change", async (e) => {
 /* ══════════════════════════════════════════
    起動
    ══════════════════════════════════════════ */
+/* 以前は区分が「出勤か研修のどちらか」でした。両方入れられる形に読み替えます */
+function normLog(l) {
+  const o = Object.assign({}, l);
+  if (o.shukkin == null && o.kenshu == null) {
+    o.shukkin = o.kind === "研修" ? 0 : 1;
+    o.kenshu = o.kind === "研修" ? 1 : 0;
+  }
+  o.shukkin = n0(o.shukkin) > 0 ? 1 : 0;
+  o.kenshu = n0(o.kenshu) > 0 ? 1 : 0;
+  ["taimen", "apo", "shodan", "keiyaku"].forEach((k) => (o[k] = n0(o[k])));
+  return o;
+}
 function apply(d) {
-  LOGS = (d && d.logs) || [];
+  LOGS = ((d && d.logs) || []).map(normLog);
   DEALS = (d && d.deals) || [];
   TARGETS = (d && d.targets) || {};
-  if (d && d.version) $("#verTxt").textContent = "画面 v2 / " + d.version;
+  if (d && d.version) $("#verTxt").textContent = "画面 v3 / " + d.version;
 }
 
 async function boot() {
@@ -715,6 +774,7 @@ async function boot() {
   [["#myMonth", THIS_MONTH], ["#histMonth", THIS_MONTH], ["#teamMonth", THIS_MONTH], ["#tgtMonth", THIS_MONTH]]
     .forEach(([sel, v]) => ($(sel).value = v));
   $("#l-date").value = TODAY;
+  $("#l-shukkin").checked = true;
   $("#d-date").value = TODAY;
   try { const t = localStorage.getItem(TAB_KEY); if (t) switchTab(t); } catch (e) {}
 

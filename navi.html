@@ -326,6 +326,34 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
 .strip button.sun .w{color:var(--shu)}
 .strip button .w{color:var(--muted)}
 .save-state{font-size:12px;color:var(--muted)}
+.pgi{width:5.4em;text-align:right;font-family:var(--font-num)}
+table.t td .label-sm{display:block;margin-top:1px}
+table.t td.wrap{white-space:normal;text-align:left;min-width:14em;font-size:12px;color:var(--muted)}
+.plan{background:var(--bg);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+.plan-h{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.plan-h input.ttl{flex:1;min-width:12em}
+.plan .kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.plan .kv label{font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.plan .kv input,.plan .kv select,.plan .kv textarea{font-size:13px}
+.plan .meas{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px;color:var(--muted)}
+.plan .meas b{font-family:var(--font-num);color:var(--ink);font-size:14px}
+.plan .meas b.ok{color:var(--ok)} .plan .meas b.warn{color:var(--warn)} .plan .meas b.bad{color:var(--shu)}
+.plan .diagmsg b{margin-right:2px}
+.pdo{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;align-items:center;padding-left:10px;border-left:2px solid var(--ok)}
+.pdo input[type=checkbox]{width:16px;height:16px}
+@media (max-width:620px){.plan .kv{grid-template-columns:minmax(0,1fr)}}
+table.t tr.grp td{background:var(--bg);font-size:11.5px;color:var(--muted);font-weight:700;text-align:left}
+.wk{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;background:var(--surface)}
+.wk.now{border-color:var(--accent)}
+.wk.soon{opacity:.72}
+.wk-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:10px}
+.wk-head b{font-size:14px}
+.wk-head .when{font-size:12px;color:var(--muted)}
+.wk-mini{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.wk-mini span{font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);font-family:var(--font-num)}
+.wk-mini span.ok{border-color:var(--ok);color:var(--ok)}
+.wk-mini span.bad{border-color:var(--shu);color:var(--shu)}
+.wk-mini span.lead{font-family:inherit;border:0;color:var(--muted);padding-left:0}
 
 /* Team */
 .team{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
@@ -350,7 +378,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
       <div class="brand"><div class="brand-mark">営</div>
 <a href="./log.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">営業ログへ</a>
 <a href="./recruit.html" id="recruitLink" hidden style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">育成ボードへ</a>
-<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v84</span></div>
+<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v87</span></div>
       <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
       <span class="pill" id="whoPill" style="margin-right:8px"></span><span class="pill" id="modePill">接続中…</span>
       <span class="me" id="meBox"></span>
@@ -359,6 +387,8 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
       <button role="tab" data-tab="goal" aria-selected="true" id="tab-goal">① 目標と歩留まり</button>
       <button role="tab" data-tab="issue" aria-selected="false" id="tab-issue">② 課題設定</button>
       <button role="tab" data-tab="today" aria-selected="false" id="tab-today">③ 1日の目標</button>
+      <button role="tab" data-tab="review" aria-selected="false" id="tab-review">④ 週次の振り返り</button>
+      <button role="tab" data-tab="fb" aria-selected="false" id="tab-fb" hidden>⑤ 振り返りFB</button>
       <button role="tab" data-tab="team" aria-selected="false" id="tab-team">チーム</button>
       <button role="tab" data-tab="mgr" aria-selected="false" id="tab-mgr" hidden>管理一覧</button>
       <button role="tab" data-tab="members" aria-selected="false" id="tab-members">メンバー設定</button>
@@ -388,7 +418,8 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
             <label class="f" for="g-target">目標完工数
               <span class="unit"><input id="g-target" type="number" min="1" placeholder="5"><span>件</span></span></label>
             <label class="f" for="g-days">出勤予定日数
-              <span class="unit"><input id="g-days" type="number" min="1" max="31" placeholder="20"><span>日</span></span></label>
+              <span class="unit"><input id="g-days" type="number" min="1" max="31" placeholder="20"><span>日</span></span>
+              <span class="note" id="daysHint" style="margin-top:4px"></span></label>
           </div>
         </div>
         <div class="panel">
@@ -538,6 +569,108 @@ div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute
     <div class="panel" style="margin-top:16px">
       <h3>今月の記録 <span class="label-sm">数字＝アポ数／緑＝アポ目標達成／下のバー＝DO完成度</span></h3>
       <div class="strip" id="strip"></div>
+    </div>
+  </section>
+
+  <!-- REVIEW -->
+  <section data-sec="review" hidden>
+    <div class="sec-head">
+      <h2>フェーズの目標と週次PDCA<span id="revWho" style="font-size:13px;font-weight:400;color:var(--muted);margin-left:10px"></span></h2>
+      <p>フェーズごとの内訳と〇△✖アポについて、目標と現状のギャップを出し、どの数字をどれだけ上げれば届くかを示します。
+        そのギャップごとにKGIとKPIを立て、週に最大3つまで解決策とDOを決めて、検証（C）と調整（A）をおこないます。
+        振り返りは土日の出勤も含めた1週間（土〜金）ぶんを、翌週の平日に1回です。</p>
+    </div>
+    <ol class="pdca">
+      <li><b>P 計画</b>KGI → ギャップ → KPI（フェーズ構成比）</li>
+      <li><b>D 実行</b>週に最大3つの解決策 → DO</li>
+      <li><b>C 検証</b>KPI達成率 × DO実行率で要因を見る</li>
+      <li><b>A 調整</b>継続・修正・中止 → 来週へ引き継ぐ</li>
+    </ol>
+
+    <div class="grid2">
+      <div class="panel">
+        <h3>今月のゴールとギャップ</h3>
+        <div id="revKgi"></div>
+      </div>
+      <div class="panel">
+        <h3>今月の方針 <span class="label-sm">週の施策に落とす前の、月全体の考え方</span></h3>
+        <div class="fields">
+          <label class="f full" for="r-action">方針<textarea id="r-action" maxlength="800" placeholder="例：インターホンでの離脱が多いので、最初の10秒の入り方を固定して全対応で統一する"></textarea></label>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="saveAction">保存</button>
+          <span class="save-state" id="actionState"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h3>項目ごとの目標と現状 <span class="label-sm">目標は構成比（％）で入れます。実績は営業ログの日報から自動で集計します</span></h3>
+      <div class="tscroll"><table class="t" id="phaseGoalTable"></table></div>
+      <p class="note" style="margin-top:8px">
+        インターホン・フロント・対象確認は<b>割合が下がるほど良い</b>、ニーズ・アプ・アポと〇アポは<b>上がるほど良い</b>項目です。
+        「残りで必要」は、残りの出勤日で今月の目標件数に届かせるために必要な数字です。
+      </p>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h3>週ごとのPDCA <span class="label-sm">週は土曜はじまり。平日に前の週を振り返ります</span></h3>
+      <p id="weekDue" class="note" style="margin:0 0 12px"></p>
+      <div id="weekReview"></div>
+    </div>
+  </section>
+
+  <!-- FB（採用担当ではなく、面談担当だけが見ます） -->
+  <section data-sec="fb" hidden>
+    <div class="sec-head">
+      <h2>振り返りFB<span id="fbWho" style="font-size:13px;font-weight:400;color:var(--muted);margin-left:10px"></span></h2>
+      <p>メンバーから送られてきた振り返りを貼り付けると、書かれている数字を読み取って営業ログの実績と突き合わせ、
+        数字から見える論点と、来月のKPI・KDIのたたき台を出します。この画面はあなたにだけ表示されます。</p>
+    </div>
+
+    <div class="panel">
+      <h3>振り返りを貼り付ける <span class="label-sm">対象は上の「編集対象」と「対象月」です</span></h3>
+      <div class="fields">
+        <label class="f full" for="fbRaw">本文<textarea id="fbRaw" rows="8" maxlength="20000" placeholder="◎振り返りFMT から丸ごと貼り付けてください"></textarea></label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="fbRead">読み取る</button>
+        <button class="btn ghost" id="fbClear">消す</button>
+        <span class="save-state" id="fbState"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>本人の申告と、営業ログの実績 <span class="label-sm">食い違いがあれば、まずそこを確認します</span></h3>
+      <div class="tscroll"><table class="t" id="fbCompare"></table></div>
+    </div>
+
+    <div class="panel">
+      <h3>数字から見える、もっと考えるべき点</h3>
+      <div id="fbPoints"></div>
+    </div>
+
+    <div class="panel">
+      <h3>来月の数字（逆算のたたき台） <span class="label-sm">出勤日数は土日祝から、あとは歩留まりから計算します</span></h3>
+      <div class="tscroll"><table class="t" id="fbNext"></table></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="fbApply">来月の目標に反映する</button>
+        <span class="save-state" id="fbApplyState"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>来月のKPI・KDIとFB</h3>
+      <div class="fields">
+        <label class="f">KPI（課題設定・最大3つ）<textarea id="fb-kpi" rows="5" maxlength="1000" placeholder="①…&#10;②…&#10;③…"></textarea></label>
+        <label class="f">KDI（実行・最大3つ）<textarea id="fb-kdi" rows="5" maxlength="1000" placeholder="①…&#10;②…&#10;③…"></textarea></label>
+        <label class="f full">FBコメント<textarea id="fb-note" rows="5" maxlength="2000" placeholder="面談で伝えること"></textarea></label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn ghost small" id="fbDraft">たたき台を入れる</button>
+        <button class="btn primary" id="fbSave">保存</button>
+        <span class="save-state" id="fbSaveState"></span>
+      </div>
     </div>
   </section>
 
@@ -911,6 +1044,8 @@ function switchTab(name){
   if (name === "mgr") renderMgr();
   if (name === "today"){ renderDoList(); renderMonthProg(); }
   if (name === "issue") renderIssues();
+  if (name === "review") renderReview();
+  if (name === "fb") renderFb();
 }
 $$("nav.tabs button").forEach(b => b.addEventListener("click", () => {
   switchTab(b.dataset.tab);
@@ -923,10 +1058,35 @@ const BASE_F = ["dayApo","shoRate","kanRate","apRate","apoRate"];
 const SIM_F = ["tai","apRate","apoRate","shoRate","kanRate"];
 function fillGoalForm(){
   const mo = monthObj(), c = mo.cur || {}, b = state.member.base || {};
-  $("#g-theme").value = mo.theme || ""; $("#g-target").value = mo.target ?? ""; $("#g-days").value = mo.days ?? "";
+  /* 出勤予定日数が空のときは、その月の土日祝の日数を既定値として入れます */
+  const offDays = offDaysOf(state.month);
+  if (mo.days == null || mo.days === ""){
+    setMonth({ days: offDays, daysAuto: true });
+    if (!state.readOnly) saveMemberSoon();
+  }
+  const mo2 = monthObj();
+  $("#g-theme").value = mo2.theme || ""; $("#g-target").value = mo2.target ?? ""; $("#g-days").value = mo2.days ?? "";
+  renderDaysHint();
   CUR_F.forEach(k => $("#c-"+k).value = c[k] ?? "");
   BASE_F.forEach(k => $("#b-"+k).value = b[k] ?? "");
   fillSim();
+}
+/* 出勤予定日数の下の案内。土日祝の日数と違うときは、戻すボタンを出します */
+function renderDaysHint(){
+  const hint = $("#daysHint"); if (!hint) return;
+  const offDays = offDaysOf(state.month);
+  const d = num($("#g-days").value);
+  if (d === offDays){
+    hint.textContent = `土日祝の日数（${offDays}日）です。欠勤などがあれば直してください。`;
+    return;
+  }
+  hint.innerHTML = `この月の土日祝は ${offDays}日です。<button type="button" class="btn ghost small" id="useOffDays">${offDays}日に戻す</button>`;
+  const bt = $("#useOffDays");
+  if (bt) bt.addEventListener("click", () => {
+    setMonth({ days: offDays, daysAuto: true });
+    $("#g-days").value = offDays;
+    renderDaysHint(); renderGoal(); renderCurNote(); saveMemberSoon();
+  });
 }
 function fillSim(){
   const {cur} = inputs(); const s = simVals(curRates(cur));
@@ -934,7 +1094,7 @@ function fillSim(){
 }
 $("#g-theme").addEventListener("input", e => { setMonth({theme:e.target.value}); saveMemberSoon(); });
 $("#g-target").addEventListener("input", e => { setMonth({target:num(e.target.value)}); renderGoal(); saveMemberSoon(); });
-$("#g-days").addEventListener("input", e => { setMonth({days:num(e.target.value)}); renderGoal(); saveMemberSoon(); });
+$("#g-days").addEventListener("input", e => { setMonth({days:num(e.target.value), daysAuto:false}); renderDaysHint(); renderGoal(); saveMemberSoon(); });
 CUR_F.forEach(k => $("#c-"+k).addEventListener("input", e => {
   const c = Object.assign({}, monthObj().cur || {}); c[k] = num(e.target.value);
   const hadSim = !!monthObj().sim;
@@ -2248,8 +2408,1014 @@ function syncCurFromLog(){
   if (applyImport(n, true)) renderAll();
 }
 
-function normMember(m){ const o = Object.assign({base:{}, months:{}, issues:[], summary:{}}, m||{}); o.issues = (o.issues||[]).map(normIssue); return o; }
-function renderAll(){ setMode(); fillGoalForm(); renderGoal(); renderCurNote(); renderIssues(); fillDayForm(); renderStrip(); }
+/* ══════════════════════════════════════════
+   出勤日数の既定値（日本の土日・祝日）
+   会社の出勤は土日祝が基本なので、その日数を初期値にします。
+   欠勤などで変わる場合は、①の「出勤予定日数」を手で直せます。
+   ══════════════════════════════════════════ */
+const JP_FIXED = [[1,1],[2,11],[2,23],[4,29],[5,3],[5,4],[5,5],[8,11],[11,3],[11,23]];
+/* ハッピーマンデー：[月, 第n月曜] */
+const JP_MONDAY = [[1,2],[7,3],[9,3],[10,2]];
+function nthMondayDay(y, m, n){
+  const first = new Date(y, m-1, 1).getDay();      /* 0=日 … 1=月 */
+  return 1 + ((8 - first) % 7) + 7*(n-1);
+}
+/* 春分・秋分（1980〜2099年の近似式） */
+function equinoxDay(y, spring){
+  const base = spring ? 20.8431 : 23.2488;
+  return Math.floor(base + 0.242194*(y-1980) - Math.floor((y-1980)/4));
+}
+let HOLIDAY_CACHE = {};
+function jpHolidays(y){
+  if (HOLIDAY_CACHE[y]) return HOLIDAY_CACHE[y];
+  const set = new Set();
+  const add = (m, d) => set.add(y+"-"+pad(m)+"-"+pad(d));
+  JP_FIXED.forEach(([m,d]) => add(m,d));
+  JP_MONDAY.forEach(([m,n]) => add(m, nthMondayDay(y,m,n)));
+  add(3, equinoxDay(y, true));
+  add(9, equinoxDay(y, false));
+  /* 国民の休日：祝日と祝日に挟まれた平日も休みになります（2026年の9月22日など） */
+  Array.from(set).forEach(iso => {
+    const mid = addDays(iso, 1);
+    if (set.has(mid)) return;
+    if (!set.has(addDays(iso, 2))) return;
+    if (new Date(mid+"T00:00:00").getDay() === 0) return;
+    set.add(mid);
+  });
+  /* 振替休日：祝日が日曜なら、次の平日が休みになります */
+  Array.from(set).forEach(iso => {
+    const d = new Date(iso+"T00:00:00");
+    if (d.getDay() !== 0) return;
+    let nx = addDays(iso, 1);
+    while (set.has(nx)) nx = addDays(nx, 1);
+    set.add(nx);
+  });
+  HOLIDAY_CACHE[y] = set;
+  return set;
+}
+const isHoliday = iso => jpHolidays(Number(iso.slice(0,4))).has(iso);
+/* その月の土日祝の日数 */
+function offDaysOf(month){
+  const last = Number(monthEndISO(month).slice(8,10));
+  let n = 0;
+  for (let d = 1; d <= last; d++){
+    const iso = month+"-"+pad(d);
+    const w = new Date(iso+"T00:00:00").getDay();
+    if (w === 0 || w === 6 || isHoliday(iso)) n++;
+  }
+  return n;
+}
+
+/* ══════════════════════════════════════════
+   ④ フェーズの目標と、週ごとの振り返り
+   フェーズは「その対応がどこで終わったか」の内訳なので、
+   6つの合計が対応数になります。割合は構成比で見ます。
+   ══════════════════════════════════════════ */
+const PHASES = [
+  { key:"phInter",  label:"インターホン", dir:"down" },
+  { key:"phFront",  label:"フロント",     dir:"down" },
+  { key:"phTarget", label:"対象確認",     dir:"down" },
+  { key:"phNeeds",  label:"ニーズ",       dir:"up" },
+  { key:"phApu",    label:"アプ",         dir:"up" },
+  { key:"phApo",    label:"アポ",         dir:"up" }
+];
+const APO_GRADES = [
+  { key:"apoA", label:"〇アポ", dir:"up" },
+  { key:"apoB", label:"△アポ", dir:"flat" },
+  { key:"apoC", label:"✖アポ", dir:"down" }
+];
+const PHASE_ALL = PHASES.concat(APO_GRADES);
+
+function addDays(iso, n){ const d = new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n); return ymd(d); }
+function monthEndISO(m){ return ymd(new Date(Number(m.slice(0,4)), Number(m.slice(5,7)), 0)); }
+const dowLabel = iso => WD[new Date(iso+"T00:00:00").getDay()];
+/* 土曜はじまりの週。その日が属する週の土曜日を返します */
+function weekStartOf(iso){ const d = new Date(iso+"T00:00:00"); return addDays(iso, -((d.getDay()+1)%7)); }
+
+/* 対象メンバーの、指定期間のフェーズ内訳を日報から集計します */
+function phaseSum(fromISO, toISO){
+  const o = {}; PHASE_ALL.forEach(p => o[p.key] = 0);
+  LOG.logs.forEach(l => {
+    if (l.name !== TARGET) return;
+    const iso = logDateISO(l.date);
+    if (!iso || iso < fromISO || iso > toISO) return;
+    PHASE_ALL.forEach(p => o[p.key] += Number(l[p.key]||0));
+  });
+  o.phTotal  = PHASES.reduce((a,p) => a + o[p.key], 0);
+  o.apoTotal = APO_GRADES.reduce((a,g) => a + o[g.key], 0);
+  return o;
+}
+
+/* 目標との差を、項目の「良い向き」に合わせて判定します */
+function phaseJudge(dir, diff){
+  if (dir === "flat" || diff == null) return { cls:"", text:"–" };
+  const good = dir === "up" ? diff : -diff;
+  if (good >= 0)  return { cls:"ok",   text:"達成" };
+  if (good >= -2) return { cls:"warn", text:"あと少し" };
+  return { cls:"bad", text:"未達" };
+}
+
+/* 月内の週（土〜金）。月にかかる週はすべて、1週間ぶんを通して見ます */
+function weeksOfMonth(m){
+  const first = m+"-01", last = monthEndISO(m), out = [];
+  let s = weekStartOf(first);
+  while (s <= last){ out.push({ start:s, end:addDays(s,6) }); s = addDays(s,7); }
+  return out;
+}
+
+function weeksObj(){ return state.member.weeks || (state.member.weeks = {}); }
+function weekObj(start){ return weeksObj()[start] || {}; }
+function setWeek(start, patch){
+  const w = weeksObj();
+  w[start] = Object.assign({}, w[start]||{}, patch);
+}
+
+/* ---------- ④ 計算 ---------- */
+/* 月内で実際に稼働した日数（日報に数字が入っている日） */
+function workedDaysOf(fromISO, toISO){
+  const set = new Set();
+  LOG.logs.forEach(l => {
+    if (l.name !== TARGET) return;
+    const iso = logDateISO(l.date);
+    if (!iso || iso < fromISO || iso > toISO) return;
+    if (Number(l.taio||0) > 0 || PHASE_ALL.some(x => Number(l[x.key]||0) > 0)) set.add(iso);
+  });
+  return set.size;
+}
+
+/* 今月の見通し。残りの出勤でどれだけ積めるかを、今のペースから出します */
+function monthOutlook(){
+  const m = state.month, from = m+"-01", to = monthEndISO(m);
+  const act = phaseSum(from, to);
+  const worked = workedDaysOf(from, to);
+  const planned = Math.max(worked, num(monthObj().days) || inputs().D || worked);
+  const rest = Math.max(0, planned - worked);
+  const perPh  = worked ? act.phTotal/worked  : 0;
+  const perApo = worked ? act.apoTotal/worked : 0;
+  return { act, worked, planned, rest,
+           phProj: act.phTotal + perPh*rest, apoProj: act.apoTotal + perApo*rest };
+}
+
+/* 項目ごとの目標・現状・ギャップ。
+   目標件数は「見込みの母数 × 目標の構成比」で出し、
+   残りの出勤で必要な件数・1日あたり・残りの構成比まで落とします。 */
+function gapRows(){
+  const o = monthOutlook();
+  const g = monthObj().phaseGoal || {};
+  const mk = (ph, cnt, den, projDen) => {
+    const tgt  = g[ph.key] == null ? null : Number(g[ph.key]);
+    const rate = den > 0 ? cnt/den*100 : null;
+    const need = tgt == null ? null : projDen*tgt/100;        /* 月間の目標件数 */
+    const restDen  = Math.max(0, projDen - den);
+    const restNeed = need == null ? null : need - cnt;         /* 残りで必要（下げる項目は許容量） */
+    const restRate = (restNeed == null || restDen <= 0) ? null : restNeed/restDen*100;
+    const perDay   = (restNeed == null || o.rest <= 0) ? null : restNeed/o.rest;
+    const diff = (tgt == null || rate == null) ? null : rate - tgt;
+    return { ph, tgt, cnt, den, rate, need, restNeed, restRate, perDay, diff, judge:phaseJudge(ph.dir, diff) };
+  };
+  return { o,
+    phase: PHASES.map(x => mk(x, o.act[x.key], o.act.phTotal, o.phProj)),
+    grade: APO_GRADES.map(x => mk(x, o.act[x.key], o.act.apoTotal, o.apoProj)) };
+}
+
+/* 「どれだけ上げれば届くか」を一文にします */
+function gapAdvice(r, rest){
+  if (r.tgt == null) return "目標（％）を入れると、残りで必要な数字が出ます";
+  if (r.ph.dir === "flat") return "参考項目です";
+  const per = r.perDay == null ? "" : `1日 ${f1(Math.abs(r.perDay))}件`;
+  const sh  = r.restRate == null ? "" : `残りの構成比 ${f1(Math.max(0, r.restRate))}%`;
+  const tail = [per, sh].filter(Boolean).join("・");
+  if (r.ph.dir === "up"){
+    if (r.restNeed == null) return "–";
+    if (r.restNeed <= 0) return "すでに今月の目標件数に到達しています";
+    return `残り${rest}日で あと ${fi(r.restNeed)}件${tail?"（"+tail+"）":""}`;
+  }
+  if (r.restNeed == null) return "–";
+  if (r.restNeed <= 0) return `すでに ${fi(-r.restNeed)}件 超過。これ以上増やさないのが目標です`;
+  return `残りは ${Math.floor(r.restNeed).toLocaleString("ja-JP")}件まで${tail?"（"+tail+"以下）":""}`;
+}
+
+/* ---------- ④ 週の施策（最大3つ） ---------- */
+const PLAN_MAX = 3;
+const PLAN_NEXT = [
+  { v:"keep",   label:"継続" },
+  { v:"fix",    label:"修正" },
+  { v:"stop",   label:"中止" }
+];
+function normPlan(x){
+  x = x || {};
+  return Object.assign({
+    id: mkid("p"), key:"phApo", title:"",
+    kgiName:"月間アポ件数", kgiTarget:null, kgiUnit:"件",
+    kpiTarget:null, sol:"", good:"", bad:"", next:"", note:"",
+    imp:"", ease:""
+  }, x, { dos:(x.dos||[]).map(d => Object.assign({ id:mkid("d"), text:"", done:false }, d)) });
+}
+function plansOf(start){ return (weekObj(start).plans || []).map(normPlan); }
+function savePlans(start, list){ setWeek(start, { plans:list }); saveMemberSoon(); }
+
+/* 週のKPI（その週のフェーズ構成比） */
+function planKpi(plan, from, to){
+  const ph = PHASE_ALL.find(x => x.key === plan.key);
+  if (!ph) return { rate:null, tgt:num(plan.kpiTarget), q:null };
+  const a = phaseSum(from, to);
+  const den = PHASES.indexOf(ph) >= 0 ? a.phTotal : a.apoTotal;
+  const cnt = a[ph.key];
+  const rate = den > 0 ? cnt/den*100 : null;
+  const tgt = num(plan.kpiTarget);
+  let q = null;
+  if (tgt != null && tgt > 0 && rate != null){
+    q = ph.dir === "down" ? (rate > 0 ? tgt/rate : 2) : rate/tgt;
+    if (ph.dir === "flat") q = null;
+  }
+  return { ph, cnt, den, rate, tgt, q };
+}
+/* 優先度：歩留まりへの改善インパクトと手軽さの2軸（○2・△1・×0、4点満点） */
+function planScore(pl){
+  const v = [pl.imp, pl.ease].filter(x => x !== "" && x != null);
+  return v.length === 2 ? v.reduce((a,b) => a + Number(b), 0) : null;
+}
+function priorityOf(sc){
+  if (sc == null) return { cls:"", t:"優先度 –" };
+  if (sc >= 4) return { cls:"ok",   t:"優先度 高" };
+  if (sc >= 2) return { cls:"warn", t:"優先度 中" };
+  return { cls:"bad", t:"優先度 低" };
+}
+function planDoRate(plan){
+  /* 文字の入っているDOだけを数えます（書きかけの空欄は未達にしません） */
+  const dos = plan.dos.filter(d => String(d.text||"").trim());
+  if (!dos.length) return null;
+  return dos.filter(d => d.done).length / dos.length;
+}
+/* C：KPIとDOの組み合わせで、次にやることを示します */
+function diagWeek(kq, dq){
+  if (dq == null) return { cls:"", t:"DOを登録してチェックすると、KPIとの関係を検証できます。" };
+  const dOk = dq >= 0.8, kOk = kq != null && kq >= 1;
+  if (kq == null) return dOk
+    ? { cls:"ok", t:"DOは実行できています。KPIの目標（％）を入れると達成度まで検証できます。" }
+    : { cls:"bad", t:"DOが実行できていません。DOを小さく割って、やる時間を先に決めましょう。" };
+  if (dOk && kOk)  return { cls:"ok",   t:"DOもKPIも達成。この解決策は効いています。来週は継続で。" };
+  if (dOk && !kOk) return { cls:"warn", t:"DOはやれているのにKPIが動いていません。解決策が的外れの可能性があります。来週は修正を。" };
+  if (!dOk && kOk) return { cls:"warn", t:"KPIは達成していますがDOは未達です。何が効いたのかを言葉にして、再現できる形にしましょう。" };
+  return { cls:"bad", t:"DOもKPIも未達。まずDOを実行できる状態に戻しましょう。" };
+}
+
+/* ---------- ④ 描画 ---------- */
+function renderReview(){
+  const sec = document.querySelector('section[data-sec="review"]');
+  if (!sec) return;
+  /* 入力中に作り直すと文字が消えるため、触っている間は描き直しません */
+  if (sec.contains(document.activeElement)) return;
+
+  const who = $("#revWho");
+  if (who) who.textContent = TARGET ? TARGET+" さん" : "";
+
+  renderRevKgi();
+  renderPhaseGoalTable();
+  const ta = $("#r-action");
+  if (ta) ta.value = monthObj().phaseAction || "";
+  renderWeekCards();
+  if (state.readOnly) $$("input,textarea,select,button.btn", sec).forEach(el => el.disabled = true);
+}
+
+function renderRevKgi(){
+  const box = $("#revKgi"); if (!box) return;
+  const { o } = gapRows();
+  const g = monthObj().phaseGoal || {};
+  const apoGoal = g.phApo == null ? null : o.phProj*Number(g.phApo)/100;
+  const apoGap  = apoGoal == null ? null : Math.max(0, apoGoal - o.apoProj);
+  const aGoal   = g.apoA == null || apoGoal == null ? null : apoGoal*Number(g.apoA)/100;
+  const aProj   = o.apoProj > 0 ? o.apoProj*(o.act.apoTotal ? o.act.apoA/o.act.apoTotal : 0) : 0;
+  const aGap    = aGoal == null ? null : Math.max(0, aGoal - aProj);
+
+  box.innerHTML = `<div class="kgi">
+    <div class="tile"><span class="label-sm">KGI　今月のアポ目標</span><b>${apoGoal==null?"–":fi(apoGoal)+"件"}</b><span class="note">${g.phApo==null?"アポの目標（％）が未入力":"対応見込み "+fi(o.phProj)+"件 × "+f1(g.phApo)+"%"}</span></div>
+    <div class="tile"><span class="label-sm">今のペースの見込み</span><b>${fi(o.apoProj)}件</b><span class="note">実績 ${fi(o.act.apoTotal)}件 ＋ 残り${o.rest}日ぶん</span></div>
+    <div class="tile ${apoGap==null?"":apoGap>0?"miss":"hit"}"><span class="label-sm">ギャップ</span><b>${apoGap==null?"–":apoGap>0?"−"+fi(apoGap)+"件":"0件"}</b><span class="note">${apoGap==null?"":apoGap>0?"施策で埋める差":"今のペースで届く見込み"}</span></div>
+    <div class="tile"><span class="label-sm">出勤</span><b>${o.worked} / ${o.planned}日</b><span class="note">残り ${o.rest}日</span></div>
+    <div class="tile ${aGap==null?"":aGap>0?"miss":"hit"}" style="grid-column:1/-1"><span class="label-sm">〇アポ（質）の目標と見込み</span><b>${aGoal==null?"–":fi(aGoal)+"件"} ／ 見込み ${fi(aProj)}件</b><span class="note">${aGoal==null?"〇アポの目標（％）が未入力":"アポ目標 "+fi(apoGoal)+"件 × "+f1(g.apoA)+"%"+(aGap>0?"／あと "+fi(aGap)+"件":"／今のペースで届く見込み")}</span></div>
+  </div>`;
+}
+
+function renderPhaseGoalTable(){
+  const t = $("#phaseGoalTable"); if (!t) return;
+  const G = gapRows();
+  /* 「施策あり」は今週ぶんだけを見ます（過去の週の施策は数えません） */
+  const used = new Set(plansOf(weekStartOf(today)).map(pl => pl.key));
+
+  const line = r => `<tr>
+      <td>${r.ph.label}<span class="label-sm">${r.ph.dir==="up"?"高いほど良い":r.ph.dir==="down"?"低いほど良い":"参考"}</span></td>
+      <td><input type="number" class="pgi" data-pg="${r.ph.key}" min="0" max="100" step="0.1" value="${r.tgt==null?"":r.tgt}" placeholder="–"></td>
+      <td class="num">${r.need==null?"–":fi(r.need)}</td>
+      <td class="num">${fi(r.cnt)}</td>
+      <td class="num">${r.rate==null?"–":f1(r.rate)+"%"}</td>
+      <td class="num">${r.diff==null?"–":(r.diff>0?"+":"")+f1(r.diff)+"pt"}</td>
+      <td class="wrap">${esc(gapAdvice(r, G.o.rest))}</td>
+      <td><span class="tag ${r.judge.cls}">${r.judge.text}</span></td>
+      <td>${r.ph.dir==="flat" ? "" : used.has(r.ph.key)
+            ? `<span class="tag ok">今週の施策あり</span>`
+            : `<button class="btn small" data-mkplan="${r.ph.key}">今週の施策にする</button>`}</td>
+    </tr>`;
+
+  t.innerHTML = `<thead><tr>
+      <th>項目</th><th>目標（％）</th><th>目標（件）</th><th>実績（件）</th><th>構成比</th><th>差</th><th>残りで必要</th><th>判定</th><th></th>
+    </tr></thead><tbody>
+    <tr class="grp"><td colspan="9">フェーズの内訳 ／ 母数は対応数 実績 ${fi(G.o.act.phTotal)}件・見込み ${fi(G.o.phProj)}件</td></tr>
+    ${G.phase.map(line).join("")}
+    <tr class="grp"><td colspan="9">アポの内訳 ／ 母数はアポ数 実績 ${fi(G.o.act.apoTotal)}件・見込み ${fi(G.o.apoProj)}件</td></tr>
+    ${G.grade.map(line).join("")}
+  </tbody>`;
+
+  $$("input[data-pg]", t).forEach(el => {
+    el.addEventListener("input", () => {
+      const cur = Object.assign({}, monthObj().phaseGoal||{});
+      const v = num(el.value);
+      if (v == null) delete cur[el.dataset.pg]; else cur[el.dataset.pg] = v;
+      setMonth({ phaseGoal: cur });
+      saveMemberSoon();
+    });
+    el.addEventListener("change", () => { renderRevKgi(); renderPhaseGoalTable(); renderWeekCards(); });
+  });
+  $$("button[data-mkplan]", t).forEach(btn => btn.addEventListener("click", () => {
+    const all = G.phase.concat(G.grade);
+    const r = all.find(x => x.ph.key === btn.dataset.mkplan);
+    addPlanFromGap(r, G);
+  }));
+}
+
+/* ギャップから、今週の施策をつくります */
+function addPlanFromGap(r, G){
+  const start = weekStartOf(today);
+  const list = plansOf(start);
+  if (list.length >= PLAN_MAX){
+    showBanner("週の施策は最大"+PLAN_MAX+"つまでです。先に今週の施策を整理してください。");
+    setTimeout(() => showBanner(""), 6000);
+    return;
+  }
+  const g = monthObj().phaseGoal || {};
+  const apoGoal = g.phApo == null ? null : G.o.phProj*Number(g.phApo)/100;
+  list.push(normPlan({
+    key: r.ph.key,
+    title: `${r.ph.label}を ${r.rate==null?"–":f1(r.rate)+"%"} → ${r.tgt==null?"–":f1(r.tgt)+"%"} に${r.ph.dir==="down"?"下げる":"上げる"}`,
+    kgiName: "月間アポ件数", kgiTarget: apoGoal==null ? null : Math.ceil(apoGoal), kgiUnit:"件",
+    kpiTarget: r.tgt,
+    dos: [{ id:mkid("d"), text:"", done:false }]
+  }));
+  savePlans(start, list);
+  renderPhaseGoalTable(); renderWeekCards();
+  const card = document.querySelector(`.wk[data-wk="${start}"]`);
+  if (card) card.scrollIntoView({ block:"center" });
+}
+
+function renderWeekCards(){
+  const box = $("#weekReview"); if (!box) return;
+  const m = state.month;
+  const g = monthObj().phaseGoal || {};
+  const weeks = weeksOfMonth(m);
+
+  /* 以前の「アクション」欄は、施策の解決策として引き継ぎます */
+  let migrated = false;
+  weeks.forEach(w => {
+    const o = weekObj(w.start);
+    if (!(o.plans||[]).length && (o.action||"").trim()){
+      setWeek(w.start, { plans:[normPlan({ sol:o.action, title:"（アクション欄から引き継ぎ）" })], action:"" });
+      migrated = true;
+    }
+  });
+  if (migrated) saveMemberSoon();
+
+  /* 直近で振り返る週（終わっていて、まだ振り返っていない週のうち最後のもの） */
+  const due = weeks.filter(w => today > w.end && !((weekObj(w.start).review||"").trim())
+                                && (() => { const x = phaseSum(w.start, w.end); return x.phTotal > 0 || x.apoTotal > 0; })()).pop();
+  const note = $("#weekDue");
+  if (note){
+    note.textContent = due
+      ? `次に振り返るのは ${mdLabel(due.start)}〜${mdLabel(due.end)} の週です（振り返り日 ${mdLabel(addDays(due.end,3))}（${dowLabel(addDays(due.end,3))}））。`
+      : "終わった週の振り返りはすべて入力済みです。";
+    note.className = due ? "roster-note" : "note";
+  }
+
+  box.innerHTML = weeks.map(w => {
+    const rev = addDays(w.end, 3);            /* 週の翌週の月曜に振り返ります */
+    const a = phaseSum(w.start, w.end);
+    const saved = weekObj(w.start);
+    const plans = plansOf(w.start).map((pl, i) => Object.assign({}, pl, { _i:i }))
+      .sort((x, y) => {
+        const a = planScore(x), b = planScore(y);
+        if (a == null && b == null) return x._i - y._i;
+        if (a == null) return 1;
+        if (b == null) return -1;
+        return b - a || x._i - y._i;
+      });
+    const st = today < w.start ? "soon" : (today <= w.end ? "now" : "done");
+    const empty = a.phTotal === 0 && a.apoTotal === 0;
+    const badge = st === "soon" ? '<span class="tag">これから</span>'
+      : st === "now" ? '<span class="tag warn">進行中</span>'
+      : (saved.review||"").trim() ? '<span class="tag ok">振り返り済</span>'
+      : empty ? '<span class="tag">出勤なし</span>'
+      : '<span class="tag bad">振り返り未</span>';
+
+    const chip = (ph, cnt, den) => {
+      const tgt = g[ph.key];
+      const rate = den > 0 ? (cnt/den)*100 : null;
+      const diff = (tgt==null||rate==null) ? null : rate - tgt;
+      const j = phaseJudge(ph.dir, diff);
+      return `<span class="${j.cls==="ok"?"ok":j.cls==="bad"?"bad":""}">${ph.label} ${fi(cnt)}${rate==null?"":"・"+f1(rate)+"%"}</span>`;
+    };
+
+    const planHtml = plans.map((pl, i) => {
+      const k = planKpi(pl, w.start, w.end);
+      const dq = planDoRate(pl);
+      const dg = diagWeek(k.q, dq);
+      const sc = planScore(pl), pr = priorityOf(sc);
+      const opt = PHASE_ALL.map(x => `<option value="${x.key}" ${x.key===pl.key?"selected":""}>${x.label}</option>`).join("");
+      const sel3 = (f, v) => `<select data-pid="${pl.id}" data-f="${f}" aria-label="${f}">${["","2","1","0"].map(o => `<option value="${o}" ${String(v??"")===o?"selected":""}>${MARK[o]}</option>`).join("")}</select>`;
+      const dos = pl.dos.map(d => `<div class="pdo">
+          <input type="checkbox" data-pid="${pl.id}" data-did="${d.id}" data-f="done" ${d.done?"checked":""} aria-label="実行できた">
+          <input class="sm" data-pid="${pl.id}" data-did="${d.id}" data-f="text" value="${esc(d.text)}" maxlength="120" placeholder="DO：例）全対応で名乗りを一文に統一する">
+          <button class="btn ghost danger small" data-act="del-pdo" data-pid="${pl.id}" data-did="${d.id}" aria-label="DOを削除">×</button>
+        </div>`).join("");
+      return `<div class="plan" data-pid="${pl.id}">
+        <div class="plan-h">
+          <span class="chip">施策 ${i+1}</span>
+          <span class="tag ${pr.cls}">${pr.t}${sc==null?"":"（"+sc+"/4）"}</span>
+          <input class="sm ttl" data-pid="${pl.id}" data-f="title" value="${esc(pl.title)}" maxlength="120" placeholder="例：インターホンを 66% → 55% に下げる">
+          <button class="btn ghost danger small" data-act="del-plan" data-pid="${pl.id}">削除</button>
+        </div>
+        <div class="kv">
+          <label>KGI（最終的に動かす数字）<input class="sm" data-pid="${pl.id}" data-f="kgiName" value="${esc(pl.kgiName)}" maxlength="40" placeholder="月間アポ件数"></label>
+          <label>KGIの目標<input type="number" class="sm" data-pid="${pl.id}" data-f="kgiTarget" value="${pl.kgiTarget==null?"":pl.kgiTarget}" step="1" placeholder="件"></label>
+          <label>KPI（週に見る項目）<select data-pid="${pl.id}" data-f="key">${opt}</select></label>
+          <label>KPIの目標（構成比％）<input type="number" class="sm" data-pid="${pl.id}" data-f="kpiTarget" value="${pl.kpiTarget==null?"":pl.kpiTarget}" min="0" max="100" step="0.1" placeholder="％"></label>
+        </div>
+        <div class="meas">
+          <span>この週の実績</span><b>${k.rate==null?"–":f1(k.rate)+"%"}</b>
+          <span>（${fi(k.cnt||0)}件 / 母数 ${fi(k.den||0)}件）</span>
+          <span class="spacer"></span>
+          <span>KPI達成率</span><b class="${qcls(k.q)}">${qtxt(k.q)}</b>
+          <span>DO実行率</span><b class="${dq==null?"":dq>=0.8?"ok":dq>=0.5?"warn":"bad"}">${dq==null?"–":Math.round(dq*100)+"%"}</b>
+        </div>
+        <div class="evals">
+          歩留まりへの改善インパクト ${sel3("imp", pl.imp)}
+          手軽さ ${sel3("ease", pl.ease)}
+          <span class="score">${sc==null?"2つとも評価すると優先度が出ます":sc+"/4点"}</span>
+        </div>
+        <label class="f">解決策<textarea data-pid="${pl.id}" data-f="sol" maxlength="400" placeholder="例：名乗りを一文に統一し、最初の10秒で用件まで言い切る">${esc(pl.sol)}</textarea></label>
+        ${dos}
+        <div><button class="btn ghost small" data-act="add-pdo" data-pid="${pl.id}">＋ DOを追加</button></div>
+        <div class="diagmsg ${dg.cls}"><b>C 検証</b>　${esc(dg.t)}</div>
+        <div class="kv">
+          <label>できた要因<textarea data-pid="${pl.id}" data-f="good" maxlength="300" placeholder="効いたこと">${esc(pl.good)}</textarea></label>
+          <label>できなかった要因<textarea data-pid="${pl.id}" data-f="bad" maxlength="300" placeholder="止まった理由">${esc(pl.bad)}</textarea></label>
+        </div>
+        <div class="plan-h">
+          <span class="label-sm">A 調整</span>
+          <select data-pid="${pl.id}" data-f="next">
+            <option value="">来週どうするか</option>
+            ${PLAN_NEXT.map(x => `<option value="${x.v}" ${pl.next===x.v?"selected":""}>${x.label}</option>`).join("")}
+          </select>
+          <input class="sm" data-pid="${pl.id}" data-f="note" value="${esc(pl.note)}" maxlength="160" placeholder="調整案：来週どう変えるか">
+          <button class="btn ghost small" data-act="carry" data-pid="${pl.id}">来週へ引き継ぐ</button>
+        </div>
+      </div>`;
+    }).join("");
+
+    return `<div class="wk ${st==="now"?"now":st==="soon"?"soon":""}" data-wk="${w.start}">
+      <div class="wk-head">
+        <b>${mdLabel(w.start)}（${dowLabel(w.start)}）〜 ${mdLabel(w.end)}（${dowLabel(w.end)}）</b>
+        ${badge}
+        <span class="spacer"></span>
+        <span class="when">振り返り日 ${mdLabel(rev)}（${dowLabel(rev)}）</span>
+      </div>
+      <div class="wk-mini">
+        <span class="lead">フェーズ（対応 ${fi(a.phTotal)}件）</span>
+        ${PHASES.map(ph => chip(ph, a[ph.key], a.phTotal)).join("")}
+      </div>
+      <div class="wk-mini">
+        <span class="lead">アポ（${fi(a.apoTotal)}件）</span>
+        ${APO_GRADES.map(ph => chip(ph, a[ph.key], a.apoTotal)).join("")}
+      </div>
+      ${planHtml}
+      <div class="row" style="margin:4px 0 12px">
+        <button class="btn ghost small" data-act="add-plan" ${plans.length>=PLAN_MAX?"disabled":""}>＋ 施策を追加</button>
+        <span class="note">${plans.length}/${PLAN_MAX}つ${plans.length>=PLAN_MAX?"（上限です。まず今の施策を終わらせましょう）":""}</span>
+      </div>
+      <label class="f">今週の総括<textarea data-wf="review" maxlength="600" placeholder="土日の出勤も含めて、結果とその原因、来週変えること">${esc(saved.review||"")}</textarea></label>
+      <div class="row" style="margin-top:10px">
+        <button class="btn ghost" data-wsave="1">この週を保存</button>
+        <span class="save-state"></span>
+      </div>
+    </div>`;
+  }).join("");
+
+  wireWeekCards(box);
+}
+
+function wireWeekCards(box){
+  $$(".wk", box).forEach(card => {
+    const start = card.dataset.wk;
+    const st = $(".save-state", card);
+    const touch = () => { if (st) st.textContent = ""; };
+
+    /* 総括 */
+    $$("textarea[data-wf]", card).forEach(ta => ta.addEventListener("input", () => {
+      setWeek(start, { [ta.dataset.wf]: ta.value }); touch(); saveMemberSoon();
+    }));
+
+    /* 施策の各項目 */
+    const patch = (pid, f, v) => {
+      const list = plansOf(start);
+      const i = list.findIndex(x => x.id === pid);
+      if (i < 0) return null;
+      list[i][f] = v;
+      savePlans(start, list);
+      return list;
+    };
+    $$("[data-pid][data-f]", card).forEach(el => {
+      const pid = el.dataset.pid, f = el.dataset.f, did = el.dataset.did;
+      const read = () => el.type === "checkbox" ? el.checked
+        : (f === "kgiTarget" || f === "kpiTarget") ? num(el.value) : el.value;
+      const apply = () => {
+        if (did){
+          const list = plansOf(start);
+          const pl = list.find(x => x.id === pid); if (!pl) return;
+          const d = pl.dos.find(x => x.id === did); if (!d) return;
+          d[f] = read();
+          savePlans(start, list);
+        } else {
+          patch(pid, f, read());
+        }
+        touch();
+      };
+      if (el.tagName === "SELECT" || el.type === "checkbox"){
+        el.addEventListener("change", () => { apply(); if (f === "key" || f === "done" || f === "imp" || f === "ease") renderWeekCards(); });
+      } else {
+        el.addEventListener("input", apply);
+        if (f === "kpiTarget") el.addEventListener("change", () => renderWeekCards());
+      }
+    });
+
+    /* ボタン */
+    $$("[data-act]", card).forEach(btn => btn.addEventListener("click", () => {
+      const act = btn.dataset.act, pid = btn.dataset.pid, did = btn.dataset.did;
+      let list = plansOf(start);
+      if (act === "add-plan"){
+        if (list.length >= PLAN_MAX) return;
+        list.push(normPlan({ dos:[{ id:mkid("d"), text:"", done:false }] }));
+      } else if (act === "del-plan"){
+        if (!confirm("この施策を削除しますか？")) return;
+        list = list.filter(x => x.id !== pid);
+      } else if (act === "add-pdo"){
+        const pl = list.find(x => x.id === pid); if (!pl) return;
+        pl.dos.push({ id:mkid("d"), text:"", done:false });
+      } else if (act === "del-pdo"){
+        const pl = list.find(x => x.id === pid); if (!pl) return;
+        pl.dos = pl.dos.filter(d => d.id !== did);
+      } else if (act === "carry"){
+        const pl = list.find(x => x.id === pid); if (!pl) return;
+        const nextStart = addDays(start, 7);
+        const nx = plansOf(nextStart);
+        if (nx.length >= PLAN_MAX){
+          showBanner("来週の施策はすでに"+PLAN_MAX+"つあります。");
+          setTimeout(() => showBanner(""), 6000);
+          return;
+        }
+        nx.push(normPlan({ key:pl.key, title:pl.title, kgiName:pl.kgiName, kgiTarget:pl.kgiTarget, kgiUnit:pl.kgiUnit,
+                           kpiTarget:pl.kpiTarget, sol:pl.sol, imp:pl.imp, ease:pl.ease,
+                           dos: pl.dos.map(d => ({ id:mkid("d"), text:d.text, done:false })) }));
+        savePlans(nextStart, nx);
+        renderWeekCards();
+        const c2 = document.querySelector(`.wk[data-wk="${nextStart}"]`);
+        if (c2) c2.scrollIntoView({ block:"center" });
+        return;
+      } else return;
+      savePlans(start, list);
+      renderPhaseGoalTable();
+      renderWeekCards();
+    }));
+
+    /* 保存ボタン */
+    const sbtn = $("button[data-wsave]", card);
+    if (sbtn) sbtn.addEventListener("click", async () => {
+      sbtn.disabled = true; if (st) st.textContent = "保存中…";
+      try{ await saveMember(); if (st) st.textContent = "保存しました"; }
+      catch(e){ if (st) st.textContent = "保存できませんでした"; }
+      sbtn.disabled = false;
+    });
+  });
+}
+
+const raEl = $("#r-action");
+if (raEl) raEl.addEventListener("input", e => { setMonth({ phaseAction: e.target.value }); $("#actionState").textContent = ""; saveMemberSoon(); });
+const saEl = $("#saveAction");
+if (saEl) saEl.addEventListener("click", async () => {
+  saEl.disabled = true; $("#actionState").textContent = "保存中…";
+  try{ await saveMember(); $("#actionState").textContent = "保存しました"; }
+  catch(e){ $("#actionState").textContent = "保存できませんでした"; }
+  saEl.disabled = false;
+});
+
+/* ══════════════════════════════════════════
+   ⑤ 振り返りFB（面談担当だけが見る画面）
+   メンバーから送られてくる振り返りの文章を読み取り、
+   営業ログの実績と突き合わせて論点を出します。
+   ══════════════════════════════════════════ */
+const FB_VIEWERS = ["森野"];
+const canSeeFb = () => !!ME && FB_VIEWERS.indexOf(ME.name) >= 0;
+
+function fbStore(){ return state.member.fb || (state.member.fb = {}); }
+function fbObj(){ return fbStore()[state.month] || {}; }
+function setFb(patch){
+  const all = fbStore();
+  all[state.month] = Object.assign({}, all[state.month]||{}, patch);
+}
+
+/* 全角の数字や記号をそろえて、読み取りやすくします */
+function fbNorm(t){
+  return String(t||"")
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+    .replace(/[：]/g, ":").replace(/[（]/g, "(").replace(/[）]/g, ")")
+    .replace(/[％]/g, "%").replace(/[　]/g, " ");
+}
+const fbNum = v => { const n = parseFloat(String(v).replace(/,/g,"")); return isFinite(n) ? n : null; };
+function fbPick(sec, label){
+  const m = fbNorm(sec).match(new RegExp(label + "\\s*:\\s*([0-9,.]+)"));
+  return m ? fbNum(m[1]) : null;
+}
+const FB_PH = [["インターホン","phInter"],["フロント","phFront"],["対象確認","phTarget"],["ニーズ","phNeeds"],["アプ","phApu"],["アポ","phApo"]];
+function fbPhases(sec){
+  const t = fbNorm(sec), o = {};
+  FB_PH.forEach(([label, key]) => {
+    const m = t.match(new RegExp("([0-9,]+)\\s*件\\s*\\([0-9.]+%\\)\\s*:\\s*" + label))
+           || t.match(new RegExp(label + "\\s*[:\\s]\\s*([0-9,]+)\\s*件"));
+    if (m) o[key] = fbNum(m[1]);
+  });
+  const g = [["[○⚪◯〇●]","apoA"],["[△▲]","apoB"],["[×✖x✕X☓]","apoC"]];
+  g.forEach(([mark, key]) => {
+    const m = t.match(new RegExp(mark + "[\\uFE0E\\uFE0F]?\\s*アポ\\s*:?\\s*([0-9,]+)\\s*件"));
+    if (m) o[key] = fbNum(m[1]);
+  });
+  return o;
+}
+/* 本文を PLAN／CHECK／次月 の3つに切り分けます */
+function fbSplit(text){
+  const t = fbNorm(text);
+  const at = re => { const m = t.match(re); return m ? m.index : -1; };
+  const iPlan  = at(/[●○〇]\s*PLAN/i);
+  const iDo    = at(/[●○〇]\s*DO\b/i);
+  const iCheck = at(/[●○〇]\s*CHECK/i);
+  const iAct   = at(/[●○〇]\s*次?\s*ACTION/i);
+  const base = Math.max(iAct, iCheck, 0);
+  const rel = t.slice(base).search(/[○〇]\s*\d+月目標|【\s*定量目標\s*】/);
+  const iNext = rel < 0 ? -1 : base + rel;
+  const cut = (a, b) => a < 0 ? "" : t.slice(a, b > a ? b : t.length);
+  const nameM = t.match(/名前\s*:\s*(\S+)/);
+  return {
+    name: nameM ? nameM[1] : "",
+    plan:  cut(iPlan, iDo > 0 ? iDo : iCheck),
+    check: cut(iCheck, iAct > 0 ? iAct : iNext),
+    next:  cut(iNext, -1),
+    all: t
+  };
+}
+function fbParse(text){
+  const S = fbSplit(text);
+  const read = sec => ({
+    days: fbPick(sec, "出勤数"),
+    t:    fbPick(sec, "対応数"),
+    apo:  fbPick(sec, "アポ数"),
+    sho:  fbPick(sec, "商談数"),
+    kan:  fbPick(sec, "完工数"),
+    kei:  fbPick(sec, "契約数"),
+    ph:   fbPhases(sec)
+  });
+  return { name:S.name, plan:read(S.plan), check:read(S.check), next:read(S.next), sec:S };
+}
+
+/* ログ側の実績（当月） */
+function fbLogActual(){
+  const m = state.month, from = m+"-01", to = monthEndISO(m);
+  const a = actualsFromLog(TARGET, m);
+  const ph = phaseSum(from, to);
+  return { days: workedDaysOf(from, to), t:a.t, ap:a.ap, apo:a.apo, sho:a.sho, kei:a.kei, kan:a.kan, ph };
+}
+
+/* ---------- 画面 ---------- */
+function updateFbTab(){
+  const btn = $("#tab-fb"); if (!btn) return;
+  const ok = canSeeFb();
+  btn.hidden = !ok;
+  const sec = document.querySelector('section[data-sec="fb"]');
+  if (!ok && sec && !sec.hidden) switchTab("goal");
+}
+function renderFb(){
+  const sec = document.querySelector('section[data-sec="fb"]');
+  if (!sec || !canSeeFb()) return;
+  if (sec.contains(document.activeElement)) return;
+  const f = fbObj();
+  const who = $("#fbWho");
+  if (who) who.textContent = TARGET ? `${TARGET} さん／${Number(state.month.slice(5,7))}月` : "";
+  $("#fbRaw").value = f.raw || "";
+  $("#fb-kpi").value = f.kpi || "";
+  $("#fb-kdi").value = f.kdi || "";
+  $("#fb-note").value = f.note || "";
+  renderFbCompare(); renderFbPoints(); renderFbNext();
+  if (state.readOnly) $$("input,textarea,button.btn", sec).forEach(el => el.disabled = true);
+}
+
+function fbParsed(){
+  const raw = (fbObj().raw || "").trim();
+  return raw ? fbParse(raw) : null;
+}
+
+function renderFbCompare(){
+  const el = $("#fbCompare"); if (!el) return;
+  const P = fbParsed();
+  if (!P){ el.innerHTML = `<tbody><tr><td class="wrap">振り返りを貼り付けて「読み取る」を押すと、ここに本人の申告と営業ログの実績を並べます。</td></tr></tbody>`; return; }
+  const L = fbLogActual();
+  const row = (label, goal, said, log, unit) => {
+    const d = (said == null || log == null) ? null : said - log;
+    const warn = d != null && Math.abs(d) > Math.max(1, Math.abs(log)*0.1);
+    return `<tr>
+      <td>${label}</td>
+      <td class="num">${goal==null?"–":f1(goal)+unit}</td>
+      <td class="num">${said==null?"–":f1(said)+unit}</td>
+      <td class="num">${log==null?"–":f1(log)+unit}</td>
+      <td class="num">${d==null?"–":(d>0?"+":"")+f1(d)+unit}</td>
+      <td>${d==null?"":warn?'<span class="tag bad">要確認</span>':'<span class="tag ok">一致</span>'}</td>
+      <td class="num">${goal?fp(( (log==null?said:log) )/goal):"–"}</td>
+    </tr>`;
+  };
+  const ph = (label, key) => row(label, P.plan.ph[key], P.check.ph[key], L.ph[key], "件");
+  el.innerHTML = `<thead><tr>
+      <th>項目</th><th>今月の目標</th><th>本人の申告</th><th>営業ログ</th><th>差</th><th></th><th>達成率</th>
+    </tr></thead><tbody>
+      ${row("出勤数", P.plan.days, P.check.days, L.days, "日")}
+      ${row("対応数", P.plan.t,    P.check.t,    L.t,    "件")}
+      ${row("アポ数", P.plan.apo,  P.check.apo,  L.apo,  "件")}
+      ${row("商談数", P.plan.sho,  P.check.sho,  L.sho,  "件")}
+      ${row("完工数", P.plan.kan,  P.check.kan,  L.kan,  "件")}
+      <tr class="grp"><td colspan="7">フェーズの内訳</td></tr>
+      ${FB_PH.map(([label,key]) => ph(label, key)).join("")}
+      <tr class="grp"><td colspan="7">アポの内訳</td></tr>
+      ${ph("〇アポ","apoA")}${ph("△アポ","apoB")}${ph("✖アポ","apoC")}
+    </tbody>`;
+}
+
+/* 数字から出てくる論点。思い込みではなく、ログの数字で判断します */
+function fbIssues(){
+  const P = fbParsed(); if (!P) return [];
+  const L = fbLogActual();
+  const out = [];
+  const push = (lv, t, q) => out.push({ lv, t, q });
+
+  /* ログにこの月のデータがない場合は、照合そのものができません */
+  if (!L.days && !L.t && !L.apo){
+    push("bad", `${TARGET} さんのこの月の日報が営業ログにありません。`,
+         "まず日報を入れてもらう。入っていないと、申告の数字を確かめられない。");
+    return out;
+  }
+
+  /* 申告とログのズレ */
+  const pairs = [["出勤数", P.check.days, L.days, "日"], ["対応数", P.check.t, L.t, "件"],
+                 ["アポ数", P.check.apo, L.apo, "件"], ["商談数", P.check.sho, L.sho, "件"], ["完工数", P.check.kan, L.kan, "件"]];
+  pairs.forEach(([nm, said, log, u]) => {
+    if (said == null || log == null) return;
+    if (Math.abs(said - log) > Math.max(1, Math.abs(log)*0.1))
+      push("bad", `${nm}が本人の申告 ${f1(said)}${u} に対して、営業ログは ${f1(log)}${u} です。`,
+           "どちらが正しいか。ログの入力漏れなら先に直す。");
+  });
+
+  /* アポは出たのに商談にならない＝アポの質 */
+  const apoA = L.ph.apoA, apoTotal = L.ph.apoTotal;
+  const aRate = apoTotal > 0 ? apoA/apoTotal : null;
+  if (L.apo > 0 && L.sho === 0)
+    push("bad", `アポは ${L.apo}件 出ていますが、商談は0件です。〇アポは ${apoA}件（${aRate==null?"–":f1(aRate*100)+"%"}）。`,
+         "数を増やす話ではなく、アポの質が論点。〇アポを何件にすれば商談が立つかで考える。");
+  else if (L.apo > 0 && aRate != null && aRate < 0.3)
+    push("warn", `〇アポの比率が ${f1(aRate*100)}%（${apoA}/${apoTotal}件）と低めです。`,
+         "△✖アポが何で落ちているか。日程・同席・主権のどれか。");
+
+  /* 一番詰まっているフェーズ（目標との差が大きい順） */
+  const g = monthObj().phaseGoal || {};
+  const worst = PHASES.map(ph => {
+    const tgt = g[ph.key]; if (tgt == null || !L.ph.phTotal) return null;
+    const rate = L.ph[ph.key]/L.ph.phTotal*100;
+    const bad = ph.dir === "down" ? rate - tgt : tgt - rate;
+    return { ph, rate, tgt, bad };
+  }).filter(Boolean).sort((a,b) => b.bad - a.bad)[0];
+  if (worst && worst.bad > 0)
+    push("warn", `フェーズで一番目標から離れているのは「${worst.ph.label}」です（${f1(worst.rate)}% ／ 目標 ${f1(worst.tgt)}%）。`,
+         "ここを動かす施策が今月の本命。別の段階の話をしていないか確認する。");
+
+  /* 来月の目標が、書かれている歩留まりと合っているか */
+  const n = P.next;
+  if (n.t != null && n.apo != null && n.t > 0){
+    const r = n.apo/n.t*100;
+    const logR = L.t > 0 ? L.apo/L.t*100 : null;
+    if (logR != null && r > logR*1.5)
+      push("warn", `来月は 対応${f1(n.t)}件 → アポ${f1(n.apo)}件（${f1(r)}%）の計画ですが、今月の実績は ${f1(logR)}% です。`,
+           "歩留まりが1.5倍以上。何を変えるからその数字になるのかをKDIに書かせる。");
+  }
+  if (n.days != null){
+    const nextMonth = addDays(monthEndISO(state.month), 1).slice(0,7);
+    const off = offDaysOf(nextMonth);
+    if (n.days > off) push("bad", `来月の出勤予定が ${f1(n.days)}日ですが、土日祝は ${off}日しかありません。`, "日数の前提を直す。");
+    else if (off - n.days >= 2) push("warn", `来月の出勤予定は ${f1(n.days)}日（土日祝は ${off}日）です。`, "休む理由がはっきりしているか。");
+  }
+  if (n.sho != null && n.apo != null && n.apo > 0 && n.sho/n.apo > 0.5)
+    push("warn", `来月はアポ ${f1(n.apo)}件 に対して商談 ${f1(n.sho)}件（${fp(n.sho/n.apo)}）の計画です。`, "商談化率の根拠。今月の実績から離れすぎていないか。");
+
+  /* KDIが数えられる形になっているか */
+  const kdiText = (P.sec.next || "") + (P.sec.all.split(/[●○〇]\s*次?\s*ACTION/i)[1] || "");
+  if (kdiText && !/\d/.test(kdiText.replace(/\d+月/g, "")))
+    push("warn", "来月のKDIに数字が入っていません。", "「何回」「何件」まで決めないと、実行できたかを後で判定できない。");
+
+  if (!out.length) push("ok", "数字の食い違いや、目標との大きなズレは見つかりませんでした。", "文章の中身（要因分析と仕組み化）を中心に見る。");
+  return out;
+}
+
+function renderFbPoints(){
+  const el = $("#fbPoints"); if (!el) return;
+  const list = fbIssues();
+  if (!fbParsed()){ el.innerHTML = `<p class="note">振り返りを読み取ると、ここに論点が出ます。</p>`; return; }
+  el.innerHTML = list.map(x => `<div class="diagmsg ${x.lv}" style="margin-bottom:8px">
+      <b>${x.lv==="bad"?"要確認":x.lv==="warn"?"論点":"確認済"}</b>　${esc(x.t)}${x.q?`<br><span class="label-sm">聞くこと：${esc(x.q)}</span>`:""}
+    </div>`).join("");
+}
+
+/* 同じ月の、ログに日報があるメンバー全員のフェーズ構成比の平均。
+   目標が未設定のときの基準として使います。 */
+function teamPhaseAvg(month){
+  const from = month+"-01", to = monthEndISO(month);
+  const names = new Set();
+  LOG.logs.forEach(l => { const i = logDateISO(l.date); if (i >= from && i <= to) names.add(l.name); });
+  const acc = {}; PHASE_ALL.forEach(x => acc[x.key] = []);
+  names.forEach(nm => {
+    const o = {}; PHASE_ALL.forEach(x => o[x.key] = 0);
+    LOG.logs.forEach(l => {
+      if (l.name !== nm) return;
+      const i = logDateISO(l.date); if (i < from || i > to) return;
+      PHASE_ALL.forEach(x => o[x.key] += Number(l[x.key]||0));
+    });
+    const tot = PHASES.reduce((a,x) => a + o[x.key], 0);
+    const apoTot = APO_GRADES.reduce((a,x) => a + o[x.key], 0);
+    if (tot > 0) PHASES.forEach(x => acc[x.key].push(o[x.key]/tot*100));
+    if (apoTot > 0) APO_GRADES.forEach(x => acc[x.key].push(o[x.key]/apoTot*100));
+  });
+  const out = { n: names.size };
+  PHASE_ALL.forEach(x => { const v = acc[x.key]; out[x.key] = v.length ? v.reduce((a,b) => a+b, 0)/v.length : null; });
+  return out;
+}
+/* 目標が未設定のときの基準。自分の実績とチーム平均の良いほうを取り、
+   それでも現状と同じなら、現状比1割の改善を置きます（目標が現状のままだと検証できないため） */
+function benchRate(dir, own, team){
+  let v = own;
+  if (team != null && own != null) v = dir === "down" ? Math.min(own, team) : Math.max(own, team);
+  else if (own == null) v = team;
+  if (v == null) return null;
+  if (own != null && Math.abs(v - own) < 0.05) v = dir === "down" ? own*0.9 : own*1.1;
+  return Math.round(v*10)/10;
+}
+
+/* 来月の数字を、今月のログと土日祝から逆算します */
+function fbNextPlan(){
+  const L = fbLogActual();
+  const nextMonth = addDays(monthEndISO(state.month), 1).slice(0,7);
+  const days = offDaysOf(nextMonth);
+  const perDay = L.days > 0 ? L.t/L.days : 0;
+  const t = Math.round(perDay*days);
+  const g = monthObj().phaseGoal || {};
+  const T = teamPhaseAvg(state.month);
+  const ownApoRate = L.ph.phTotal > 0 ? L.ph.phApo/L.ph.phTotal*100 : (L.t > 0 ? L.apo/L.t*100 : null);
+  const ownARate   = L.ph.apoTotal > 0 ? L.ph.apoA/L.ph.apoTotal*100 : null;
+  const apoFromGoal = g.phApo != null, aFromGoal = g.apoA != null;
+  const apoRate = apoFromGoal ? Number(g.phApo) : (benchRate("up", ownApoRate, T.phApo) || 0);
+  const apo = Math.round(t*apoRate/100);
+  const aRate = aFromGoal ? Number(g.apoA) : (benchRate("up", ownARate, T.apoA) || 0);
+  const apoA = Math.round(apo*aRate/100);
+  /* 〇アポの3件で1契約、という置き方（本人の振り返りと同じ考え方） */
+  const sho = Math.round(apoA*0.8);
+  const kan = Math.round(sho/3);
+  return { month: nextMonth, days, t, perDay, apoRate, apo, aRate, apoA, sho, kan,
+           apoFromGoal, aFromGoal, ownApoRate, ownARate, team: T };
+}
+function renderFbNext(){
+  const el = $("#fbNext"); if (!el) return;
+  const n = fbNextPlan();
+  const P = fbParsed();
+  const said = P ? P.next : {};
+  const row = (label, v, unit, note, saidV) => `<tr>
+      <td>${label}<span class="label-sm">${note}</span></td>
+      <td class="num">${v==null?"–":f1(v)+unit}</td>
+      <td class="num">${saidV==null?"–":f1(saidV)+unit}</td>
+    </tr>`;
+  el.innerHTML = `<thead><tr><th>項目（${Number(n.month.slice(5,7))}月）</th><th>ログからの逆算</th><th>本人の計画</th></tr></thead><tbody>
+    ${row("出勤日数", n.days, "日", "土日祝の日数", said.days)}
+    ${row("対応数", n.t, "件", `1日 ${f1(n.perDay)}件（今月の実績）×${n.days}日`, said.t)}
+    ${row("アポ数", n.apo, "件", `対応の ${f1(n.apoRate)}%${n.apoFromGoal?"（今月の目標）":`（今月 ${f1(n.ownApoRate)}%・チーム平均 ${n.team.phApo==null?"–":f1(n.team.phApo)+"%"}）`}`, said.apo)}
+    ${row("〇アポ数", n.apoA, "件", `アポの ${f1(n.aRate)}%${n.aFromGoal?"（今月の目標）":`（今月 ${f1(n.ownARate)}%・チーム平均 ${n.team.apoA==null?"–":f1(n.team.apoA)+"%"}）`}`, said.ph ? said.ph.apoA : null)}
+    ${row("商談数", n.sho, "件", "〇アポの8割が商談になる前提", said.sho)}
+    ${row("完工数", n.kan, "件", "商談3件で1契約の前提", said.kan)}
+  </tbody>`;
+}
+
+
+/* ---------- ⑤ 操作 ---------- */
+function fbDraftText(){
+  const n = fbNextPlan();
+  const L = fbLogActual();
+  const g = monthObj().phaseGoal || {};
+  const T = teamPhaseAvg(state.month);
+  const worst = PHASES.map(ph => {
+    if (!L.ph.phTotal) return null;
+    const rate = L.ph[ph.key]/L.ph.phTotal*100;
+    const tgt = g[ph.key] != null ? Number(g[ph.key]) : benchRate(ph.dir, rate, T[ph.key]);
+    if (tgt == null) return null;
+    return { ph, rate, tgt, bad: ph.dir === "down" ? rate - tgt : tgt - rate };
+  }).filter(x => x && x.bad > 0.2).sort((a,b) => b.bad - a.bad).slice(0, 2);
+  const aRate = L.ph.apoTotal > 0 ? L.ph.apoA/L.ph.apoTotal*100 : null;
+
+  const kpi = [];
+  worst.forEach(w => kpi.push(`${w.ph.label}を ${f1(w.rate)}% → ${f1(w.tgt)}% に${w.ph.dir==="down"?"下げる":"上げる"}`));
+  if (aRate != null) kpi.push(`〇アポ比率を ${f1(aRate)}% → ${f1(n.aRate)}%（${n.apoA}件）に上げる`);
+  if (!kpi.length) kpi.push(`アポ数を ${n.apo}件（対応 ${n.t}件の ${f1(n.apoRate)}%）にする`);
+
+  const kdi = [
+    `${worst[0] ? worst[0].ph.label + "の場面でやることを1つに決め、全対応で同じ型にする" : "アポの型を1つに決めて全対応で揃える"}（毎出勤・${n.days}日）`,
+    `アポが取れた理由と、商談になった／ならなかった理由を、その日のうちに1件ずつ書き出す（毎出勤）`,
+    `〇アポの条件（同席・日程・主権）を3点とも満たした件数を数える（週ごとに集計）`
+  ];
+  return {
+    kpi: kpi.slice(0,3).map((x,i) => `${["①","②","③"][i]}${x}`).join("\n"),
+    kdi: kdi.slice(0,3).map((x,i) => `${["①","②","③"][i]}${x}`).join("\n")
+  };
+}
+
+(function wireFb(){
+  const raw = $("#fbRaw");
+  if (!raw) return;
+  raw.addEventListener("input", () => { setFb({ raw: raw.value }); $("#fbState").textContent = ""; saveMemberSoon(); });
+
+  $("#fbRead").addEventListener("click", async () => {
+    setFb({ raw: raw.value, readAt: Date.now() });
+    renderFbCompare(); renderFbPoints(); renderFbNext();
+    $("#fbState").textContent = "読み取りました";
+    try{ await saveMember(); }catch(e){}
+  });
+  $("#fbClear").addEventListener("click", () => {
+    if (!confirm("貼り付けた本文を消しますか？（KPI・KDI・FBコメントは残ります）")) return;
+    setFb({ raw:"" }); raw.value = "";
+    renderFbCompare(); renderFbPoints(); renderFbNext();
+    $("#fbState").textContent = "";
+    saveMemberSoon();
+  });
+
+  [["#fb-kpi","kpi"],["#fb-kdi","kdi"],["#fb-note","note"]].forEach(([sel, key]) => {
+    const el = $(sel); if (!el) return;
+    el.addEventListener("input", () => { setFb({ [key]: el.value }); $("#fbSaveState").textContent = ""; saveMemberSoon(); });
+  });
+
+  $("#fbDraft").addEventListener("click", () => {
+    const d = fbDraftText();
+    const kpiEl = $("#fb-kpi"), kdiEl = $("#fb-kdi");
+    if (kpiEl.value.trim() && !confirm("KPI・KDIを、たたき台で置きかえますか？")) return;
+    kpiEl.value = d.kpi; kdiEl.value = d.kdi;
+    setFb({ kpi:d.kpi, kdi:d.kdi });
+    $("#fbSaveState").textContent = "";
+    saveMemberSoon();
+  });
+
+  $("#fbSave").addEventListener("click", async () => {
+    const b = $("#fbSave"); b.disabled = true; $("#fbSaveState").textContent = "保存中…";
+    setFb({ raw: raw.value, kpi: $("#fb-kpi").value, kdi: $("#fb-kdi").value, note: $("#fb-note").value, savedAt: Date.now() });
+    try{ await saveMember(); $("#fbSaveState").textContent = "保存しました"; }
+    catch(e){ $("#fbSaveState").textContent = "保存できませんでした"; }
+    b.disabled = false;
+  });
+
+  /* 逆算した数字を、来月の目標とフェーズ目標に書き込みます */
+  $("#fbApply").addEventListener("click", async () => {
+    const n = fbNextPlan();
+    if (!confirm(`${Number(n.month.slice(5,7))}月の目標に反映します。\n出勤 ${n.days}日 ／ 対応 ${n.t}件 ／ アポ ${n.apo}件 ／ 完工 ${n.kan}件`)) return;
+    const months = Object.assign({}, state.member.months);
+    const cur = Object.assign({}, months[n.month] || {});
+    cur.days = n.days;
+    cur.target = n.kan;
+    cur.phaseGoal = Object.assign({}, cur.phaseGoal || monthObj().phaseGoal || {}, {
+      phApo: Math.round(n.apoRate*10)/10,
+      apoA:  Math.round(n.aRate*10)/10
+    });
+    months[n.month] = cur;
+    state.member.months = months;
+    $("#fbApplyState").textContent = "反映中…";
+    try{ await saveMember(); $("#fbApplyState").textContent = `${Number(n.month.slice(5,7))}月に反映しました`; }
+    catch(e){ $("#fbApplyState").textContent = "反映できませんでした"; }
+  });
+})();
+
+function normMember(m){ const o = Object.assign({base:{}, months:{}, issues:[], summary:{}, weeks:{}, fb:{}}, m||{}); o.weeks = o.weeks || {}; o.fb = o.fb || {}; o.issues = (o.issues||[]).map(normIssue); return o; }
+function renderAll(){ setMode(); fillGoalForm(); renderGoal(); renderCurNote(); renderIssues(); fillDayForm(); renderStrip(); renderReview(); updateFbTab(); renderFb(); }
 $("#monthSel").value = state.month;
 try{ const t = localStorage.getItem("sgn2_tab"); if (t) switchTab(t); }catch(e){}
 state.member = normMember(LS.get("member", null));

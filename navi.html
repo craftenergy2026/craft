@@ -378,7 +378,7 @@ table.t tr.grp td{background:var(--bg);font-size:11.5px;color:var(--muted);font-
       <div class="brand"><div class="brand-mark">営</div>
 <a href="./log.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">営業ログへ</a>
 <a href="./recruit.html" id="recruitLink" hidden style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">育成ボードへ</a>
-<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v87</span></div>
+<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v88</span></div>
       <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
       <span class="pill" id="whoPill" style="margin-right:8px"></span><span class="pill" id="modePill">接続中…</span>
       <span class="me" id="meBox"></span>
@@ -499,7 +499,9 @@ table.t tr.grp td{background:var(--bg);font-size:11.5px;color:var(--muted);font-
   <section data-sec="issue" hidden>
     <div class="sec-head">
       <h2>鬼速PDCAで課題を回す</h2>
-      <p>ゴール（KGI）とのギャップから課題を最大3つに絞り、KPI（数値）→ 解決案 → DO（行動）まで落とし込みます。日報のチェックでKPI達成率とDO実行率を検証し、調整します。</p>
+      <p>ゴール（KGI）とのギャップから課題を最大3つに絞り、KPI（数値）→ 解決案 → DO（行動）まで落とし込みます。
+        歩留まりだけでなく、フェーズの内訳（インターホン〜アポ）と〇△✖アポもKPIに選べます。
+        ここで決めた課題は、④の週次PDCAで「②の課題から取り込む」を選ぶと、その週のDOとして検証できます。</p>
     </div>
     <ol class="pdca">
       <li><b>P 計画</b>KGI → ギャップ → 課題（最大3つ）→ KPI化</li>
@@ -609,7 +611,10 @@ table.t tr.grp td{background:var(--bg);font-size:11.5px;color:var(--muted);font-
       <div class="tscroll"><table class="t" id="phaseGoalTable"></table></div>
       <p class="note" style="margin-top:8px">
         インターホン・フロント・対象確認は<b>割合が下がるほど良い</b>、ニーズ・アプ・アポと〇アポは<b>上がるほど良い</b>項目です。
-        「残りで必要」は、残りの出勤日で今月の目標件数に届かせるために必要な数字です。
+        「残りで必要」は、残りの出勤日で今月の目標件数に届かせるために必要な数字です。<br>
+        母数は日報の<b>対応数・アポ数</b>です。フェーズの内訳は2026年10月16日から必須にしたので、
+        それ以前の日報には内訳がありません。構成比は<b>内訳の入っている対応だけ</b>で計算し、
+        件数はその構成比を対応数に当てはめた推計で出しています。
       </p>
     </div>
 
@@ -964,6 +969,7 @@ function curRates(cur){
   RATES.forEach(x => { r[x.k] = cur[x.from] > 0 ? cur[x.to]/cur[x.from] : null; });
   r.dayApo = cur.days > 0 ? cur.apo/cur.days : null;
   r.tai = cur.days > 0 ? cur.t/cur.days : null;
+  r.ph = phaseSum(state.month+"-01", monthEndISO(state.month));
   r.keiRate = cur.sho > 0 ? cur.kei/cur.sho : null;   // 商談→契約
   r.kanKei = cur.kei > 0 ? cur.kan/cur.kei : null;    // 契約→完工
   return r;
@@ -1010,6 +1016,7 @@ function actuals(){
     ST.forEach(s => t[s.k] += r[s.k]||0);
     if (d.reviewed) t.logged++;
   });
+  t.ph = phaseSum(state.month+"-01", monthEndISO(state.month));
   return t;
 }
 function summarize(){
@@ -1392,6 +1399,29 @@ function renderProgress(){
 
 /* ---------- ② issues (鬼速PDCA) ---------- */
 const mkid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+const PHASES = [
+  { key:"phInter",  label:"インターホン", dir:"down" },
+  { key:"phFront",  label:"フロント",     dir:"down" },
+  { key:"phTarget", label:"対象確認",     dir:"down" },
+  { key:"phNeeds",  label:"ニーズ",       dir:"up" },
+  { key:"phApu",    label:"アプ",         dir:"up" },
+  { key:"phApo",    label:"アポ",         dir:"up" }
+];
+const APO_GRADES = [
+  { key:"apoA", label:"〇アポ", dir:"up" },
+  { key:"apoB", label:"△アポ", dir:"flat" },
+  { key:"apoC", label:"✖アポ", dir:"down" }
+];
+const PHASE_ALL = PHASES.concat(APO_GRADES);
+/* 目標との差を、項目の「良い向き」に合わせて判定します */
+function phaseJudge(dir, diff){
+  if (dir === "flat" || diff == null) return { cls:"", text:"–" };
+  const good = dir === "up" ? diff : -diff;
+  if (good >= 0)  return { cls:"ok",   text:"達成" };
+  if (good >= -2) return { cls:"warn", text:"あと少し" };
+  return { cls:"bad", text:"未達" };
+}
+
 const METRICS = {
   tai:     {nm:"1日の対応数", pct:false, unit:"件", val:a => a.logged ? a.t/a.logged : null,   cur:cr => cr.tai},
   apRate:  {nm:"対応アプ率", pct:true,  val:a => a.t   ? a.ap/a.t   : null, cur:cr => cr.apRate},
@@ -1401,6 +1431,29 @@ const METRICS = {
   kanRate: {nm:"商談完工率", pct:true,  val:a => a.sho ? a.kan/a.sho : null, cur:cr => cr.kanRate},
   other:   {nm:"その他（手入力）", pct:false, unit:""}
 };
+/* フェーズの内訳と〇△✖アポも、②の課題（KPI）として扱えるようにします。
+   構成比なので、母数はフェーズ6項目の合計（アポの質はアポ数）です。 */
+const PHASE_METRIC_KEY = ph => "p_" + ph.key;
+(function addPhaseMetrics(){
+  const entries = {};
+  PHASE_ALL.forEach(ph => {
+    const grade = APO_GRADES.indexOf(ph) >= 0;
+    const pick = src => {
+      const p = src && src.ph; if (!p) return null;
+      const den = grade ? p.apoTotal : p.phTotal;
+      return den ? p[ph.key]/den : null;
+    };
+    entries[PHASE_METRIC_KEY(ph)] = {
+      nm: ph.label + (grade ? "の比率" : "の構成比"), pct:true, dir:ph.dir, phKey:ph.key, grade,
+      val: pick, cur: pick
+    };
+  });
+  const other = METRICS.other;
+  delete METRICS.other;
+  Object.assign(METRICS, entries);
+  METRICS.other = other;
+})();
+const isPhaseMetric = k => !!(METRICS[k] && METRICS[k].phKey);
 const MARK = {"":"–", "2":"○", "1":"△", "0":"×"};
 function normIssue(x){
   x = x || {};
@@ -1418,7 +1471,7 @@ const fmtM = (m, v) => v==null ? "–" : (METRICS[m] && METRICS[m].pct ? f1(v*10
 function metricTargets(){
   const {cur} = inputs(); const cr = curRates(cur); const br = baseRates(cr); const s = simVals(cr); const hasSim = !!monthObj().sim;
   const pick = (k, bv) => hasSim ? s[k] : bv;
-  return {
+  const out = {
     cr,
     t: {
       tai: hasSim ? s.tai : (cr.tai!=null ? Math.round(cr.tai) : null),
@@ -1429,6 +1482,9 @@ function metricTargets(){
       kanRate: pick("kanRate", br.kanRate*100)
     }
   };
+  const pg = monthObj().phaseGoal || {};
+  PHASE_ALL.forEach(ph => { out.t[PHASE_METRIC_KEY(ph)] = pg[ph.key] == null ? null : Number(pg[ph.key]); });
+  return out;
 }
 function kpiOf(it, a){
   a = a || actuals();
@@ -1438,7 +1494,10 @@ function kpiOf(it, a){
   }
   const M = METRICS[it.metric]; const v = M.val(a); const tRaw = num(it.kpiTarget);
   const t = tRaw==null ? null : (M.pct ? tRaw/100 : tRaw);
-  return {actual:v, target:t, q:(t>0 && v!=null) ? v/t : null, label:fmtM(it.metric, v)};
+  let q = (t>0 && v!=null) ? v/t : null;
+  if (M.dir === "down" && t>0 && v!=null) q = v > 0 ? t/v : 2;
+  if (M.dir === "flat") q = null;
+  return {actual:v, target:t, q, label:fmtM(it.metric, v)};
 }
 function doStats(it, days){
   const ids = new Set(); const once = [];
@@ -1480,19 +1539,24 @@ function renderKgi(){
 }
 function renderGaps(){
   const {cr, t} = metricTargets();
-  const rows = ["tai","apRate","apoRate","dayApo","shoRate","kanRate"].map(k => {
+  const keys = ["tai","apRate","apoRate","dayApo","shoRate","kanRate"].concat(PHASE_ALL.map(PHASE_METRIC_KEY));
+  const rows = keys.map(k => {
     const M = METRICS[k], c = M.cur(cr), tg = t[k];
     const cv = c==null ? null : (M.pct ? c*100 : c);
-    return {k, M, cv, tg, below: cv!=null && tg!=null && cv < tg - 1e-9, q: (cv!=null && tg) ? cv/tg : null};
+    const down = M.dir === "down";
+    const flat = M.dir === "flat";
+    const miss = cv!=null && tg!=null && !flat && (down ? cv > tg + 1e-9 : cv < tg - 1e-9);
+    const q = (cv==null || !tg) ? null : (down ? (cv > 0 ? tg/cv : 2) : cv/tg);
+    return {k, M, cv, tg, below: miss, q};
   });
   const used = new Set(issues().filter(x => x.status === "実行中").map(x => x.metric));
   const list = rows.filter(r => r.below).sort((a,b) => a.q - b.q);
-  $("#gapList").innerHTML = list.length ? list.map(r => `<div class="gap"><span>${r.M.nm}<small>${f1(r.cv)}${r.M.pct?"%":r.M.unit} → ${f1(r.tg)}${r.M.pct?"%":r.M.unit}（達成度 ${Math.round(r.q*100)}%）</small></span>
+  $("#gapList").innerHTML = list.length ? list.map(r => `<div class="gap"><span>${r.M.nm}<small>${f1(r.cv)}${r.M.pct?"%":r.M.unit} → ${f1(r.tg)}${r.M.pct?"%":r.M.unit}（${r.M.dir==="down"?"下げる":"上げる"}・達成度 ${Math.round(r.q*100)}%）</small></span>
       ${used.has(r.k) ? `<span class="tag ok">課題化済み</span>` : `<button class="btn small" data-gap="${r.k}">課題にする</button>`}</div>`).join("")
     : `<p class="note">現状の数字が目標の歩留まりをすべて満たしています。対応量を増やすか、目標を上げることを検討しましょう。</p>`;
   $$("#gapList [data-gap]").forEach(b => b.addEventListener("click", () => {
     const r = rows.find(x => x.k === b.dataset.gap);
-    addIssue({metric:r.k, title:`${r.M.nm}を ${f1(r.cv)}${r.M.pct?"%":r.M.unit} → ${f1(r.tg)}${r.M.pct?"%":r.M.unit} に上げる`,
+    addIssue({metric:r.k, title:`${r.M.nm}を ${f1(r.cv)}${r.M.pct?"%":r.M.unit} → ${f1(r.tg)}${r.M.pct?"%":r.M.unit} に${r.M.dir==="down"?"下げる":"上げる"}`,
       kpiNow: Math.round(r.cv*10)/10, kpiTarget: Math.round(r.tg*10)/10});
   }));
 }
@@ -2471,20 +2535,6 @@ function offDaysOf(month){
    フェーズは「その対応がどこで終わったか」の内訳なので、
    6つの合計が対応数になります。割合は構成比で見ます。
    ══════════════════════════════════════════ */
-const PHASES = [
-  { key:"phInter",  label:"インターホン", dir:"down" },
-  { key:"phFront",  label:"フロント",     dir:"down" },
-  { key:"phTarget", label:"対象確認",     dir:"down" },
-  { key:"phNeeds",  label:"ニーズ",       dir:"up" },
-  { key:"phApu",    label:"アプ",         dir:"up" },
-  { key:"phApo",    label:"アポ",         dir:"up" }
-];
-const APO_GRADES = [
-  { key:"apoA", label:"〇アポ", dir:"up" },
-  { key:"apoB", label:"△アポ", dir:"flat" },
-  { key:"apoC", label:"✖アポ", dir:"down" }
-];
-const PHASE_ALL = PHASES.concat(APO_GRADES);
 
 function addDays(iso, n){ const d = new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n); return ymd(d); }
 function monthEndISO(m){ return ymd(new Date(Number(m.slice(0,4)), Number(m.slice(5,7)), 0)); }
@@ -2506,13 +2556,37 @@ function phaseSum(fromISO, toISO){
   return o;
 }
 
-/* 目標との差を、項目の「良い向き」に合わせて判定します */
-function phaseJudge(dir, diff){
-  if (dir === "flat" || diff == null) return { cls:"", text:"–" };
-  const good = dir === "up" ? diff : -diff;
-  if (good >= 0)  return { cls:"ok",   text:"達成" };
-  if (good >= -2) return { cls:"warn", text:"あと少し" };
-  return { cls:"bad", text:"未達" };
+/* 日報に入っている対応数・アポ数そのもの。
+   フェーズの内訳は2026年10月16日から必須にしたので、それ以前の日報には
+   対応数だけがあって内訳が空のことがあります。両方を別に数えます。 */
+function volSum(fromISO, toISO){
+  let taio = 0, apo = 0, apu = 0;
+  LOG.logs.forEach(l => {
+    if (l.name !== TARGET) return;
+    const iso = logDateISO(l.date);
+    if (!iso || iso < fromISO || iso > toISO) return;
+    taio += Number(l.taio||0); apo += Number(l.apo||0); apu += Number(l.apu||0);
+  });
+  return { taio, apo, apu };
+}
+
+const prevMonthOf = m => addDays(m+"-01", -1).slice(0,7);
+/* 前月のフェーズ構成比 */
+function prevRates(month){
+  const pm = prevMonthOf(month);
+  const a = phaseSum(pm+"-01", monthEndISO(pm));
+  const r = { _month: pm, _has: a.phTotal > 0 || a.apoTotal > 0, _ph: a };
+  PHASES.forEach(x => r[x.key] = a.phTotal > 0 ? a[x.key]/a.phTotal*100 : null);
+  APO_GRADES.forEach(x => r[x.key] = a.apoTotal > 0 ? a[x.key]/a.apoTotal*100 : null);
+  return r;
+}
+/* 前月からの動き。良い向きに動いていれば「改善」 */
+function moveJudge(dir, d){
+  if (d == null || dir === "flat") return { cls:"", text:"–" };
+  const good = dir === "up" ? d : -d;
+  if (good >= 0.5)  return { cls:"ok",   text:"改善" };
+  if (good > -0.5)  return { cls:"",     text:"横ばい" };
+  return { cls:"bad", text:"悪化" };
 }
 
 /* 月内の週（土〜金）。月にかかる週はすべて、1週間ぶんを通して見ます */
@@ -2550,48 +2624,65 @@ function monthOutlook(){
   const worked = workedDaysOf(from, to);
   const planned = Math.max(worked, num(monthObj().days) || inputs().D || worked);
   const rest = Math.max(0, planned - worked);
-  const perPh  = worked ? act.phTotal/worked  : 0;
-  const perApo = worked ? act.apoTotal/worked : 0;
-  return { act, worked, planned, rest,
-           phProj: act.phTotal + perPh*rest, apoProj: act.apoTotal + perApo*rest };
+  const vol = volSum(from, to);
+  const grow = v => worked ? v + (v/worked)*rest : v;
+  return { act, vol, worked, planned, rest,
+           /* 日報の対応数・アポ数（欠けのない数字） */
+           taio: vol.taio, apo: vol.apo,
+           taioProj: grow(vol.taio), apoProj: grow(vol.apo),
+           /* フェーズ内訳の母数（内訳が入っている対応だけ） */
+           phProj: grow(act.phTotal), gradeProj: grow(act.apoTotal),
+           coverage:    vol.taio > 0 ? act.phTotal/vol.taio : null,
+           apoCoverage: vol.apo  > 0 ? act.apoTotal/vol.apo : null };
 }
 
 /* 項目ごとの目標・現状・ギャップ。
-   目標件数は「見込みの母数 × 目標の構成比」で出し、
-   残りの出勤で必要な件数・1日あたり・残りの構成比まで落とします。 */
+   母数は日報の対応数・アポ数（欠けのない数字）を使います。
+   フェーズの内訳は2026年10月16日から必須にしたため、それ以前の日報には
+   内訳が入っていません。構成比は内訳の入っている対応だけで計算し、
+   件数はその構成比を対応数に当てはめた推計で見ます。 */
 function gapRows(){
   const o = monthOutlook();
   const g = monthObj().phaseGoal || {};
-  const mk = (ph, cnt, den, projDen) => {
+  const prev = prevRates(state.month);
+  /* den = 構成比を出すための母数（内訳の合計）、volNow = 実際の対応数／アポ数、volProj = その見込み */
+  const mk = (ph, cnt, den, volNow, volProj) => {
     const tgt  = g[ph.key] == null ? null : Number(g[ph.key]);
     const rate = den > 0 ? cnt/den*100 : null;
-    const need = tgt == null ? null : projDen*tgt/100;        /* 月間の目標件数 */
-    const restDen  = Math.max(0, projDen - den);
-    const restNeed = need == null ? null : need - cnt;         /* 残りで必要（下げる項目は許容量） */
-    const restRate = (restNeed == null || restDen <= 0) ? null : restNeed/restDen*100;
+    /* 内訳が一部の日しかなくても比べられるように、件数は構成比から推計します */
+    const est  = rate == null ? null : volNow*rate/100;
+    const proj = rate == null ? null : volProj*rate/100;
+    const need = tgt == null ? null : volProj*tgt/100;
+    const restVol  = Math.max(0, volProj - volNow);
+    const restNeed = (need == null || est == null) ? null : need - est;
+    const restRate = (restNeed == null || restVol <= 0) ? null : restNeed/restVol*100;
     const perDay   = (restNeed == null || o.rest <= 0) ? null : restNeed/o.rest;
-    const diff = (tgt == null || rate == null) ? null : rate - tgt;
-    return { ph, tgt, cnt, den, rate, need, restNeed, restRate, perDay, diff, judge:phaseJudge(ph.dir, diff) };
+    const diff  = (tgt == null || rate == null) ? null : rate - tgt;
+    const pRate = prev[ph.key];
+    const pDiff = (pRate == null || rate == null) ? null : rate - pRate;
+    return { ph, tgt, cnt, den, rate, est, proj, need, restNeed, restRate, perDay, diff,
+             pRate, pDiff, judge:phaseJudge(ph.dir, diff), move:moveJudge(ph.dir, pDiff) };
   };
-  return { o,
-    phase: PHASES.map(x => mk(x, o.act[x.key], o.act.phTotal, o.phProj)),
-    grade: APO_GRADES.map(x => mk(x, o.act[x.key], o.act.apoTotal, o.apoProj)) };
+  return { o, prev,
+    phase: PHASES.map(x => mk(x, o.act[x.key], o.act.phTotal, o.taio, o.taioProj)),
+    grade: APO_GRADES.map(x => mk(x, o.act[x.key], o.act.apoTotal, o.apo, o.apoProj)) };
 }
 
 /* 「どれだけ上げれば届くか」を一文にします */
 function gapAdvice(r, rest){
   if (r.tgt == null) return "目標（％）を入れると、残りで必要な数字が出ます";
   if (r.ph.dir === "flat") return "参考項目です";
+  if (r.restNeed == null) return "–";
   const per = r.perDay == null ? "" : `1日 ${f1(Math.abs(r.perDay))}件`;
   const sh  = r.restRate == null ? "" : `残りの構成比 ${f1(Math.max(0, r.restRate))}%`;
   const tail = [per, sh].filter(Boolean).join("・");
   if (r.ph.dir === "up"){
-    if (r.restNeed == null) return "–";
-    if (r.restNeed <= 0) return "すでに今月の目標件数に到達しています";
+    if (r.restNeed <= 0) return "すでに今月の目標件数に到達する見込みです";
+    if (r.restRate != null && r.restRate > 100)
+      return `残りの対応をすべてこの段階まで進めても、今月の目標件数（${fi(r.need)}件）には届きません。来月の目標として置き直してください`;
     return `残り${rest}日で あと ${fi(r.restNeed)}件${tail?"（"+tail+"）":""}`;
   }
-  if (r.restNeed == null) return "–";
-  if (r.restNeed <= 0) return `すでに ${fi(-r.restNeed)}件 超過。これ以上増やさないのが目標です`;
+  if (r.restNeed <= 0) return `このままだと ${fi(-r.restNeed)}件 超過。これ以上増やさないのが目標です`;
   return `残りは ${Math.floor(r.restNeed).toLocaleString("ja-JP")}件まで${tail?"（"+tail+"以下）":""}`;
 }
 
@@ -2680,49 +2771,65 @@ function renderReview(){
 
 function renderRevKgi(){
   const box = $("#revKgi"); if (!box) return;
-  const { o } = gapRows();
+  const { o, prev } = gapRows();
   const g = monthObj().phaseGoal || {};
-  const apoGoal = g.phApo == null ? null : o.phProj*Number(g.phApo)/100;
+  /* 母数は日報の対応数。フェーズ内訳の合計ではありません */
+  const apoGoal = g.phApo == null ? null : o.taioProj*Number(g.phApo)/100;
   const apoGap  = apoGoal == null ? null : Math.max(0, apoGoal - o.apoProj);
-  const aGoal   = g.apoA == null || apoGoal == null ? null : apoGoal*Number(g.apoA)/100;
-  const aProj   = o.apoProj > 0 ? o.apoProj*(o.act.apoTotal ? o.act.apoA/o.act.apoTotal : 0) : 0;
-  const aGap    = aGoal == null ? null : Math.max(0, aGoal - aProj);
+  const aNow    = o.act.apoTotal > 0 ? o.act.apoA/o.act.apoTotal : null;
+  const aGoal   = (g.apoA == null || apoGoal == null) ? null : apoGoal*Number(g.apoA)/100;
+  const aProj   = aNow == null ? null : o.apoProj*aNow;
+  const aGap    = (aGoal == null || aProj == null) ? null : Math.max(0, aGoal - aProj);
+  const pm      = Number(prev._month.slice(5,7));
+  const pApo    = prev._ph.phTotal > 0 ? prev[PHASES[5].key] : null;
 
   box.innerHTML = `<div class="kgi">
-    <div class="tile"><span class="label-sm">KGI　今月のアポ目標</span><b>${apoGoal==null?"–":fi(apoGoal)+"件"}</b><span class="note">${g.phApo==null?"アポの目標（％）が未入力":"対応見込み "+fi(o.phProj)+"件 × "+f1(g.phApo)+"%"}</span></div>
-    <div class="tile"><span class="label-sm">今のペースの見込み</span><b>${fi(o.apoProj)}件</b><span class="note">実績 ${fi(o.act.apoTotal)}件 ＋ 残り${o.rest}日ぶん</span></div>
+    <div class="tile"><span class="label-sm">KGI　今月のアポ目標</span><b>${apoGoal==null?"–":fi(apoGoal)+"件"}</b><span class="note">${g.phApo==null?"アポの目標（％）が未入力":"対応見込み "+fi(o.taioProj)+"件 × "+f1(g.phApo)+"%"}</span></div>
+    <div class="tile"><span class="label-sm">今のペースの見込み</span><b>${fi(o.apoProj)}件</b><span class="note">実績 ${fi(o.apo)}件 ＋ 残り${o.rest}日ぶん</span></div>
     <div class="tile ${apoGap==null?"":apoGap>0?"miss":"hit"}"><span class="label-sm">ギャップ</span><b>${apoGap==null?"–":apoGap>0?"−"+fi(apoGap)+"件":"0件"}</b><span class="note">${apoGap==null?"":apoGap>0?"施策で埋める差":"今のペースで届く見込み"}</span></div>
     <div class="tile"><span class="label-sm">出勤</span><b>${o.worked} / ${o.planned}日</b><span class="note">残り ${o.rest}日</span></div>
-    <div class="tile ${aGap==null?"":aGap>0?"miss":"hit"}" style="grid-column:1/-1"><span class="label-sm">〇アポ（質）の目標と見込み</span><b>${aGoal==null?"–":fi(aGoal)+"件"} ／ 見込み ${fi(aProj)}件</b><span class="note">${aGoal==null?"〇アポの目標（％）が未入力":"アポ目標 "+fi(apoGoal)+"件 × "+f1(g.apoA)+"%"+(aGap>0?"／あと "+fi(aGap)+"件":"／今のペースで届く見込み")}</span></div>
+    <div class="tile"><span class="label-sm">対応数</span><b>${fi(o.taio)}件</b><span class="note">1日 ${f1(o.worked?o.taio/o.worked:0)}件／見込み ${fi(o.taioProj)}件</span></div>
+    <div class="tile ${aGap==null?"":aGap>0?"miss":"hit"}"><span class="label-sm">〇アポ（質）</span><b>${aGoal==null?"–":fi(aGoal)+"件"} ／ 見込み ${aProj==null?"–":fi(aProj)+"件"}</b><span class="note">${aGoal==null?"〇アポの目標（％）が未入力":"今月 "+f1(aNow*100)+"%・"+pm+"月 "+(prev.apoA==null?"–":f1(prev.apoA)+"%")+(aGap>0?"／あと "+fi(aGap)+"件":"／届く見込み")}</span></div>
+    ${o.coverage != null && o.coverage < 0.95 ? `<div class="tile miss" style="grid-column:1/-1"><span class="label-sm">フェーズ内訳の入力</span><b>${fi(o.act.phTotal)} / ${fi(o.taio)}件（${f1(o.coverage*100)}%）</b><span class="note">内訳のない日が ${fi(o.taio-o.act.phTotal)}件ぶんあります。構成比は内訳のある対応だけで計算しています。</span></div>` : ""}
   </div>`;
 }
 
 function renderPhaseGoalTable(){
   const t = $("#phaseGoalTable"); if (!t) return;
   const G = gapRows();
-  /* 「施策あり」は今週ぶんだけを見ます（過去の週の施策は数えません） */
   const used = new Set(plansOf(weekStartOf(today)).map(pl => pl.key));
+  const pm = Number(G.prev._month.slice(5,7)) + "月";
 
   const line = r => `<tr>
       <td>${r.ph.label}<span class="label-sm">${r.ph.dir==="up"?"高いほど良い":r.ph.dir==="down"?"低いほど良い":"参考"}</span></td>
       <td><input type="number" class="pgi" data-pg="${r.ph.key}" min="0" max="100" step="0.1" value="${r.tgt==null?"":r.tgt}" placeholder="–"></td>
       <td class="num">${r.need==null?"–":fi(r.need)}</td>
-      <td class="num">${fi(r.cnt)}</td>
+      <td class="num">${r.est==null?fi(r.cnt):fi(r.est)}</td>
       <td class="num">${r.rate==null?"–":f1(r.rate)+"%"}</td>
-      <td class="num">${r.diff==null?"–":(r.diff>0?"+":"")+f1(r.diff)+"pt"}</td>
+      <td class="num">${r.diff==null?"–":(r.diff>0?"+":"")+f1(r.diff)+"pt"}<br><span class="tag ${r.judge.cls}">${r.judge.text}</span></td>
+      <td class="num">${r.pRate==null?"–":f1(r.pRate)+"%"}</td>
+      <td class="num">${r.pDiff==null?"–":(r.pDiff>0?"+":"")+f1(r.pDiff)+"pt"}<br><span class="tag ${r.move.cls}">${r.move.text}</span></td>
       <td class="wrap">${esc(gapAdvice(r, G.o.rest))}</td>
-      <td><span class="tag ${r.judge.cls}">${r.judge.text}</span></td>
       <td>${r.ph.dir==="flat" ? "" : used.has(r.ph.key)
             ? `<span class="tag ok">今週の施策あり</span>`
             : `<button class="btn small" data-mkplan="${r.ph.key}">今週の施策にする</button>`}</td>
     </tr>`;
 
+  const cov = G.o.coverage;
+  const covNote = (cov != null && cov < 0.98)
+    ? `<tr class="grp"><td colspan="10" style="color:var(--shu)">日報の対応 ${fi(G.o.taio)}件のうち、内訳が入っているのは ${fi(G.o.act.phTotal)}件（${f1(cov*100)}%）です。構成比はその ${fi(G.o.act.phTotal)}件での割合で、件数はそれを対応数に当てはめた推計です。</td></tr>`
+    : "";
+  const noPrev = !G.prev._has
+    ? `<tr class="grp"><td colspan="10">${pm}はフェーズの内訳がないため、前月対比は出ません。</td></tr>` : "";
+
   t.innerHTML = `<thead><tr>
-      <th>項目</th><th>目標（％）</th><th>目標（件）</th><th>実績（件）</th><th>構成比</th><th>差</th><th>残りで必要</th><th>判定</th><th></th>
+      <th>項目</th><th>目標（％）</th><th>目標（件）</th><th>実績（件）</th><th>構成比</th><th>対 目標</th>
+      <th>${pm}</th><th>対 前月</th><th>残りで必要</th><th></th>
     </tr></thead><tbody>
-    <tr class="grp"><td colspan="9">フェーズの内訳 ／ 母数は対応数 実績 ${fi(G.o.act.phTotal)}件・見込み ${fi(G.o.phProj)}件</td></tr>
+    <tr class="grp"><td colspan="10">フェーズの内訳 ／ 日報の対応 ${fi(G.o.taio)}件・今月の見込み ${fi(G.o.taioProj)}件</td></tr>
+    ${covNote}${noPrev}
     ${G.phase.map(line).join("")}
-    <tr class="grp"><td colspan="9">アポの内訳 ／ 母数はアポ数 実績 ${fi(G.o.act.apoTotal)}件・見込み ${fi(G.o.apoProj)}件</td></tr>
+    <tr class="grp"><td colspan="10">アポの内訳 ／ 日報のアポ ${fi(G.o.apo)}件・今月の見込み ${fi(G.o.apoProj)}件</td></tr>
     ${G.grade.map(line).join("")}
   </tbody>`;
 
@@ -2753,7 +2860,7 @@ function addPlanFromGap(r, G){
     return;
   }
   const g = monthObj().phaseGoal || {};
-  const apoGoal = g.phApo == null ? null : G.o.phProj*Number(g.phApo)/100;
+  const apoGoal = g.phApo == null ? null : G.o.taioProj*Number(g.phApo)/100;
   list.push(normPlan({
     key: r.ph.key,
     title: `${r.ph.label}を ${r.rate==null?"–":f1(r.rate)+"%"} → ${r.tgt==null?"–":f1(r.tgt)+"%"} に${r.ph.dir==="down"?"下げる":"上げる"}`,
@@ -2898,6 +3005,10 @@ function renderWeekCards(){
       ${planHtml}
       <div class="row" style="margin:4px 0 12px">
         <button class="btn ghost small" data-act="add-plan" ${plans.length>=PLAN_MAX?"disabled":""}>＋ 施策を追加</button>
+        <select data-pick="issue" ${plans.length>=PLAN_MAX?"disabled":""} style="width:auto">
+          <option value="">②の課題から取り込む…</option>
+          ${issues().filter(x => x.status === "実行中").map(x => `<option value="${x.id}">${esc(x.title || (METRICS[x.metric]||{}).nm || "課題")}</option>`).join("")}
+        </select>
         <span class="note">${plans.length}/${PLAN_MAX}つ${plans.length>=PLAN_MAX?"（上限です。まず今の施策を終わらせましょう）":""}</span>
       </div>
       <label class="f">今週の総括<textarea data-wf="review" maxlength="600" placeholder="土日の出勤も含めて、結果とその原因、来週変えること">${esc(saved.review||"")}</textarea></label>
@@ -2953,6 +3064,29 @@ function wireWeekCards(box){
         el.addEventListener("input", apply);
         if (f === "kpiTarget") el.addEventListener("change", () => renderWeekCards());
       }
+    });
+
+    /* ②の課題から取り込む（月のKPIを、その週のDOに落とします） */
+    const pick = $("select[data-pick=issue]", card);
+    if (pick) pick.addEventListener("change", () => {
+      const it = findIssue(pick.value); pick.value = "";
+      if (!it) return;
+      const list = plansOf(start);
+      if (list.length >= PLAN_MAX) return;
+      const M = METRICS[it.metric] || {};
+      const sol = (it.solutions || [])[0] || {};
+      list.push(normPlan({
+        key: M.phKey || "phApo",
+        title: it.title || M.nm || "",
+        kgiName: M.nm || "月間アポ件数",
+        kgiTarget: num(it.kpiTarget),
+        kpiTarget: M.phKey ? num(it.kpiTarget) : null,
+        sol: sol.text || "",
+        imp: sol.imp || "", ease: sol.ease || "",
+        dos: (sol.dos || []).map(d => ({ id:mkid("d"), text:d.text || "", done:false }))
+      }));
+      savePlans(start, list);
+      renderPhaseGoalTable(); renderWeekCards();
     });
 
     /* ボタン */
@@ -3155,7 +3289,7 @@ function renderFbCompare(){
       ${row("アポ数", P.plan.apo,  P.check.apo,  L.apo,  "件")}
       ${row("商談数", P.plan.sho,  P.check.sho,  L.sho,  "件")}
       ${row("完工数", P.plan.kan,  P.check.kan,  L.kan,  "件")}
-      <tr class="grp"><td colspan="7">フェーズの内訳</td></tr>
+      <tr class="grp"><td colspan="7">フェーズの内訳 ／ フェーズ入力済みは ${fi(L.ph.phTotal)}件（対応数 ${fi(L.t)}件のうち ${L.t?f1(L.ph.phTotal/L.t*100):"–"}%）</td></tr>
       ${FB_PH.map(([label,key]) => ph(label, key)).join("")}
       <tr class="grp"><td colspan="7">アポの内訳</td></tr>
       ${ph("〇アポ","apoA")}${ph("△アポ","apoB")}${ph("✖アポ","apoC")}
@@ -3175,6 +3309,11 @@ function fbIssues(){
          "まず日報を入れてもらう。入っていないと、申告の数字を確かめられない。");
     return out;
   }
+
+  /* フェーズが入っていないと、内訳の話が成り立ちません */
+  if (L.t > 0 && L.ph.phTotal/L.t < 0.95)
+    push("bad", `対応 ${fi(L.t)}件 のうち、フェーズが入っているのは ${fi(L.ph.phTotal)}件（${f1(L.ph.phTotal/L.t*100)}%）です。`,
+         "内訳の割合はこの件数ぶんだけの数字。まず毎日フェーズまで入れてもらう。");
 
   /* 申告とログのズレ */
   const pairs = [["出勤数", P.check.days, L.days, "日"], ["対応数", P.check.t, L.t, "件"],

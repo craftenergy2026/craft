@@ -6509,7 +6509,11 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v84</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v85</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-blue-200/40" title="ナビと数字が合わないときに、同じ接続先を見ているかを確かめるための表示です">
+            接続先 …{(String(API_URL).match(/\/s\/([^\/]+)\//) || ["", ""])[1].slice(-10)}
+            <br />日報 {logs.length}件
+          </p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">

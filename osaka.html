@@ -100,7 +100,7 @@ table.t tbody tr:hover{background:#F8FAFD}
 
 <header>
   <div class="hrow">
-    <div class="brand"><h1>大阪支店 営業ログ</h1><span id="verTxt">画面 v3</span></div>
+    <div class="brand"><h1>大阪支店 営業ログ</h1><span id="verTxt">画面 v4</span></div>
     <span class="label-sm" style="color:rgba(255,255,255,.8)">あなた</span>
     <select id="who" style="max-width:9em"></select>
     <span class="pill" id="modePill">接続中…</span>
@@ -248,7 +248,10 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwbJ3SoL1fUul01GHunDsuj
 /* 大阪支店のメンバー。Code.gs の MEMBERS と同じ並びにしてください */
 const MEMBERS = [
   "大内祐樹", "寺廻令", "瀬尾竜汰", "野瀬貴由樹", "神田拡也",
-  "松本陽仁", "岩下凛", "小坂萌依", "山口竜輝", "前田尚大"
+  "松本陽仁", "岩下凛", "小坂萌依", "山口竜輝", "前田尚大",
+  "池谷 美咲", "池田 力龍", "竿本 歩輝", "高島 葵香", "竹内 秀多朗",
+  "田村 琉生", "根来 優那", "平田 夢翔", "藤井 晴斗", "前田 晃希",
+  "宮本 美希", "三好 翔斗", "村上 綾香", "渡邊晴葵"
 ];
 
 /* 見る指標 */
@@ -764,7 +767,7 @@ function apply(d) {
   LOGS = ((d && d.logs) || []).map(normLog);
   DEALS = (d && d.deals) || [];
   TARGETS = (d && d.targets) || {};
-  if (d && d.version) $("#verTxt").textContent = "画面 v3 / " + d.version;
+  if (d && d.version) $("#verTxt").textContent = "画面 v4 / " + d.version;
 }
 
 async function boot() {

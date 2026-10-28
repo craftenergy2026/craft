@@ -378,7 +378,7 @@ table.t tr.grp td{background:var(--bg);font-size:11.5px;color:var(--muted);font-
       <div class="brand"><div class="brand-mark">営</div>
 <a href="./log.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">営業ログへ</a>
 <a href="./recruit.html" id="recruitLink" hidden style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">育成ボードへ</a>
-<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v89</span></div>
+<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v90</span></div>
       <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
       <span class="pill" id="whoPill" style="margin-right:8px"></span><span class="pill" id="modePill">接続中…</span>
       <span class="me" id="meBox"></span>
@@ -646,15 +646,8 @@ table.t tr.grp td{background:var(--bg);font-size:11.5px;color:var(--muted);font-
     </div>
 
     <div class="panel">
-      <h3>本人の申告と、営業ログの実績 <span class="label-sm">食い違いがあれば、まずそこを確認します</span></h3>
+      <h3>今月の数字 <span class="label-sm">目標・本人の申告・営業ログを並べます</span></h3>
       <div class="tscroll"><table class="t" id="fbCompare"></table></div>
-    </div>
-
-    <div class="panel">
-      <h3>営業ログの中身（日ごと） <span class="label-sm">どの日報を数えているかを、そのまま並べます</span></h3>
-      <p class="note" id="fbSource" style="margin:0 0 10px"></p>
-      <div id="fbNameWarn"></div>
-      <div class="tscroll"><table class="t" id="fbDays"></table></div>
     </div>
 
     <div class="panel">
@@ -3266,107 +3259,6 @@ function fbLogActual(){
   return { days: workedDaysOf(from, to), t:a.t, ap:a.ap, apo:a.apo, sho:a.sho, kei:a.kei, kan:a.kan, ph };
 }
 
-/* その月に、このメンバーの名前で入っている日報を日ごとに並べます */
-function logDaysOf(month){
-  const rows = [];
-  LOG.logs.forEach(l => {
-    if (l.name !== TARGET) return;
-    if (!logInMonth(l.date, month)) return;
-    const iso = logDateISO(l.date);
-    rows.push({
-      date: l.date, iso,
-      taio: Number(l.taio||0), apu: Number(l.apu||0), apo: Number(l.apo||0),
-      ph: PHASES.reduce((a,x) => a + Number(l[x.key]||0), 0),
-      grade: APO_GRADES.reduce((a,x) => a + Number(l[x.key]||0), 0),
-      items: Array.isArray(l.items) ? l.items.length : 0
-    });
-  });
-  rows.sort((a,b) => a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : 0);
-  return rows;
-}
-/* その月の日報を、名前ごとに数えます。
-   名前の表記が1文字でも違うと別の人として集計されるため、ここで見比べられるようにします。 */
-function namesInMonth(month){
-  const seen = {}, out = [];
-  let bad = 0;
-  LOG.logs.forEach(l => {
-    if (!logInMonth(l.date, month)){
-      if (!logParts(l.date)) bad++;
-      return;
-    }
-    const nm = String(l.name||"（名前なし）");
-    if (!seen[nm]) { seen[nm] = { name:nm, days:0, taio:0 }; out.push(seen[nm]); }
-    seen[nm].days++; seen[nm].taio += Number(l.taio||0);
-  });
-  out.sort((a,b) => b.taio - a.taio);
-  out.badDates = bad;
-  return out;
-}
-/* 似た名前で別に入っている日報（表記ゆれ） */
-function nameVariantsOf(month){
-  const base = String(TARGET||""); if (!base) return [];
-  const flat = base.replace(/\s/g,"");
-  return namesInMonth(month).filter(v => {
-    if (v.name === base) return false;
-    const f = v.name.replace(/\s/g,"");
-    return f.indexOf(flat) === 0 || flat.indexOf(f) === 0;
-  });
-}
-
-/* いま受け取っているデータの素性。営業ログと数字が合わないときに、
-   同じ接続先を見ているかを確かめるために出します。 */
-function renderFbSource(){
-  const el = $("#fbSource"); if (!el) return;
-  const m = String(API_URL).match(/\/s\/([^\/]+)\//);
-  const id = m ? m[1] : "";
-  const dates = LOG.logs.map(l => logDateISO(l.date)).filter(Boolean).sort();
-  const last = dates.length ? dates[dates.length-1] : null;
-  el.innerHTML = `接続先 …${esc(id.slice(-10))} ／ 受け取った日報 ${fi(LOG.logs.length)}件`
-    + (last ? ` ／ いちばん新しい日報 ${mdLabel(last)}` : "")
-    + (LOG.updatedAt ? ` ／ データの最終更新 ${esc(new Date(LOG.updatedAt).toLocaleString("ja-JP"))}` : "")
-    + `<br><span class="label-sm">営業ログの数字と合わないときは、営業ログ側の同じ表示と見比べてください。接続先が違うと、別のスプレッドシートを読んでいます。</span>`;
-}
-
-function renderFbDays(){
-  renderFbSource();
-  const el = $("#fbDays"); if (!el) return;
-  const rows = logDaysOf(state.month);
-  const warn = $("#fbNameWarn");
-  const vs = nameVariantsOf(state.month);
-  if (warn){
-    const all = namesInMonth(state.month);
-    const mine = all.find(v => v.name === TARGET);
-    const parts = [];
-    if (vs.length) parts.push(`<p class="roster-note">${vs.map(v => `「${esc(v.name)}」という名前でも日報が ${v.days}日ぶん（対応 ${fi(v.taio)}件）入っています。名前が違うと別の人として集計されるので、営業ログ側で名前をそろえてください。`).join("<br>")}</p>`);
-    if (all.badDates) parts.push(`<p class="roster-note">日付を読み取れない日報が ${all.badDates}件あります。</p>`);
-    parts.push(`<p class="note" style="margin-bottom:10px">この月の日報は全員で ${all.reduce((a,v)=>a+v.days,0)}日ぶん・対応 ${fi(all.reduce((a,v)=>a+v.taio,0))}件。
-      そのうち「${esc(TARGET||"")}」は ${mine?mine.days:0}日ぶん・対応 ${mine?fi(mine.taio):0}件です。
-      <br><span class="label-sm">名前ごと：${all.map(v => `${esc(v.name)} ${fi(v.taio)}件`).join("／")}</span></p>`);
-    warn.innerHTML = parts.join("");
-  }
-  if (!rows.length){
-    el.innerHTML = `<tbody><tr><td class="wrap">${esc(TARGET||"")} さんの名前で、この月の日報は見つかりませんでした。</td></tr></tbody>`;
-    return;
-  }
-  const sum = k => rows.reduce((a,r) => a + r[k], 0);
-  el.innerHTML = `<thead><tr>
-      <th>日付</th><th>対応</th><th>アプ</th><th>アポ</th><th>フェーズ合計</th><th>〇△✖合計</th><th>商談明細</th>
-    </tr></thead><tbody>
-      ${rows.map(r => `<tr>
-        <td>${esc(r.date)}（${dowLabel(r.iso)}）</td>
-        <td class="num">${fi(r.taio)}</td><td class="num">${fi(r.apu)}</td><td class="num">${fi(r.apo)}</td>
-        <td class="num">${r.ph === 0 ? '<span class="tag">未入力</span>' : (r.ph === r.taio ? fi(r.ph) : `<span class="tag bad">${fi(r.ph)}</span>`)}</td>
-        <td class="num">${r.grade === 0 ? "–" : (r.grade === r.apo ? fi(r.grade) : `<span class="tag bad">${fi(r.grade)}</span>`)}</td>
-        <td class="num">${r.items ? fi(r.items) : "–"}</td>
-      </tr>`).join("")}
-      <tr class="grp"><td>合計 ${rows.length}日</td>
-        <td class="num">${fi(sum("taio"))}</td><td class="num">${fi(sum("apu"))}</td><td class="num">${fi(sum("apo"))}</td>
-        <td class="num">${fi(sum("ph"))}</td><td class="num">${fi(sum("grade"))}</td><td class="num">${fi(sum("items"))}</td></tr>
-    </tbody>
-    <tfoot><tr><td colspan="7" class="wrap"><span class="label-sm">フェーズ合計が対応数と合わない日、〇△✖の合計がアポ数と合わない日は赤で出ます。
-      この表の合計が営業ログと違う場合は、日報が別の名前で入っているか、営業ログ側でまだ保存されていない日があります。</span></td></tr></tfoot>`;
-}
-
 /* ---------- 画面 ---------- */
 function updateFbTab(){
   const btn = $("#tab-fb"); if (!btn) return;
@@ -3386,7 +3278,7 @@ function renderFb(){
   $("#fb-kpi").value = f.kpi || "";
   $("#fb-kdi").value = f.kdi || "";
   $("#fb-note").value = f.note || "";
-  renderFbCompare(); renderFbDays(); renderFbPoints(); renderFbNext();
+  renderFbCompare(); renderFbPoints(); renderFbNext();
   if (state.readOnly) $$("input,textarea,button.btn", sec).forEach(el => el.disabled = true);
 }
 
@@ -3398,33 +3290,27 @@ function fbParsed(){
 function renderFbCompare(){
   const el = $("#fbCompare"); if (!el) return;
   const P = fbParsed();
-  if (!P){ el.innerHTML = `<tbody><tr><td class="wrap">振り返りを貼り付けて「読み取る」を押すと、ここに本人の申告と営業ログの実績を並べます。</td></tr></tbody>`; return; }
+  if (!P){ el.innerHTML = `<tbody><tr><td class="wrap">振り返りを貼り付けて「読み取る」を押すと、ここに今月の数字を並べます。</td></tr></tbody>`; return; }
   const L = fbLogActual();
-  const row = (label, goal, said, log, unit) => {
-    const d = (said == null || log == null) ? null : said - log;
-    const warn = d != null && Math.abs(d) > Math.max(1, Math.abs(log)*0.1);
-    return `<tr>
+  const row = (label, goal, said, log, unit) => `<tr>
       <td>${label}</td>
       <td class="num">${goal==null?"–":f1(goal)+unit}</td>
       <td class="num">${said==null?"–":f1(said)+unit}</td>
       <td class="num">${log==null?"–":f1(log)+unit}</td>
-      <td class="num">${d==null?"–":(d>0?"+":"")+f1(d)+unit}</td>
-      <td>${d==null?"":warn?'<span class="tag bad">要確認</span>':'<span class="tag ok">一致</span>'}</td>
-      <td class="num">${goal?fp(( (log==null?said:log) )/goal):"–"}</td>
+      <td class="num">${goal?fp((said==null?log:said)/goal):"–"}</td>
     </tr>`;
-  };
   const ph = (label, key) => row(label, P.plan.ph[key], P.check.ph[key], L.ph[key], "件");
   el.innerHTML = `<thead><tr>
-      <th>項目</th><th>今月の目標</th><th>本人の申告</th><th>営業ログ</th><th>差</th><th></th><th>達成率</th>
+      <th>項目</th><th>今月の目標</th><th>本人の申告</th><th>営業ログ</th><th>達成率</th>
     </tr></thead><tbody>
       ${row("出勤数", P.plan.days, P.check.days, L.days, "日")}
       ${row("対応数", P.plan.t,    P.check.t,    L.t,    "件")}
       ${row("アポ数", P.plan.apo,  P.check.apo,  L.apo,  "件")}
       ${row("商談数", P.plan.sho,  P.check.sho,  L.sho,  "件")}
       ${row("完工数", P.plan.kan,  P.check.kan,  L.kan,  "件")}
-      <tr class="grp"><td colspan="7">フェーズの内訳 ／ フェーズ入力済みは ${fi(L.ph.phTotal)}件（対応数 ${fi(L.t)}件のうち ${L.t?f1(L.ph.phTotal/L.t*100):"–"}%）</td></tr>
+      <tr class="grp"><td colspan="5">フェーズの内訳</td></tr>
       ${FB_PH.map(([label,key]) => ph(label, key)).join("")}
-      <tr class="grp"><td colspan="7">アポの内訳</td></tr>
+      <tr class="grp"><td colspan="5">アポの内訳</td></tr>
       ${ph("〇アポ","apoA")}${ph("△アポ","apoB")}${ph("✖アポ","apoC")}
     </tbody>`;
 }
@@ -3443,26 +3329,10 @@ function fbIssues(){
     return out;
   }
 
-  /* 名前の表記ゆれ。別人として集計されていると、数字が小さく出ます */
-  nameVariantsOf(state.month).forEach(v => {
-    push("bad", `「${v.name}」という名前でも日報が ${v.days}日ぶん（対応 ${fi(v.taio)}件）入っています。`,
-         "名前が違うと別の人として集計される。営業ログ側で名前をそろえる。");
-  });
-
   /* フェーズが入っていないと、内訳の話が成り立ちません */
   if (L.t > 0 && L.ph.phTotal/L.t < 0.95)
-    push("bad", `対応 ${fi(L.t)}件 のうち、フェーズが入っているのは ${fi(L.ph.phTotal)}件（${f1(L.ph.phTotal/L.t*100)}%）です。`,
-         "内訳の割合はこの件数ぶんだけの数字。まず毎日フェーズまで入れてもらう。");
-
-  /* 申告とログのズレ */
-  const pairs = [["出勤数", P.check.days, L.days, "日"], ["対応数", P.check.t, L.t, "件"],
-                 ["アポ数", P.check.apo, L.apo, "件"], ["商談数", P.check.sho, L.sho, "件"], ["完工数", P.check.kan, L.kan, "件"]];
-  pairs.forEach(([nm, said, log, u]) => {
-    if (said == null || log == null) return;
-    if (Math.abs(said - log) > Math.max(1, Math.abs(log)*0.1))
-      push("bad", `${nm}が本人の申告 ${f1(said)}${u} に対して、営業ログは ${f1(log)}${u} です。`,
-           "どちらが正しいか。ログの入力漏れなら先に直す。");
-  });
+    push("warn", `対応 ${fi(L.t)}件 のうち、フェーズが入っているのは ${fi(L.ph.phTotal)}件（${f1(L.ph.phTotal/L.t*100)}%）です。`,
+         "内訳の割合はこの件数ぶんだけの数字。毎日フェーズまで入れてもらう。");
 
   /* アポは出たのに商談にならない＝アポの質 */
   const apoA = L.ph.apoA, apoTotal = L.ph.apoTotal;
@@ -3637,14 +3507,14 @@ function fbDraftText(){
 
   $("#fbRead").addEventListener("click", async () => {
     setFb({ raw: raw.value, readAt: Date.now() });
-    renderFbCompare(); renderFbDays(); renderFbPoints(); renderFbNext();
+    renderFbCompare(); renderFbPoints(); renderFbNext();
     $("#fbState").textContent = "読み取りました";
     try{ await saveMember(); }catch(e){}
   });
   $("#fbClear").addEventListener("click", () => {
     if (!confirm("貼り付けた本文を消しますか？（KPI・KDI・FBコメントは残ります）")) return;
     setFb({ raw:"" }); raw.value = "";
-    renderFbCompare(); renderFbDays(); renderFbPoints(); renderFbNext();
+    renderFbCompare(); renderFbPoints(); renderFbNext();
     $("#fbState").textContent = "";
     saveMemberSoon();
   });

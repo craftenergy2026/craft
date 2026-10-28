@@ -378,7 +378,7 @@ table.t tr.grp td{background:var(--bg);font-size:11.5px;color:var(--muted);font-
       <div class="brand"><div class="brand-mark">営</div>
 <a href="./log.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">営業ログへ</a>
 <a href="./recruit.html" id="recruitLink" hidden style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">育成ボードへ</a>
-<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v90</span></div>
+<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v92</span></div>
       <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
       <span class="pill" id="whoPill" style="margin-right:8px"></span><span class="pill" id="modePill">接続中…</span>
       <span class="me" id="meBox"></span>
@@ -634,7 +634,7 @@ table.t tr.grp td{background:var(--bg);font-size:11.5px;color:var(--muted);font-
     </div>
 
     <div class="panel">
-      <h3>振り返りを貼り付ける <span class="label-sm">対象は上の「編集対象」と「対象月」です</span></h3>
+      <h3>振り返りを貼り付ける <span class="label-sm">本文の「名前：」からメンバーを判定します</span></h3>
       <div class="fields">
         <label class="f full" for="fbRaw">本文<textarea id="fbRaw" rows="8" maxlength="20000" placeholder="◎振り返りFMT から丸ごと貼り付けてください"></textarea></label>
       </div>
@@ -647,7 +647,17 @@ table.t tr.grp td{background:var(--bg);font-size:11.5px;color:var(--muted);font-
 
     <div class="panel">
       <h3>今月の数字 <span class="label-sm">目標・本人の申告・営業ログを並べます</span></h3>
+      <p class="note" id="fbWhoNote" style="margin:0 0 10px"></p>
       <div class="tscroll"><table class="t" id="fbCompare"></table></div>
+    </div>
+
+    <div class="panel">
+      <h3>ギャップと優先度 <span class="label-sm">歩留まりとフェーズの内訳を、達成度の低い順に並べます</span></h3>
+      <div class="tscroll"><table class="t" id="fbGapTable"></table></div>
+      <p class="note" style="margin-top:8px">
+        「上げ幅」は目標まで動かすのに必要な変化量です。達成度が低く、かつ上げ幅が現実的なものから手をつけます。
+        上げ幅が大きすぎるものは、今月の施策ではなく仕組みの作り直しとして扱ってください。
+      </p>
     </div>
 
     <div class="panel">
@@ -3259,6 +3269,103 @@ function fbLogActual(){
   return { days: workedDaysOf(from, to), t:a.t, ap:a.ap, apo:a.apo, sho:a.sho, kei:a.kei, kan:a.kan, ph };
 }
 
+/* 本文に書かれた名前を、営業ログのメンバー名に結びつけます。
+   振り返りはフルネーム（鄭天澤）、営業ログは姓だけ（鄭）のことがあるため、
+   前方一致で、いちばん長く一致する名前を選びます。 */
+function resolveMemberName(written){
+  const flat = n => String(n||"").replace(/[\s　]/g, "");
+  const w = flat(written);
+  if (!w) return "";
+  const all = Array.from(new Set(
+    (ROSTER || []).map(r => r.name).concat(LOG.logs.map(l => l.name)).filter(Boolean)
+  ));
+  const exact = all.find(n => flat(n) === w);
+  if (exact) return exact;
+  /* 本文がフルネームで、名簿が姓だけの場合 */
+  const byPrefix = all.filter(n => w.indexOf(flat(n)) === 0).sort((a,b) => flat(b).length - flat(a).length)[0];
+  if (byPrefix) return byPrefix;
+  /* 本文が姓だけで、名簿がフルネームの場合 */
+  const byRev = all.filter(n => flat(n).indexOf(w) === 0).sort((a,b) => flat(a).length - flat(b).length)[0];
+  return byRev || "";
+}
+
+/* 営業ログの実績から、①と同じ形の歩留まりを作ります */
+function fbRates(L){
+  return {
+    tai:     L.days ? L.t/L.days   : null,
+    apRate:  L.t    ? L.ap/L.t     : null,
+    apoRate: L.ap   ? L.apo/L.ap   : null,
+    dayApo:  L.days ? L.apo/L.days : null,
+    shoRate: L.apo  ? L.sho/L.apo  : null,
+    kanRate: L.sho  ? L.kan/L.sho  : null,
+    ph: L.ph
+  };
+}
+/* 歩留まり・フェーズ内訳・〇△✖を、同じものさしで並べます */
+function fbGaps(){
+  const L = fbLogActual();
+  const cr = fbRates(L);
+  const t = metricTargets().t;
+  /* 母数。少なすぎる指標は、率だけ見ても判断できません */
+  const DEN = {
+    tai:     { v:L.days,        n:3,  label:"出勤日", unit:"日" },
+    apRate:  { v:L.t,           n:30, label:"対応",   unit:"件" },
+    apoRate: { v:L.ap,          n:10, label:"アプ",   unit:"件" },
+    dayApo:  { v:L.days,        n:3,  label:"出勤日", unit:"日" },
+    shoRate: { v:L.apo,         n:10, label:"アポ",   unit:"件" },
+    kanRate: { v:L.sho,         n:5,  label:"商談",   unit:"件" }
+  };
+  PHASES.forEach(ph => DEN[PHASE_METRIC_KEY(ph)] = { v:L.ph.phTotal,  n:30, label:"内訳のある対応", unit:"件" });
+  APO_GRADES.forEach(ph => DEN[PHASE_METRIC_KEY(ph)] = { v:L.ph.apoTotal, n:10, label:"アポ", unit:"件" });
+
+  const keys = ["tai","apRate","apoRate","dayApo","shoRate","kanRate"].concat(PHASE_ALL.map(PHASE_METRIC_KEY));
+  const rows = keys.map(k => {
+    const M = METRICS[k];
+    if (!M || M.dir === "flat") return null;
+    const c = M.cur(cr);
+    const cv = c == null ? null : (M.pct ? c*100 : c);
+    const tg = t[k];
+    if (cv == null || tg == null) return null;
+    const down = M.dir === "down";
+    const q = down ? (cv > 0 ? tg/cv : 2) : (tg > 0 ? cv/tg : null);
+    const short = down ? cv - tg : tg - cv;                     /* 不足（％ポイント または 件） */
+    const lift  = cv > 0 ? Math.abs(short)/cv : null;           /* 現状に対する変化の割合 */
+    const den = DEN[k] || { v:0, n:0, label:"", unit:"件" };
+    return { k, M, cv, tg, q, short, lift, den, thin: den.v < den.n,
+             miss: short > 1e-9, unit: M.pct ? "%" : (M.unit || "") };
+  }).filter(Boolean);
+  rows.sort((a,b) => (a.thin?1:0) - (b.thin?1:0) || (a.q == null ? 9 : a.q) - (b.q == null ? 9 : b.q));
+  return rows;
+}
+/* 優先度。直す効果が大きく、かつ上げ幅が現実的なものを上に置きます */
+function fbPriority(r){
+  if (r.thin) return { cls:"", t:`判断保留（${r.den.label} ${fi(r.den.v)}${r.den.unit}）` };
+  if (!r.miss) return { cls:"ok", t:"維持" };
+  if (r.q != null && r.q >= 0.95) return { cls:"ok", t:"ほぼ達成" };
+  if (r.q != null && r.q < 0.7) return (r.lift != null && r.lift <= 0.5)
+    ? { cls:"bad",  t:"優先度 高" }
+    : { cls:"warn", t:"優先度 中（上げ幅が大きい）" };
+  return { cls:"warn", t:"優先度 中" };
+}
+/* 指標ごとの、数えられるKDIのひな形 */
+const KDI_TEMPLATE = {
+  tai:     n => `出勤日ごとに対応 ${fi(n)}件 を最低ラインにして、終業前に残件を確認する`,
+  apRate:  () => "インターホンからフロントまでの入り方を1つの型に決め、全対応で同じ入り方をする",
+  apoRate: () => "アプまで進んだ件は、必ず日程候補を2つ出してから離れる",
+  dayApo:  n => `出勤1日あたりアポ ${f1(n)}件 を目安に、夕方時点の残り本数を確認する`,
+  shoRate: () => "アポ時に、主権者の同席・日程・費用感の3点を確認し、そろった件数を数える",
+  kanRate: () => "商談後に、決まらなかった理由を1件ずつ書き出して型に戻す",
+  p_phInter:  () => "インターホンでの最初の10秒の言い方を固定し、全対応で同じにする",
+  p_phFront:  () => "フロントで切られた理由をその日のうちに書き出し、週1で言い方を直す",
+  p_phTarget: () => "対象確認の質問を2つに絞り、順番を変えずに毎回同じ順で聞く",
+  p_phNeeds:  () => "自己開示されたら、リアクション＋おうむ返し＋質問の順で返す",
+  p_phApu:    () => "ニーズが出た件は、必ず費用の話まで進めてから離れる",
+  p_phApo:    () => "アプまで進んだ件は、その場で日程を2つ出して確認する",
+  p_apoA:     () => "〇アポの条件（同席・日程・主権）を3点とも満たした件数を、その日に数える",
+  p_apoB:     () => "△アポになった件は、足りなかった条件を1つだけ書き出す",
+  p_apoC:     () => "✖アポになった理由をその日のうちに書き出し、週1でまとめる"
+};
+
 /* ---------- 画面 ---------- */
 function updateFbTab(){
   const btn = $("#tab-fb"); if (!btn) return;
@@ -3278,7 +3385,7 @@ function renderFb(){
   $("#fb-kpi").value = f.kpi || "";
   $("#fb-kdi").value = f.kdi || "";
   $("#fb-note").value = f.note || "";
-  renderFbCompare(); renderFbPoints(); renderFbNext();
+  renderFbCompare(); renderFbGapTable(); renderFbPoints(); renderFbNext();
   if (state.readOnly) $$("input,textarea,button.btn", sec).forEach(el => el.disabled = true);
 }
 
@@ -3287,7 +3394,25 @@ function fbParsed(){
   return raw ? fbParse(raw) : null;
 }
 
+function renderFbWhoNote(){
+  const el = $("#fbWhoNote"); if (!el) return;
+  const P = fbParsed();
+  if (!P || !P.name){ el.textContent = ""; return; }
+  const hit = resolveMemberName(P.name);
+  if (hit === TARGET){
+    el.innerHTML = `本文の名前「${esc(P.name)}」＝ 営業ログの「${esc(hit)}」さん。下の数字はこの方の実績です。`;
+    el.className = "note";
+  } else if (hit){
+    el.innerHTML = `本文の名前は「${esc(P.name)}」ですが、いまの編集対象は「${esc(TARGET)}」さんです。「読み取る」を押すと「${esc(hit)}」さんに切り替えます。`;
+    el.className = "roster-note";
+  } else {
+    el.innerHTML = `本文の名前「${esc(P.name)}」に合うメンバーが見つかりません。いまの編集対象「${esc(TARGET)}」さんの実績を表示しています。`;
+    el.className = "roster-note";
+  }
+}
+
 function renderFbCompare(){
+  renderFbWhoNote();
   const el = $("#fbCompare"); if (!el) return;
   const P = fbParsed();
   if (!P){ el.innerHTML = `<tbody><tr><td class="wrap">振り返りを貼り付けて「読み取る」を押すと、ここに今月の数字を並べます。</td></tr></tbody>`; return; }
@@ -3383,6 +3508,47 @@ function fbIssues(){
   return out;
 }
 
+function renderFbGapTable(){
+  const el = $("#fbGapTable"); if (!el) return;
+  const rows = fbGaps();
+  if (!rows.length){
+    el.innerHTML = `<tbody><tr><td class="wrap">①の基準値・改善プランと、④のフェーズ目標を入れると、ここにギャップが出ます。</td></tr></tbody>`;
+    return;
+  }
+  const used = new Set(issues().filter(x => x.status === "実行中").map(x => x.metric));
+  el.innerHTML = `<thead><tr>
+      <th>指標</th><th>現状</th><th>目標</th><th>不足</th><th>上げ幅</th><th>母数</th><th>達成度</th><th>優先度</th><th></th>
+    </tr></thead><tbody>
+    ${rows.map(r => {
+      const pr = fbPriority(r);
+      const dir = r.M.dir === "down" ? "下げる" : "上げる";
+      return `<tr>
+        <td>${r.M.nm}<span class="label-sm">${dir}</span></td>
+        <td class="num">${f1(r.cv)}${r.unit}</td>
+        <td class="num">${f1(r.tg)}${r.unit}</td>
+        <td class="num">${r.miss ? (r.M.pct ? f1(Math.abs(r.short))+"pt" : f1(Math.abs(r.short))+(r.unit||"")) : "–"}</td>
+        <td class="num">${r.miss && r.lift != null ? (r.M.dir==="down"?"−":"+")+Math.round(r.lift*100)+"%" : "–"}</td>
+        <td class="num">${fi(r.den.v)}${r.den.unit}</td>
+        <td class="num ${qcls(r.q)}">${qtxt(r.q)}</td>
+        <td><span class="tag ${pr.cls}">${pr.t}</span></td>
+        <td>${(!r.miss || r.thin) ? "" : used.has(r.k)
+              ? `<span class="tag ok">課題化済み</span>`
+              : `<button class="btn small" data-fbgap="${r.k}">②の課題にする</button>`}</td>
+      </tr>`;
+    }).join("")}
+  </tbody>`;
+
+  $$("button[data-fbgap]", el).forEach(btn => btn.addEventListener("click", () => {
+    const r = rows.find(x => x.k === btn.dataset.fbgap); if (!r) return;
+    const dir = r.M.dir === "down" ? "下げる" : "上げる";
+    addIssue({ metric:r.k,
+      title: `${r.M.nm}を ${f1(r.cv)}${r.unit} → ${f1(r.tg)}${r.unit} に${dir}`,
+      kpiNow: Math.round(r.cv*10)/10, kpiTarget: Math.round(r.tg*10)/10 });
+    renderFbGapTable();
+    $("#fbSaveState").textContent = "②の課題に追加しました";
+  }));
+}
+
 function renderFbPoints(){
   const el = $("#fbPoints"); if (!el) return;
   const list = fbIssues();
@@ -3472,49 +3638,82 @@ function renderFbNext(){
 /* ---------- ⑤ 操作 ---------- */
 function fbDraftText(){
   const n = fbNextPlan();
-  const L = fbLogActual();
-  const g = monthObj().phaseGoal || {};
-  const T = teamPhaseAvg(state.month);
-  const worst = PHASES.map(ph => {
-    if (!L.ph.phTotal) return null;
-    const rate = L.ph[ph.key]/L.ph.phTotal*100;
-    const tgt = g[ph.key] != null ? Number(g[ph.key]) : benchRate(ph.dir, rate, T[ph.key]);
-    if (tgt == null) return null;
-    return { ph, rate, tgt, bad: ph.dir === "down" ? rate - tgt : tgt - rate };
-  }).filter(x => x && x.bad > 0.2).sort((a,b) => b.bad - a.bad).slice(0, 2);
-  const aRate = L.ph.apoTotal > 0 ? L.ph.apoA/L.ph.apoTotal*100 : null;
+  const rows = fbGaps().filter(r => r.miss && !r.thin && !(r.q != null && r.q >= 0.95));
+  /* 優先度の高い順（達成度が低く、上げ幅が現実的なもの）に3つまで */
+  const score = r => (r.q == null ? 1 : r.q) + (r.lift != null && r.lift > 0.5 ? 0.3 : 0);
+  const top = rows.slice().sort((x,y) => score(x) - score(y)).slice(0, 3);
 
-  const kpi = [];
-  worst.forEach(w => kpi.push(`${w.ph.label}を ${f1(w.rate)}% → ${f1(w.tgt)}% に${w.ph.dir==="down"?"下げる":"上げる"}`));
-  if (aRate != null) kpi.push(`〇アポ比率を ${f1(aRate)}% → ${f1(n.aRate)}%（${n.apoA}件）に上げる`);
-  if (!kpi.length) kpi.push(`アポ数を ${n.apo}件（対応 ${n.t}件の ${f1(n.apoRate)}%）にする`);
+  const kpi = top.map(r => {
+    const dir = r.M.dir === "down" ? "下げる" : "上げる";
+    return `${r.M.nm}を ${f1(r.cv)}${r.unit} → ${f1(r.tg)}${r.unit} に${dir}`;
+  });
+  const kdi = top.map(r => {
+    const f = KDI_TEMPLATE[r.k];
+    const arg = r.k === "tai" ? r.tg : r.k === "dayApo" ? r.tg : null;
+    return (typeof f === "function" ? f(arg) : `${r.M.nm}を動かす行動を1つ決めて、毎出勤やる`);
+  });
 
-  const kdi = [
-    `${worst[0] ? worst[0].ph.label + "の場面でやることを1つに決め、全対応で同じ型にする" : "アポの型を1つに決めて全対応で揃える"}（毎出勤・${n.days}日）`,
-    `アポが取れた理由と、商談になった／ならなかった理由を、その日のうちに1件ずつ書き出す（毎出勤）`,
-    `〇アポの条件（同席・日程・主権）を3点とも満たした件数を数える（週ごとに集計）`
-  ];
-  return {
-    kpi: kpi.slice(0,3).map((x,i) => `${["①","②","③"][i]}${x}`).join("\n"),
-    kdi: kdi.slice(0,3).map((x,i) => `${["①","②","③"][i]}${x}`).join("\n")
-  };
+  /* ギャップが出ていないときは、来月の数字から置きます */
+  if (!kpi.length){
+    kpi.push(`アポ数を ${n.apo}件（対応 ${n.t}件の ${f1(n.apoRate)}%）にする`);
+    kpi.push(`〇アポを ${n.apoA}件（アポの ${f1(n.aRate)}%）にする`);
+    kdi.push(`出勤 ${n.days}日で、1日 ${f1(n.t/Math.max(1,n.days))}件の対応を切らさない`);
+    kdi.push("〇アポの条件（同席・日程・主権）を3点とも満たした件数を、その日に数える");
+  }
+  /* 実行できたかを数えられるように、KDIには必ず頻度を付けます */
+  const withFreq = x => /毎|日に|週/.test(x) ? x : x + "（毎出勤）";
+
+  const mark = (arr) => arr.slice(0,3).map((x,i) => `${["①","②","③"][i]}${x}`).join("\n");
+  return { kpi: mark(kpi), kdi: mark(kdi.map(withFreq)) };
 }
 
 (function wireFb(){
   const raw = $("#fbRaw");
   if (!raw) return;
-  raw.addEventListener("input", () => { setFb({ raw: raw.value }); $("#fbState").textContent = ""; saveMemberSoon(); });
+  let whoTimer = null;
+  raw.addEventListener("input", () => {
+    setFb({ raw: raw.value });
+    $("#fbState").textContent = "";
+    saveMemberSoon();
+    /* 貼った時点で、どのメンバーとして読むかを案内します */
+    clearTimeout(whoTimer);
+    whoTimer = setTimeout(renderFbWhoNote, 400);
+  });
 
   $("#fbRead").addEventListener("click", async () => {
-    setFb({ raw: raw.value, readAt: Date.now() });
-    renderFbCompare(); renderFbPoints(); renderFbNext();
-    $("#fbState").textContent = "読み取りました";
+    const text = raw.value;
+    const written = fbParse(text).name;
+    const hit = resolveMemberName(written);
+    const draw = () => {
+      $("#fbRaw").value = fbObj().raw || "";
+      $("#fb-kpi").value = fbObj().kpi || "";
+      $("#fb-kdi").value = fbObj().kdi || "";
+      $("#fb-note").value = fbObj().note || "";
+      const who = $("#fbWho");
+      if (who) who.textContent = TARGET ? `${TARGET} さん／${Number(state.month.slice(5,7))}月` : "";
+      renderFbCompare(); renderFbGapTable(); renderFbPoints(); renderFbNext();
+    };
+    if (hit && hit !== TARGET){
+      /* 本文の名前のメンバーに切り替えます（数字も保存先もその人のものになります） */
+      setFb({ raw:"" });                       /* いまの人に下書きを残さない */
+      await switchTarget(hit);
+      setFb({ raw: text, readAt: Date.now() });
+      draw();
+      $("#fbState").textContent = `「${hit}」さんに切り替えて読み取りました`;
+      try{ await saveMember(); }catch(e){}
+      return;
+    }
+    setFb({ raw: text, readAt: Date.now() });
+    draw();
+    $("#fbState").textContent = written && !hit
+      ? `読み取りました（本文の名前「${written}」は名簿に見つかりませんでした）`
+      : "読み取りました";
     try{ await saveMember(); }catch(e){}
   });
   $("#fbClear").addEventListener("click", () => {
     if (!confirm("貼り付けた本文を消しますか？（KPI・KDI・FBコメントは残ります）")) return;
     setFb({ raw:"" }); raw.value = "";
-    renderFbCompare(); renderFbPoints(); renderFbNext();
+    renderFbCompare(); renderFbGapTable(); renderFbPoints(); renderFbNext();
     $("#fbState").textContent = "";
     saveMemberSoon();
   });

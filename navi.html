@@ -378,7 +378,7 @@ table.t tr.grp td{background:var(--bg);font-size:11.5px;color:var(--muted);font-
       <div class="brand"><div class="brand-mark">営</div>
 <a href="./log.html" style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">営業ログへ</a>
 <a href="./recruit.html" id="recruitLink" hidden style="font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:99px">育成ボードへ</a>
-<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v92</span></div>
+<a href="./index.html" style="font-size:12px;color:var(--muted);text-decoration:none;margin-right:12px">メニュー</a><h1>営業目標ナビ</h1><span style="font-size:11px;color:var(--muted);margin-left:8px">画面 v93</span></div>
       <label class="unit" for="monthSel"><span>対象月</span><input type="month" id="monthSel" style="width:auto"></label>
       <span class="pill" id="whoPill" style="margin-right:8px"></span><span class="pill" id="modePill">接続中…</span>
       <span class="me" id="meBox"></span>
@@ -666,12 +666,37 @@ table.t tr.grp td{background:var(--bg);font-size:11.5px;color:var(--muted);font-
     </div>
 
     <div class="panel">
-      <h3>来月の数字（逆算のたたき台） <span class="label-sm">出勤日数は土日祝から、あとは歩留まりから計算します</span></h3>
+      <h3>今月の着地見込み <span class="label-sm">現状の歩留まりのままだと、どこまで届くか</span></h3>
+      <div id="fbLanding"></div>
+    </div>
+
+    <div class="panel">
+      <h3>どこをどれだけ上げれば届くか <span class="label-sm">その指標ひとつだけで目標完工数に到達する場合</span></h3>
+      <div class="tscroll"><table class="t" id="fbLever"></table></div>
+      <p class="note" style="margin-top:8px">
+        「改善インパクト」は、その指標を①の基準値まで戻したときに増える完工数です。インパクトが大きく、上げ幅が現実的なものから手をつけます。
+      </p>
+    </div>
+
+    <div class="panel">
+      <h3>来月の目標 <span class="label-sm">完工目標から逆算して、本人の計画と見比べます</span></h3>
+      <div class="fields three" style="margin-bottom:14px">
+        <label class="f" for="fb-kan">完工目標<span class="unit"><input type="number" id="fb-kan" min="0" step="1"><span>件</span></span></label>
+        <label class="f" for="fb-days">出勤日数<span class="unit"><input type="number" id="fb-days" min="1" max="31" step="1"><span>日</span></span>
+          <span class="note" id="fbDaysHint" style="margin-top:4px"></span></label>
+        <label class="f" for="fb-basis">逆算に使う歩留まり
+          <select id="fb-basis">
+            <option value="cur">今月の実績そのまま</option>
+            <option value="base">①の基準値まで改善した場合</option>
+          </select></label>
+      </div>
       <div class="tscroll"><table class="t" id="fbNext"></table></div>
+      <div id="fbVerdict" style="margin-top:12px"></div>
       <div class="row" style="margin-top:12px">
         <button class="btn" id="fbApply">来月の目標に反映する</button>
         <span class="save-state" id="fbApplyState"></span>
       </div>
+      <p class="note" style="margin-top:8px">反映すると、来月の「出勤予定日数・目標完工数・改善プラン（1日の対応数と歩留まり）・フェーズ目標」に書き込みます。③の1日の目標も、この数字で出るようになります。</p>
     </div>
 
     <div class="panel">
@@ -3385,7 +3410,7 @@ function renderFb(){
   $("#fb-kpi").value = f.kpi || "";
   $("#fb-kdi").value = f.kdi || "";
   $("#fb-note").value = f.note || "";
-  renderFbCompare(); renderFbGapTable(); renderFbPoints(); renderFbNext();
+  renderFbCompare(); renderFbGapTable(); renderFbPoints(); renderFbLanding(); renderFbLever(); renderFbNext();
   if (state.readOnly) $$("input,textarea,button.btn", sec).forEach(el => el.disabled = true);
 }
 
@@ -3592,48 +3617,194 @@ function benchRate(dir, own, team){
   return Math.round(v*10)/10;
 }
 
-/* 来月の数字を、今月のログと土日祝から逆算します */
-function fbNextPlan(){
-  const L = fbLogActual();
-  const nextMonth = addDays(monthEndISO(state.month), 1).slice(0,7);
-  const days = offDaysOf(nextMonth);
-  const perDay = L.days > 0 ? L.t/L.days : 0;
-  const t = Math.round(perDay*days);
-  const g = monthObj().phaseGoal || {};
-  const T = teamPhaseAvg(state.month);
-  const ownApoRate = L.ph.phTotal > 0 ? L.ph.phApo/L.ph.phTotal*100 : (L.t > 0 ? L.apo/L.t*100 : null);
-  const ownARate   = L.ph.apoTotal > 0 ? L.ph.apoA/L.ph.apoTotal*100 : null;
-  const apoFromGoal = g.phApo != null, aFromGoal = g.apoA != null;
-  const apoRate = apoFromGoal ? Number(g.phApo) : (benchRate("up", ownApoRate, T.phApo) || 0);
-  const apo = Math.round(t*apoRate/100);
-  const aRate = aFromGoal ? Number(g.apoA) : (benchRate("up", ownARate, T.apoA) || 0);
-  const apoA = Math.round(apo*aRate/100);
-  /* 〇アポの3件で1契約、という置き方（本人の振り返りと同じ考え方） */
-  const sho = Math.round(apoA*0.8);
-  const kan = Math.round(sho/3);
-  return { month: nextMonth, days, t, perDay, apoRate, apo, aRate, apoA, sho, kan,
-           apoFromGoal, aFromGoal, ownApoRate, ownARate, team: T };
+/* ---------- ⑤ 完工数からの逆算 ---------- */
+/* 営業ログの実績・①の基準値・目標完工数をまとめて取り出します */
+function fbPlanCtx(){
+  const L  = fbLogActual();
+  const cr = fbRates(L);
+  const br = baseRates(cr);
+  const mo = monthObj();
+  const W  = num(mo.target);
+  const D  = num(mo.days) || offDaysOf(state.month);
+  const through = r => (r.apRate||0)*(r.apoRate||0)*(r.shoRate||0)*(r.kanRate||0);
+  const projected = cr.tai == null ? null : cr.tai*D*through(cr);
+  return { L, cr, br, W, D, through, projected };
 }
-function renderFbNext(){
-  const el = $("#fbNext"); if (!el) return;
-  const n = fbNextPlan();
-  const P = fbParsed();
-  const said = P ? P.next : {};
-  const row = (label, v, unit, note, saidV) => `<tr>
-      <td>${label}<span class="label-sm">${note}</span></td>
-      <td class="num">${v==null?"–":f1(v)+unit}</td>
-      <td class="num">${saidV==null?"–":f1(saidV)+unit}</td>
-    </tr>`;
-  el.innerHTML = `<thead><tr><th>項目（${Number(n.month.slice(5,7))}月）</th><th>ログからの逆算</th><th>本人の計画</th></tr></thead><tbody>
-    ${row("出勤日数", n.days, "日", "土日祝の日数", said.days)}
-    ${row("対応数", n.t, "件", `1日 ${f1(n.perDay)}件（今月の実績）×${n.days}日`, said.t)}
-    ${row("アポ数", n.apo, "件", `対応の ${f1(n.apoRate)}%${n.apoFromGoal?"（今月の目標）":`（今月 ${f1(n.ownApoRate)}%・チーム平均 ${n.team.phApo==null?"–":f1(n.team.phApo)+"%"}）`}`, said.apo)}
-    ${row("〇アポ数", n.apoA, "件", `アポの ${f1(n.aRate)}%${n.aFromGoal?"（今月の目標）":`（今月 ${f1(n.ownARate)}%・チーム平均 ${n.team.apoA==null?"–":f1(n.team.apoA)+"%"}）`}`, said.ph ? said.ph.apoA : null)}
-    ${row("商談数", n.sho, "件", "〇アポの8割が商談になる前提", said.sho)}
-    ${row("完工数", n.kan, "件", "商談3件で1契約の前提", said.kan)}
+
+function renderFbLanding(){
+  const el = $("#fbLanding"); if (!el) return;
+  const { L, cr, br, W, D, through, projected } = fbPlanCtx();
+  if (!W || projected == null){
+    el.innerHTML = `<p class="note">①で「目標完工数」と「出勤予定日数」を入れると、着地見込みが出ます。</p>`;
+    return;
+  }
+  const behind = W - projected;
+  const need = chain(W, cr, cr.kanKei);
+  const restDays = Math.max(0, Math.round(D) - L.days);
+  const restT = (need.t == null) ? null : Math.max(0, Math.ceil(need.t) - L.t);
+  const projBase = cr.tai*D*through(br);
+
+  el.innerHTML = `<div class="kgi">
+    <div class="tile"><span class="label-sm">KGI　目標完工数</span><b>${fi(W)}件</b><span class="note">出勤予定 ${D}日</span></div>
+    <div class="tile"><span class="label-sm">今の歩留まりでの着地</span><b>${f1(projected)}件</b><span class="note">1日 ${f1(cr.tai)}件 × ${D}日 × 通し率 ${fp(through(cr))}</span></div>
+    <div class="tile ${behind>0?"miss":"hit"}"><span class="label-sm">ビハインド</span><b>${behind>0?"−"+f1(behind)+"件":"0件"}</b><span class="note">達成率 ${fp(projected/W)}</span></div>
+    <div class="tile"><span class="label-sm">基準値まで戻した場合</span><b>${f1(projBase)}件</b><span class="note">${projBase>=W?"この歩留まりなら届きます":"基準値でも "+f1(W-projBase)+"件 足りません"}</span></div>
+    <div class="tile" style="grid-column:1/-1"><span class="label-sm">現状の歩留まりで ${fi(W)}件 に必要な対応数</span>
+      <b>${need.t==null?"–":fi(need.t)+"件"}</b>
+      <span class="note">${need.t==null?"歩留まりに0の段階があるため計算できません"
+        : `月を通して1日 ${fi(need.t/D)}件（今 ${f1(cr.tai)}件）。すでに ${L.days}日で ${fi(L.t)}件なので、残り${restDays}日で あと ${fi(restT)}件${restDays>0?`（1日 ${fi(restT/restDays)}件）`:""}`}</span></div>
+  </div>`;
+}
+
+/* その指標ひとつで目標に届かせる場合の必要値と、基準値まで戻したときの改善インパクト */
+function renderFbLever(){
+  const el = $("#fbLever"); if (!el) return;
+  const { cr, br, W, D, through, projected } = fbPlanCtx();
+  if (!W || projected == null){
+    el.innerHTML = `<tbody><tr><td class="wrap">①で「目標完工数」と「出勤予定日数」を入れると出ます。</td></tr></tbody>`;
+    return;
+  }
+  const k = projected > 0 ? W/projected : null;
+  const levers = [
+    { nm:"1日の対応数", key:"tai",     cur:cr.tai,     b:null,                                   pct:false },
+    { nm:"対応アプ率", key:"apRate",  cur:cr.apRate,  b:br.set && br.set.apRate ? br.apRate : null,  pct:true },
+    { nm:"アプアポ率", key:"apoRate", cur:cr.apoRate, b:br.set && br.set.apoRate ? br.apoRate : null, pct:true },
+    { nm:"商談アポ率", key:"shoRate", cur:cr.shoRate, b:br.shoRate, pct:true },
+    { nm:"商談完工率", key:"kanRate", cur:cr.kanRate, b:br.kanRate, pct:true }
+  ];
+  /* 改善インパクト：その指標だけを基準値に戻したときの完工増 */
+  levers.forEach(l => {
+    l.impact = (l.b != null && l.cur > 0 && l.b > l.cur) ? projected*(l.b/l.cur) - projected : null;
+  });
+  const best = levers.filter(l => l.impact != null).sort((a,b) => b.impact - a.impact)[0];
+
+  if (k == null){
+    el.innerHTML = `<tbody><tr><td class="wrap">歩留まりに0の段階があるため計算できません。</td></tr></tbody>`;
+    return;
+  }
+  if (k <= 1){
+    el.innerHTML = `<tbody><tr><td class="wrap">今の歩留まりのままで目標に届く見込みです（着地 ${f1(projected)}件）。目標を上げることも検討してください。</td></tr></tbody>`;
+    return;
+  }
+  el.innerHTML = `<thead><tr>
+      <th>上げる指標（これ1つだけで達成する場合）</th><th>現状</th><th>必要</th><th>上げ幅</th>
+      <th>基準値</th><th>改善インパクト</th><th>判定</th>
+    </tr></thead><tbody>
+    ${levers.map(l => {
+      const nv = l.cur == null ? null : l.cur*k;
+      let tag = "現実的", cls = "ok";
+      if (nv == null){ tag = "–"; cls = ""; }
+      else if (l.pct && nv > 1){ tag = "不可能（100%超）"; cls = "bad"; }
+      else if (l.b && nv > l.b*1.25){ tag = "基準を大きく超える"; cls = "bad"; }
+      else if (k > 1.5){ tag = "大幅な改善が必要"; cls = "warn"; }
+      const d = (nv == null) ? null : nv - l.cur;
+      const show = v => v == null ? "–" : (l.pct ? fp(v) : f1(v)+"件");
+      return `<tr class="${best === l ? "best" : ""}">
+        <td>${l.nm}${best===l?'<span class="label-sm">いちばん効く</span>':""}</td>
+        <td class="num">${show(l.cur)}</td>
+        <td class="num"><b>${show(nv)}</b></td>
+        <td class="num">${d==null?"–":"+"+(l.pct?f1(d*100)+"pt":f1(d)+"件")}（×${f1(k)}）</td>
+        <td class="num">${l.b==null?"未設定":show(l.b)}</td>
+        <td class="num">${l.impact==null?"–":"+"+f1(l.impact)+"件"}</td>
+        <td><span class="tag ${cls}">${tag}</span></td>
+      </tr>`;
+    }).join("")}
   </tbody>`;
 }
 
+/* ---------- 来月の目標 ---------- */
+function fbNextMonth(){ return addDays(monthEndISO(state.month), 1).slice(0,7); }
+/* 完工目標・出勤日数・逆算に使う歩留まり。未入力なら既定値を出します */
+function fbNextInput(){
+  const f = fbObj();
+  const P = fbParsed();
+  const said = P ? P.next : {};
+  const { W } = fbPlanCtx();
+  const kan  = f.nextKan  != null ? Number(f.nextKan)  : (said.kan != null ? said.kan : (W || null));
+  const days = f.nextDays != null ? Number(f.nextDays) : offDaysOf(fbNextMonth());
+  const basis = f.basis || "cur";
+  return { kan, days, basis, said };
+}
+function fbNextPlan(){
+  const { cr, br, through } = fbPlanCtx();
+  const { kan, days, basis, said } = fbNextInput();
+  const r = basis === "base" ? br : cr;
+  const need = (kan && kan > 0) ? chain(kan, r, cr.kanKei) : { kan:null, sho:null, apo:null, ap:null, t:null };
+  /* 本人の計画どおり動いた場合の完工見込み（歩留まりは今月の実績） */
+  const byPlan = said.t != null ? said.t*through(cr) : null;
+  const L = fbLogActual();
+  const apoA = (need.apo != null && L.ph.apoTotal > 0) ? need.apo*(L.ph.apoA/L.ph.apoTotal) : null;
+  return { month: fbNextMonth(), kan, days, basis, r, need, byPlan, said, apoA, cr, br };
+}
+
+function renderFbNext(){
+  const el = $("#fbNext"); if (!el) return;
+  const n = fbNextPlan();
+  const inK = $("#fb-kan"), inD = $("#fb-days"), inB = $("#fb-basis");
+  if (inK && document.activeElement !== inK) inK.value = n.kan == null ? "" : n.kan;
+  if (inD && document.activeElement !== inD) inD.value = n.days;
+  if (inB) inB.value = n.basis;
+  const hint = $("#fbDaysHint");
+  if (hint){
+    const off = offDaysOf(n.month);
+    hint.textContent = n.days === off ? `${Number(n.month.slice(5,7))}月の土日祝は ${off}日です。` : `土日祝は ${off}日です（欠勤ぶんを引いた日数を入れてください）。`;
+  }
+  if (n.need.t == null){
+    el.innerHTML = `<tbody><tr><td class="wrap">完工目標を入れて、歩留まりに0の段階がなければ、必要数が出ます。</td></tr></tbody>`;
+    renderFbVerdict(n);
+    return;
+  }
+  const per = v => v == null || !n.days ? "–" : f1(v/n.days);
+  const row = (label, need, said, perDay) => {
+    const gap = (need == null || said == null) ? null : said - need;
+    const ok = gap != null && gap >= 0;
+    return `<tr>
+      <td>${label}</td>
+      <td class="num"><b>${need==null?"–":fi(need)}</b></td>
+      <td class="num">${perDay}</td>
+      <td class="num">${said==null?"–":fi(said)}</td>
+      <td class="num">${gap==null?"–":(gap>0?"+":"")+f1(gap)}</td>
+      <td>${gap==null?"":`<span class="tag ${ok?"ok":"bad"}">${ok?"足りている":"足りない"}</span>`}</td>
+    </tr>`;
+  };
+  el.innerHTML = `<thead><tr>
+      <th>項目（${Number(n.month.slice(5,7))}月）</th><th>必要数</th><th>1日あたり</th><th>本人の計画</th><th>差</th><th></th>
+    </tr></thead><tbody>
+    <tr class="grp"><td colspan="6">完工 ${fi(n.kan)}件 を、${n.basis==="base"?"①の基準値":"今月の実績"}の歩留まりで通した場合（出勤 ${n.days}日）</td></tr>
+    ${row("対応数", n.need.t,   n.said.t,   per(n.need.t))}
+    ${row("アプ数", n.need.ap,  null,       per(n.need.ap))}
+    ${row("アポ数", n.need.apo, n.said.apo, per(n.need.apo))}
+    ${n.apoA != null ? row("〇アポ数", Math.round(n.apoA), n.said.ph ? n.said.ph.apoA : null, per(n.apoA)) : ""}
+    ${row("商談数", n.need.sho, n.said.sho, per(n.need.sho))}
+    ${row("完工数", n.kan,      n.said.kan, per(n.kan))}
+    <tr class="grp"><td colspan="6">出勤日数：必要 ${n.days}日 ／ 本人の計画 ${n.said.days==null?"–":fi(n.said.days)+"日"}</td></tr>
+  </tbody>`;
+  renderFbVerdict(n);
+}
+
+/* 本人の計画が現実的かどうかを、一文で出します */
+function renderFbVerdict(n){
+  const el = $("#fbVerdict"); if (!el) return;
+  const msgs = [];
+  if (n.said.t != null && n.need.t != null){
+    const gap = n.said.t - n.need.t;
+    msgs.push(gap >= 0
+      ? { cls:"ok", t:`本人の計画（対応 ${fi(n.said.t)}件）は、完工 ${fi(n.kan)}件 に必要な ${fi(n.need.t)}件 を満たしています。` }
+      : { cls:"bad", t:`本人の計画（対応 ${fi(n.said.t)}件）では、完工 ${fi(n.kan)}件 に ${fi(-gap)}件 足りません（必要 ${fi(n.need.t)}件・1日 ${f1(n.need.t/n.days)}件）。` });
+  }
+  if (n.byPlan != null && n.said.kan != null){
+    const d = n.byPlan - n.said.kan;
+    msgs.push(Math.abs(d) < 0.5
+      ? { cls:"ok", t:`本人の計画どおりに動けば、今の歩留まりで完工 ${f1(n.byPlan)}件。目標 ${fi(n.said.kan)}件 と合っています。` }
+      : d < 0
+        ? { cls:"bad", t:`本人の計画（対応 ${fi(n.said.t)}件）を今の歩留まりで通すと完工は ${f1(n.byPlan)}件。本人の完工目標 ${fi(n.said.kan)}件 には ${f1(-d)}件 足りません。歩留まりを上げるか、対応量を増やすかを決めてもらってください。` }
+        : { cls:"warn", t:`本人の計画を今の歩留まりで通すと完工は ${f1(n.byPlan)}件で、本人の完工目標 ${fi(n.said.kan)}件 を上回ります。目標が低く置かれていないか確認してください。` });
+  }
+  if (n.said.days != null && n.said.days > n.days)
+    msgs.push({ cls:"bad", t:`本人の出勤予定 ${fi(n.said.days)}日 は、${Number(n.month.slice(5,7))}月の土日祝 ${offDaysOf(n.month)}日 を超えています。` });
+  if (!msgs.length) msgs.push({ cls:"", t:"本文に来月の目標が書かれていないため、妥当性は判定できません。" });
+  el.innerHTML = msgs.map(m => `<div class="diagmsg ${m.cls}" style="margin-bottom:8px">${esc(m.t)}</div>`).join("");
+}
 
 /* ---------- ⑤ 操作 ---------- */
 function fbDraftText(){
@@ -3653,12 +3824,15 @@ function fbDraftText(){
     return (typeof f === "function" ? f(arg) : `${r.M.nm}を動かす行動を1つ決めて、毎出勤やる`);
   });
 
-  /* ギャップが出ていないときは、来月の数字から置きます */
-  if (!kpi.length){
-    kpi.push(`アポ数を ${n.apo}件（対応 ${n.t}件の ${f1(n.apoRate)}%）にする`);
-    kpi.push(`〇アポを ${n.apoA}件（アポの ${f1(n.aRate)}%）にする`);
-    kdi.push(`出勤 ${n.days}日で、1日 ${f1(n.t/Math.max(1,n.days))}件の対応を切らさない`);
+  /* ギャップが出ていないときは、来月の逆算から置きます */
+  if (!kpi.length && n.need && n.need.t != null){
+    kpi.push(`アポ数を ${fi(n.need.apo)}件（対応 ${fi(n.need.t)}件）にする`);
+    if (n.apoA != null) kpi.push(`〇アポを ${fi(n.apoA)}件にする`);
+    kdi.push(`出勤 ${n.days}日で、1日 ${f1(n.need.t/n.days)}件の対応を切らさない`);
     kdi.push("〇アポの条件（同席・日程・主権）を3点とも満たした件数を、その日に数える");
+  } else if (!kpi.length){
+    kpi.push("①の基準値と④のフェーズ目標を入れると、ここに目標が出ます");
+    kdi.push("まず①の基準値と、来月の完工目標を決める");
   }
   /* 実行できたかを数えられるように、KDIには必ず頻度を付けます */
   const withFreq = x => /毎|日に|週/.test(x) ? x : x + "（毎出勤）";
@@ -3691,7 +3865,7 @@ function fbDraftText(){
       $("#fb-note").value = fbObj().note || "";
       const who = $("#fbWho");
       if (who) who.textContent = TARGET ? `${TARGET} さん／${Number(state.month.slice(5,7))}月` : "";
-      renderFbCompare(); renderFbGapTable(); renderFbPoints(); renderFbNext();
+      renderFbCompare(); renderFbGapTable(); renderFbPoints(); renderFbLanding(); renderFbLever(); renderFbNext();
     };
     if (hit && hit !== TARGET){
       /* 本文の名前のメンバーに切り替えます（数字も保存先もその人のものになります） */
@@ -3713,7 +3887,7 @@ function fbDraftText(){
   $("#fbClear").addEventListener("click", () => {
     if (!confirm("貼り付けた本文を消しますか？（KPI・KDI・FBコメントは残ります）")) return;
     setFb({ raw:"" }); raw.value = "";
-    renderFbCompare(); renderFbGapTable(); renderFbPoints(); renderFbNext();
+    renderFbCompare(); renderFbGapTable(); renderFbPoints(); renderFbLanding(); renderFbLever(); renderFbNext();
     $("#fbState").textContent = "";
     saveMemberSoon();
   });
@@ -3741,22 +3915,39 @@ function fbDraftText(){
     b.disabled = false;
   });
 
-  /* 逆算した数字を、来月の目標とフェーズ目標に書き込みます */
+  /* 来月の完工目標・出勤日数・逆算に使う歩留まり */
+  $("#fb-kan").addEventListener("input", e => { setFb({ nextKan: num(e.target.value) }); renderFbNext(); saveMemberSoon(); });
+  $("#fb-days").addEventListener("input", e => { setFb({ nextDays: num(e.target.value) }); renderFbNext(); saveMemberSoon(); });
+  $("#fb-basis").addEventListener("change", e => { setFb({ basis: e.target.value }); renderFbNext(); saveMemberSoon(); });
+
+  /* 逆算した数字を、来月の目標・改善プラン・フェーズ目標に書き込みます */
   $("#fbApply").addEventListener("click", async () => {
     const n = fbNextPlan();
-    if (!confirm(`${Number(n.month.slice(5,7))}月の目標に反映します。\n出勤 ${n.days}日 ／ 対応 ${n.t}件 ／ アポ ${n.apo}件 ／ 完工 ${n.kan}件`)) return;
+    if (!n.kan || n.need.t == null){
+      $("#fbApplyState").textContent = "完工目標を入れてください";
+      return;
+    }
+    const mName = Number(n.month.slice(5,7)) + "月";
+    if (!confirm(`${mName}の目標に反映します。\n出勤 ${n.days}日 ／ 完工 ${fi(n.kan)}件 ／ 1日の対応 ${f1(n.need.t/n.days)}件 ／ 1日のアポ ${f1(n.need.apo/n.days)}件`)) return;
     const months = Object.assign({}, state.member.months);
     const cur = Object.assign({}, months[n.month] || {});
     cur.days = n.days;
-    cur.target = n.kan;
-    cur.phaseGoal = Object.assign({}, cur.phaseGoal || monthObj().phaseGoal || {}, {
-      phApo: Math.round(n.apoRate*10)/10,
-      apoA:  Math.round(n.aRate*10)/10
-    });
+    cur.target = Math.round(n.kan);
+    /* 改善プラン＝③「1日の目標」の推奨ペースのもとになります */
+    cur.sim = {
+      tai:     Math.round(n.need.t/n.days*10)/10,
+      apRate:  Math.round((n.r.apRate||0)*1000)/10,
+      apoRate: Math.round((n.r.apoRate||0)*1000)/10,
+      shoRate: Math.round((n.r.shoRate||0)*1000)/10,
+      kanRate: Math.round((n.r.kanRate||0)*1000)/10
+    };
+    /* フェーズ目標は、今月のフェーズ目標を引き継ぎます */
+    const pg = monthObj().phaseGoal;
+    if (pg) cur.phaseGoal = Object.assign({}, cur.phaseGoal || {}, pg);
     months[n.month] = cur;
     state.member.months = months;
     $("#fbApplyState").textContent = "反映中…";
-    try{ await saveMember(); $("#fbApplyState").textContent = `${Number(n.month.slice(5,7))}月に反映しました`; }
+    try{ await saveMember(); $("#fbApplyState").textContent = `${mName}に反映しました（③の1日の目標にも出ます）`; }
     catch(e){ $("#fbApplyState").textContent = "反映できませんでした"; }
   });
 })();

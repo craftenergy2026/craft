@@ -6593,50 +6593,226 @@ function WeeklyReport({ stats, targets, goal, month, setMonth, branch, setBranch
 
 /* ══════════════════════════════════════════
    幹部会議アジェンダ（森野のみ）
-   実績は営業ログから自動で入り、議論の中身は手で書いて保存します。
+   毎週月曜に開くと、前回の内容と今の数字から下書きが入ります。
+   項目は会議ごとに足したり消したりできます。
    ══════════════════════════════════════════ */
 const AGENDA_MEMBERS = "橋本・斉藤・熊澤・森野・山崎";
-const AGENDA_SECTIONS = [
-  { k: "prev",  n: "1. 前回のアクション進捗確認（5分）", ph: "* 新人のロープレ実施状況（鄭・石・藤代など）\n   * ステータス：" },
-  { k: "issue", n: "現状のボトルネック分析 & 対策", ph: "* 課題①\n* 対策①\n* 課題②\n* 対策②" },
-  { k: "ope",   n: "3. オペレーション（10分）", ph: "* ハウスキャパシティと追加手配の状況\n   * 今週出勤予定" },
-  { k: "team",  n: "4. 支店の一体感の立て直し（10分）", ph: "* チーム制導入の進捗確認\n* 結果確認：" },
-  { k: "rate",  n: "5. 商談数・アポ率低下の原因分析と改善施策（10分）", ph: "* 商談アポ率（目標25%）の底上げ施策\n* 【相談事項】" },
-  { k: "next",  n: "6. 次回アクションアイテムの決定（5分）", ph: "* " }
-];
+const AGENDA_KEY = (iso) => `craft-agenda-${iso}`;
+const agendaUid = () => "s" + Math.random().toString(36).slice(2, 8);
+
+/* その日より前で、いちばん新しいアジェンダを探します */
+function lastAgendaBefore(iso) {
+  let best = null;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || k.indexOf("craft-agenda-") !== 0) continue;
+      const d = k.slice("craft-agenda-".length);
+      if (d >= iso) continue;
+      if (!best || d > best.date) {
+        const v = JSON.parse(localStorage.getItem(k) || "{}");
+        best = { date: d, body: v };
+      }
+    }
+  } catch (e) {}
+  return best;
+}
+
+/* 前回の「次回アクション」を、今回の「前回の進捗確認」に移します */
+function carryOver(prevBody) {
+  const src = (prevBody && prevBody.next) || "";
+  const lines = src.split("\n").map((x) => x.trim()).filter((x) => x && x !== "*");
+  if (!lines.length) return "";
+  return lines
+    .map((x) => x.replace(/^[*・\-\s]+/, ""))
+    .map((x) => `* ${x}\n   * ステータス：`)
+    .join("\n");
+}
+
+/* 今の数字から、話し合うべき項目の仮案を作ります */
+function agendaDraft({ stats, targets, goal, month, week, branch, logs, manual }) {
+  const M = stats.members || {};
+  const names = membersIn(branch).map((m) => m.name);
+  const sum = (k) => names.reduce((a, n) => a + ((M[n] && Number(M[n][k])) || 0), 0);
+  const tgt = (k) => (manual[k] != null ? Number(manual[k])
+    : (k === "kanko" && BRANCH_GOAL.kanko != null) ? BRANCH_GOAL.kanko
+    : names.reduce((a, n) => a + ((targets[n] && Number(targets[n][k])) || 0), 0));
+  const rate = (a, b) => (b > 0 ? (a / b) * 100 : 0);
+  const r1 = (v) => v.toFixed(1);
+
+  const apo = sum("apo"), tApo = tgt("apo");
+  const shodan = sum("shodan"), kanko = sum("kanko"), tKanko = tgt("kanko");
+  const shukkin = sum("shukkin"), tShukkin = tgt("shukkin");
+  const apoRate = rate(shodan, apo), kankoRate = rate(kanko, shodan);
+
+  const ws = stats.weeks || [];
+  const wi = ws.findIndex((x) => x.start === week);
+  const w = ws[wi] || {};
+  const prevW = wi > 0 ? ws[wi - 1] : null;
+  const perHead = (x, k) => (x && x.shukkin ? (x[k] || 0) / x.shukkin : null);
+
+  const issues = [];
+  const add = (q, a) => issues.push({ q, a });
+
+  /* 出勤の進み具合に対して、アポが足りているか */
+  const paceApo = tShukkin > 0 ? rate(shukkin, tShukkin) : null;
+  const gotApo = tApo > 0 ? rate(apo, tApo) : null;
+  if (gotApo != null && paceApo != null && gotApo < paceApo - 5) {
+    const rest = Math.max(0, tShukkin - shukkin);
+    const need = Math.max(0, tApo - apo);
+    add(`月間アポが出勤の進み（${r1(paceApo)}%）に対して ${r1(gotApo)}% と遅れている（${apo}/${tApo}件）`,
+        rest > 0 ? `残り延べ ${rest} 人日で ${need}件。1人1日あたり ${(need / rest).toFixed(1)}件 が必要。巻き返しの担当と期限を決める`
+                 : `残りの出勤で ${need}件。誰がどれだけ積むかを割り振る`);
+  }
+  /* アポの質 */
+  if (apo > 0 && apoRate < goal.shodanApoRate) {
+    add(`商談アポ率が ${r1(apoRate)}%（目標${goal.shodanApoRate}%）。アポは出ているが商談に落ちていない`,
+        `〇アポの条件（同席・日程・主権）を満たした件数を数える。落ちたアポの離脱理由を分類して共有`);
+  }
+  /* クロージング */
+  if (shodan > 0 && kankoRate < goal.shodanKankoRate) {
+    add(`商談完工率が ${r1(kankoRate)}%（目標${goal.shodanKankoRate}%）`,
+        `決まらなかった商談の理由を1件ずつ洗い出し、共通するネックに対する切り返しを決める`);
+  }
+  /* 完工のビハインド */
+  if (tKanko > 0 && kanko < tKanko) {
+    const needSho = goal.shodanKankoRate > 0 ? Math.ceil((tKanko - kanko) / (goal.shodanKankoRate / 100)) : 0;
+    add(`完工が ${kanko}/${tKanko}件。残り ${tKanko - kanko}件`,
+        `目標の商談完工率${goal.shodanKankoRate}%なら、あと商談 ${needSho}件 が必要。どのアポから作るかを決める`);
+  }
+  /* 前週との比較 */
+  if (prevW && prevW.shukkin > 0 && w.shukkin > 0) {
+    const a = perHead(w, "taio"), b = perHead(prevW, "taio");
+    if (a != null && b > 0 && a < b * 0.9) {
+      add(`1人1日あたりの対応数が前週の ${b.toFixed(1)}件 から ${a.toFixed(1)}件 に落ちている`,
+          `行動量が落ちた原因（天候・エリア・人員配置）を確認し、今週のエリア配分を決める`);
+    }
+    const pa = perHead(w, "apo"), pb = perHead(prevW, "apo");
+    if (pa != null && pb > 0 && pa < pb * 0.8) {
+      add(`1人1日あたりのアポ数が前週の ${pb.toFixed(1)}件 から ${pa.toFixed(1)}件 に落ちている`,
+          `どの段階で落ちているかをフェーズの内訳で確認し、重点を1つに絞る`);
+    }
+  }
+
+  const issueText = issues.length
+    ? issues.slice(0, 4).map((x, i) => `   * 課題${"①②③④"[i]}${x.q}\n   * 対策${"①②③④"[i]}${x.a}`).join("\n")
+    : "   * 大きな乖離は出ていません。維持する施策を確認する";
+
+  /* 目標に対して遅れているメンバー */
+  const behind = names
+    .map((n) => ({ n, g: (targets[n] && Number(targets[n].kanko)) || 0, v: (M[n] && Number(M[n].kanko)) || 0,
+                   apo: (M[n] && Number(M[n].apo)) || 0, ta: (targets[n] && Number(targets[n].apo)) || 0 }))
+    .filter((x) => x.g > 0 && x.v === 0)
+    .sort((a, b) => (b.ta ? b.apo / b.ta : 0) - (a.ta ? a.apo / a.ta : 0))
+    .slice(0, 6);
+
+  /* 直近7日で日報の抜けが多い人 */
+  const days = [];
+  for (let i = 1; i <= 7; i++) days.push(isoAdd(TODAY.iso, -i));
+  const workDays = days.filter(isWorkday);
+  const miss = names
+    .map((n) => ({ n, miss: workDays.filter((iso) => !logs.some((l) => l.name === n && l.date === mdFromIso(iso))).length }))
+    .filter((x) => x.miss > 0)
+    .sort((a, b) => b.miss - a.miss)
+    .slice(0, 8);
+
+  const extra = [];
+  if (behind.length) {
+    extra.push({ id: agendaUid(), title: "個別メンバーのフォロー（10分）",
+      text: behind.map((x) => `* ${x.n}（完工 0/${x.g}件・アポ ${x.apo}${x.ta ? `/${x.ta}` : ""}件）\n   * 打ち手：`).join("\n") });
+  }
+  if (miss.length && workDays.length) {
+    extra.push({ id: agendaUid(), title: "日報の入力状況（5分）",
+      text: `* 直近${workDays.length}出勤日で未入力があるメンバー\n` +
+            miss.map((x) => `   * ${x.n}：${x.miss}日分`).join("\n") +
+            `\n* 入力の徹底をどう図るか` });
+  }
+  extra.push({ id: agendaUid(), title: "今週の重点（10分）", text: "* 今週いちばん動かす数字：\n* 誰が何をいつまでに：" });
+
+  return { issueText, extra, nextText: issues.slice(0, 3).map((x, i) => `* ${x.a}`).join("\n") || "* " };
+}
 
 function Agenda({ stats, targets, goal, month, setMonth, branch, setBranch, logs }) {
   const weeks = weekDefsOf(month);
   const thisWeek = weekStartOf(TODAY.date);
   const [week, setWeek] = React.useState(weeks.some((w) => w.start === thisWeek) ? thisWeek : weeks[weeks.length - 1].start);
-  const [date, setDate] = React.useState(TODAY.iso);
+  /* 既定はいちばん近い月曜（毎週月曜に開く想定） */
+  const mondayOf = (iso) => {
+    const d = new Date(iso + "T00:00:00").getDay();
+    return isoAdd(iso, d === 0 ? -6 : 1 - d);
+  };
+  const [date, setDate] = React.useState(mondayOf(TODAY.iso));
   const [copied, setCopied] = React.useState("");
-  const key = `craft-agenda-${date}`;
-  const [body, setBody] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch (e) { return {}; }
-  });
+  const [body, setBody] = React.useState({});
+  const [note, setNote] = React.useState("");
+
+  let manual = {};
+  try { manual = JSON.parse(localStorage.getItem(`craft-report-goal-${month}`) || "{}"); } catch (e) {}
+
+  const makeDraft = React.useCallback((iso) => {
+    const prev = lastAgendaBefore(iso);
+    const d = agendaDraft({ stats, targets, goal, month, week, branch, logs, manual });
+    const carried = carryOver(prev && prev.body);
+    return {
+      draft: {
+        people: AGENDA_MEMBERS,
+        prev: carried || "* （前回のアクションを記入）",
+        issue: d.issueText,
+        extra: d.extra,
+        next: d.nextText
+      },
+      from: prev ? prev.date : null
+    };
+  }, [stats, targets, goal, month, week, branch, logs]);
+
+  /* 日付を変えたとき。保存済みがあればそれを、無ければ下書きを入れます */
   React.useEffect(() => {
-    try { setBody(JSON.parse(localStorage.getItem(key) || "{}")); } catch (e) { setBody({}); }
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(AGENDA_KEY(date)) || "null"); } catch (e) {}
+    if (saved && Object.keys(saved).length) {
+      setBody(saved);
+      setNote("保存済みのアジェンダを開いています");
+    } else {
+      const { draft, from } = makeDraft(date);
+      setBody(draft);
+      try { localStorage.setItem(AGENDA_KEY(date), JSON.stringify(draft)); } catch (e) {}
+      setNote(from ? `${from} のアジェンダと今の数字から下書きを作りました` : "今の数字から下書きを作りました");
+    }
     if (!weeks.some((w) => w.start === week)) setWeek(weeks[weeks.length - 1].start);
-  }, [date, month]);
-  const setField = (k, v) => {
-    const next = { ...body, [k]: v };
+  }, [date, month, stats]);
+
+  const save = (next) => {
     setBody(next);
-    try { localStorage.setItem(key, JSON.stringify(next)); } catch (e) {}
+    try { localStorage.setItem(AGENDA_KEY(date), JSON.stringify(next)); } catch (e) {}
+  };
+  const setField = (k, v) => save({ ...body, [k]: v });
+  const setExtra = (id, patch) => save({ ...body, extra: (body.extra || []).map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+  const addExtra = () => save({ ...body, extra: [...(body.extra || []), { id: agendaUid(), title: "新しい項目", text: "* " }] });
+  const delExtra = (id) => save({ ...body, extra: (body.extra || []).filter((x) => x.id !== id) });
+  const moveExtra = (id, dir) => {
+    const arr = [...(body.extra || [])];
+    const i = arr.findIndex((x) => x.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    save({ ...body, extra: arr });
+  };
+  const redraft = () => {
+    if (!confirm("今の内容を、新しい下書きで置きかえますか？")) return;
+    const { draft, from } = makeDraft(date);
+    save(draft);
+    setNote(from ? `${from} のアジェンダと今の数字から作り直しました` : "今の数字から作り直しました");
   };
 
   const text = React.useMemo(() => {
     const M = stats.members || {};
     const names = membersIn(branch).map((m) => m.name);
     const sum = (k) => names.reduce((a, n) => a + ((M[n] && Number(M[n][k])) || 0), 0);
-    /* 週次報告の画面で決めた支店目標があればそちらを使います */
-    let manual = {};
-    try { manual = JSON.parse(localStorage.getItem(`craft-report-goal-${month}`) || "{}"); } catch (e) {}
     const tgt = (k) => (manual[k] != null ? Number(manual[k])
       : (k === "kanko" && BRANCH_GOAL.kanko != null) ? BRANCH_GOAL.kanko
       : names.reduce((a, n) => a + ((targets[n] && Number(targets[n][k])) || 0), 0));
     const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) : "0.0");
-    const mark = (ok) => (ok ? "🔵" : "❌");
+    const mark = (okv) => (okv ? "🔵" : "❌");
     const ok = (a, b, t) => (b > 0 ? (a / b) * 100 >= t : false);
 
     const sales = sum("sales"), tSales = tgt("sales") || (goal.sales || 0);
@@ -6652,17 +6828,16 @@ function Agenda({ stats, targets, goal, month, setMonth, branch, setBranch, logs
     const wApoOk = ok(w.shodan || 0, w.apo || 0, goal.shodanApoRate);
     const wKankoOk = ok(w.kanko || 0, w.shodan || 0, goal.shodanKankoRate);
 
-    const sec = (k) => (body[k] || "").trim();
     const d = new Date(date + "T00:00:00");
     const head = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 | 幹部会議`;
-
-    return [
+    const extra = body.extra || [];
+    const out = [
       head,
-      `参加者: ${body.people || AGENDA_MEMBERS}`,
+      `参加者: ${body.people == null ? AGENDA_MEMBERS : body.people}`,
       ``,
       `1. 前回のアクション進捗確認（5分）`,
       ``,
-      sec("prev") || "* （前回のアクションを記入）",
+      (body.prev || "").trim() || "* （前回のアクションを記入）",
       ``,
       `2. 実績振り返り（15分）`,
       ``,
@@ -6678,24 +6853,13 @@ function Agenda({ stats, targets, goal, month, setMonth, branch, setBranch, logs
       `   * 商談アポ率： ${wApoRate}% ${mark(wApoOk)}（判定：${wApoOk ? "OK" : "NG"}）`,
       `   * 商談完工率： ${wKankoRate}% ${mark(wKankoOk)}（判定：${wKankoOk ? "OK" : "NG"}）`,
       `* 現状のボトルネック分析 & 対策`,
-      sec("issue") || "   * （課題と対策を記入）",
-      ``,
-      AGENDA_SECTIONS[2].n,
-      ``,
-      sec("ope") || "* （記入）",
-      ``,
-      AGENDA_SECTIONS[3].n,
-      ``,
-      sec("team") || "* （記入）",
-      ``,
-      AGENDA_SECTIONS[4].n,
-      ``,
-      sec("rate") || "* （記入）",
-      ``,
-      AGENDA_SECTIONS[5].n,
-      ``,
-      sec("next") || "* （記入）"
-    ].join("\n");
+      (body.issue || "").trim() || "   * （課題と対策を記入）"
+    ];
+    extra.forEach((x, i) => {
+      out.push(``, `${i + 3}. ${x.title}`, ``, (x.text || "").trim() || "* （記入）");
+    });
+    out.push(``, `${extra.length + 3}. 次回アクションアイテムの決定（5分）`, ``, (body.next || "").trim() || "* ");
+    return out.join("\n");
   }, [stats, targets, goal, month, week, branch, body, date]);
 
   const copy = async () => {
@@ -6708,12 +6872,13 @@ function Agenda({ stats, targets, goal, month, setMonth, branch, setBranch, logs
     setTimeout(() => setCopied(""), 4000);
   };
 
+  const extra = body.extra || [];
   return (
     <>
       <header className="mb-8">
         <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">EXECUTIVE MEETING</p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">幹部会議アジェンダ</h1>
-        <p className="mt-2 text-sm text-slate-500">実績は営業ログから自動で入ります。議論の中身を書き足して、まとめてコピーしてください</p>
+        <p className="mt-2 text-sm text-slate-500">月曜の日付で開くと、前回の内容と今の数字から下書きが入ります。直してからコピーしてください</p>
       </header>
 
       <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -6725,7 +6890,10 @@ function Agenda({ stats, targets, goal, month, setMonth, branch, setBranch, logs
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
           {weeks.map((w) => <option key={w.start} value={w.start}>{w.range}</option>)}
         </select>
-        <span className="text-xs text-slate-500">直近の週間実績に使う週</span>
+        <button onClick={redraft} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">
+          下書きを作り直す
+        </button>
+        <span className="text-xs text-slate-500">{note}</span>
       </div>
 
       <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -6734,15 +6902,42 @@ function Agenda({ stats, targets, goal, month, setMonth, branch, setBranch, logs
             onChange={(e) => setField("people", e.target.value)}
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900" />
         </label>
-        {AGENDA_SECTIONS.map((sct) => (
-          <label key={sct.k} className="mt-4 block text-xs text-slate-500">
-            {sct.n}
-            <textarea rows={4} value={body[sct.k] || ""} placeholder={sct.ph}
-              onChange={(e) => setField(sct.k, e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-[13px] text-slate-900" />
-          </label>
+
+        <label className="mt-4 block text-xs text-slate-500">1. 前回のアクション進捗確認（5分）
+          <textarea rows={5} value={body.prev || ""} onChange={(e) => setField("prev", e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-[13px] text-slate-900" />
+        </label>
+
+        <label className="mt-4 block text-xs text-slate-500">2. 現状のボトルネック分析 &amp; 対策（実績の数字は自動）
+          <textarea rows={7} value={body.issue || ""} onChange={(e) => setField("issue", e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-[13px] text-slate-900" />
+        </label>
+
+        {extra.map((x, i) => (
+          <div key={x.id} className="mt-4 rounded-lg bg-slate-50 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500">{i + 3}.</span>
+              <input value={x.title} onChange={(e) => setExtra(x.id, { title: e.target.value })}
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900" />
+              <button onClick={() => moveExtra(x.id, -1)} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600">↑</button>
+              <button onClick={() => moveExtra(x.id, 1)} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600">↓</button>
+              <button onClick={() => delExtra(x.id)} className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-xs text-rose-600">削除</button>
+            </div>
+            <textarea rows={4} value={x.text} onChange={(e) => setExtra(x.id, { text: e.target.value })}
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-[13px] text-slate-900" />
+          </div>
         ))}
-        <p className="mt-3 text-xs text-slate-400">この端末に、日付ごとに保存されます。「2. 実績振り返り」の数字は自動です。</p>
+        <button onClick={addExtra} className="mt-3 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">
+          ＋ 項目を追加
+        </button>
+
+        <label className="mt-4 block text-xs text-slate-500">{extra.length + 3}. 次回アクションアイテムの決定（5分）
+          <textarea rows={4} value={body.next || ""} onChange={(e) => setField("next", e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-[13px] text-slate-900" />
+        </label>
+        <p className="mt-3 text-xs text-slate-400">
+          この端末に、日付ごとに保存されます。ここに書いた「次回アクション」は、来週のアジェンダの「1. 前回の進捗確認」に自動で移ります。
+        </p>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -7163,7 +7358,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v86</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v87</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">

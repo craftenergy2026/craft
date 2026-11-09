@@ -1929,6 +1929,20 @@ function recentWeeks(n, anchor) {
   return out;
 }
 
+/* その月にかかる、土曜始まりの週。月をまたいだぶんも含めて1週間で数えます */
+function satWeeksOfMonth(month) {
+  const first = new Date(PERIOD.year, month - 1, 1);
+  const last = new Date(PERIOD.year, month, 0);
+  const out = [];
+  let s = saturdayOf(first);
+  while (dayKey(s) <= dayKey(last)) {
+    const e = addDays(s, 6);
+    out.push({ key: dayKey(s), from: s, to: e, label: `${mdOf(s)}〜${mdOf(e)}` });
+    s = addDays(s, 7);
+  }
+  return out;
+}
+
 /* 直近 n 日 */
 function recentDays(n, anchor) {
   const base = startOfDay(anchor || NOW);
@@ -4303,12 +4317,12 @@ function PhaseTrend({ logs, month, branch, fixedName, title }) {
     [logs, who, branch]
   );
 
-  /* 週別（その月の土曜始まり）／月別（日報のある月すべて） */
+  /* 週別（土曜始まり。月をまたぐ週も1週間で数えます）／月別（日報のある月すべて） */
   const buckets = useMemo(() => {
     if (span === "week") {
-      return weekDefsOf(month).map((w) => ({
-        label: w.range,
-        rows: mine.filter((l) => monthOf(l.date) === month && weekStartOf(l.date) === w.start),
+      return satWeeksOfMonth(month).map((w) => ({
+        label: w.label,
+        rows: mine.filter((l) => dayKey(saturdayOf(dateOfMD(l.date))) === w.key),
       }));
     }
     const months = [...new Set(mine.map((l) => monthOf(l.date)))].sort((a, b) => a - b);
@@ -7368,7 +7382,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v90</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v91</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">

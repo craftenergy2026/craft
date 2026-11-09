@@ -318,23 +318,27 @@ const MEMBERS = [
   { name: "佐伯", branch: "東京", role: "アポインター", target: { shukkin: 11, taio: 480, apo: 20, shodan: 4, kanko: 2, rate: 20 } },
   { name: "石", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 600, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
   { name: "伊藤", branch: "東京", role: "クローザー", target: { shukkin: 10, taio: 700, apo: 20, shodan: 3, kanko: 1, rate: 15 } },
-  { name: "藤代", branch: "東京", role: "アポインター", target: { shukkin: 8, taio: 480, apo: 16, shodan: 5, kanko: 3, rate: 31 } },
+  { name: "藤代", branch: "東京", role: "アポインター", target: { shukkin: 8, taio: 480, apo: 16, shodan: 5, kanko: 2, rate: 31 } },
   { name: "山﨑", branch: "東京", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
-  { name: "三瀬", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "三瀬", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 3, rate: 25 } },
   { name: "大川", branch: "東京", role: "クローザー", target: { shukkin: 4, taio: 200, apo: 16, shodan: 4, kanko: 2, rate: 25 } },
-  { name: "森野", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
+  { name: "森野", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 3, rate: 0 } },
   { name: "斉藤", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
-  { name: "橋本", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
+  { name: "橋本", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 2, rate: 0 } },
+
+  { name: "山上", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
 
   /* ── 静岡支店 ── */
   { name: "扇田", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
   { name: "保坂", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
-  { name: "熊澤", branch: "静岡", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 15, shodan: 8, kanko: 4, rate: 30 } },
+  { name: "熊澤", branch: "静岡", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 15, shodan: 8, kanko: 2, rate: 30 } },
 
   /* ── Bizlabo ── */
-  { name: "塚原", branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "塚原", branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
   { name: "新井田", branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
-  { name: "樋熊", branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "樋熊", branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
+  { name: "島",   branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
+  { name: "棗",   branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
 ];
 
 /* ───────── 戦闘力 ─────────
@@ -357,13 +361,13 @@ const powerOf = (v) =>
 const DEFAULT_ROSTER_META = (() => {
   const m = {};
   const put = (names, key, val) => names.forEach((n) => { m[n] = { ...(m[n] || {}), [key]: val }; });
-  put(["保坂", "扇田", "石", "塚原", "新井田", "樋熊"], "rank", "trainee");
+  put(["保坂", "扇田", "石", "塚原", "新井田", "樋熊", "島", "棗", "山上"], "rank", "trainee");
   put(["藤代", "鄭", "伊藤"], "rank", "bronze");
   put(["佐伯", "三瀬"], "rank", "silver");
   put(["山﨑", "大川", "沼口", "森野"], "rank", "gold");
   put(["佐伯", "山﨑"], "gen", 1);
   put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", 2);
-  put(["扇田", "保坂", "塚原", "新井田", "樋熊"], "gen", 3);
+  put(["扇田", "保坂", "塚原", "新井田", "樋熊", "島", "棗", "山上"], "gen", 3);
   return m;
 })();
 const KAN_NUM = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
@@ -671,11 +675,18 @@ function aggregateAll(allLogs, allDeals, month, branch = "all") {
 
   const weeks = weekDefsOf(month).map((w) => {
     const ds = daily.filter((d) => d.week === w.start);
+    const sum = (k) => ds.reduce((a, d) => a + d[k], 0);
     return {
       ...w,
-      apo: ds.reduce((a, d) => a + d.apo, 0),
-      shodan: ds.reduce((a, d) => a + d.shodan, 0),
-      kanko: ds.reduce((a, d) => a + d.kanko, 0),
+      apo: sum("apo"),
+      shodan: sum("shodan"),
+      kanko: sum("kanko"),
+      taio: sum("taio"),
+      apu: sum("apu"),
+      keiyaku: sum("keiyaku"),
+      kankoDone: sum("kankoDone"),
+      shukkin: sum("shukkin"),   /* 延べ出勤人日 */
+      sales: sum("sales"),
     };
   });
 
@@ -4479,6 +4490,86 @@ function Aggregate({ excl, setExcl, stats, month, setMonth, goal, branch, setBra
             </Card>
           </section>
 
+
+          <section className="mb-12">
+            <SectionTitle note="延べ出勤人日で割った数字。人数の増減に左右されずに比べられます">1人1日あたり（{month}月）</SectionTitle>
+            <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
+            <Card className="w-full max-w-full overflow-x-auto">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                    {["期間", "延べ出勤", "対応数", "アプ数", "アポ数", "商談数", "完工数"].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.weeks.map((w) => {
+                    const n = w.shukkin || 0;
+                    const per = (v) => (n > 0 ? (v / n).toFixed(1) : "-");
+                    return (
+                      <tr key={w.start} className="border-b border-slate-50 last:border-0">
+                        <td className="px-4 py-3 font-semibold text-slate-800">{w.range}</td>
+                        <td className="px-4 py-3 text-slate-500">{n ? `${n} 人日` : "-"}</td>
+                        <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>{per(w.taio)}</td>
+                        <td className="px-4 py-3 text-slate-600">{per(w.apu)}</td>
+                        <td className="px-4 py-3 text-slate-600">{per(w.apo)}</td>
+                        <td className="px-4 py-3 text-slate-600">{per(w.shodan)}</td>
+                        <td className="px-4 py-3 text-slate-600">{per(w.kanko)}</td>
+                      </tr>
+                    );
+                  })}
+                  {(() => {
+                    const n = stats.weeks.reduce((a, w) => a + (w.shukkin || 0), 0);
+                    const sum = (k) => stats.weeks.reduce((a, w) => a + (w[k] || 0), 0);
+                    const per = (v) => (n > 0 ? (v / n).toFixed(1) : "-");
+                    return (
+                      <tr className="bg-slate-50 font-semibold text-slate-800">
+                        <td className="px-4 py-3">月合計</td>
+                        <td className="px-4 py-3 text-slate-500">{n ? `${n} 人日` : "-"}</td>
+                        <td className="px-4 py-3" style={{ color: NAVY }}>{per(sum("taio"))}</td>
+                        <td className="px-4 py-3">{per(sum("apu"))}</td>
+                        <td className="px-4 py-3">{per(sum("apo"))}</td>
+                        <td className="px-4 py-3">{per(sum("shodan"))}</td>
+                        <td className="px-4 py-3">{per(sum("kanko"))}</td>
+                      </tr>
+                    );
+                  })()}
+                </tbody>
+              </table>
+            </Card>
+
+            <p className="mb-2 mt-6 text-sm font-bold text-slate-800">日別</p>
+            <Card className="w-full max-w-full overflow-x-auto">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                    {["日付", "出勤", "対応数", "アプ数", "アポ数", "商談数", "完工数"].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.daily.map((d) => {
+                    const n = d.shukkin || 0;
+                    const per = (v) => (n > 0 ? (v / n).toFixed(1) : "-");
+                    return (
+                      <tr key={d.date} className="border-b border-slate-50 last:border-0">
+                        <td className="px-4 py-3 font-semibold text-slate-800">{d.date}（{d.dow}）</td>
+                        <td className="px-4 py-3 text-slate-500">{n ? `${n} 名` : "-"}</td>
+                        <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>{per(d.taio)}</td>
+                        <td className="px-4 py-3 text-slate-600">{per(d.apu)}</td>
+                        <td className="px-4 py-3 text-slate-600">{per(d.apo)}</td>
+                        <td className="px-4 py-3 text-slate-600">{per(d.shodan)}</td>
+                        <td className="px-4 py-3 text-slate-600">{per(d.kanko)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </Card>
+          </section>
+
           <PhaseTrend logs={logs} month={month} branch={branch} />
 
           <section className="mb-12">
@@ -6115,12 +6206,575 @@ function SyncBadge({ sync, onRefresh, dark = false, intervalMs }) {
 }
 
 
+
+/* ══════════════════════════════════════════
+   週次報告（支店長が毎週そのまま貼れる文面を作ります）
+   チーム分けはここで変えてください。
+   ══════════════════════════════════════════ */
+const TEAMS = [
+  { name: "山﨑チーム", members: ["大川", "山﨑", "伊藤", "沼口", "新井田", "藤代", "島", "棗"] },
+  { name: "森野チーム", members: ["森野", "佐伯", "鄭", "石", "三瀬", "樋熊", "塚原", "山上"] },
+  { name: "橋本チーム", members: ["橋本", "熊澤", "保坂", "扇田"] }
+];
+const MEDAL = ["1位🥇", "2位🥈", "3位🥉", "4位　", "5位　", "6位　", "7位　", "8位　"];
+
+
+/* ══════════════════════════════════════════
+   日報の記入漏れチェック（森野のみ）
+   出勤は土日祝が基本なので、その日を濃く出します。
+   ══════════════════════════════════════════ */
+const JP_FIXED = [[1,1],[2,11],[2,23],[4,29],[5,3],[5,4],[5,5],[8,11],[11,3],[11,23]];
+const JP_MONDAY = [[1,2],[7,3],[9,3],[10,2]];
+const isoAdd = (iso, n) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return isoOf(d); };
+const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const mdFromIso = (iso) => `${Number(iso.slice(5,7))}/${Number(iso.slice(8,10))}`;
+const HOLIDAY_CACHE = {};
+function jpHolidays(y) {
+  if (HOLIDAY_CACHE[y]) return HOLIDAY_CACHE[y];
+  const set = new Set();
+  const add = (m, d) => set.add(`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`);
+  JP_FIXED.forEach(([m, d]) => add(m, d));
+  JP_MONDAY.forEach(([m, n]) => {
+    const first = new Date(y, m - 1, 1).getDay();
+    add(m, 1 + ((8 - first) % 7) + 7 * (n - 1));
+  });
+  add(3, Math.floor(20.8431 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4)));
+  add(9, Math.floor(23.2488 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4)));
+  /* 国民の休日 */
+  Array.from(set).forEach((iso) => {
+    const mid = isoAdd(iso, 1);
+    if (set.has(mid) || !set.has(isoAdd(iso, 2))) return;
+    if (new Date(mid + "T00:00:00").getDay() === 0) return;
+    set.add(mid);
+  });
+  /* 振替休日 */
+  Array.from(set).forEach((iso) => {
+    if (new Date(iso + "T00:00:00").getDay() !== 0) return;
+    let nx = isoAdd(iso, 1);
+    while (set.has(nx)) nx = isoAdd(nx, 1);
+    set.add(nx);
+  });
+  HOLIDAY_CACHE[y] = set;
+  return set;
+}
+const isWorkday = (iso) => {
+  const w = new Date(iso + "T00:00:00").getDay();
+  return w === 0 || w === 6 || jpHolidays(Number(iso.slice(0, 4))).has(iso);
+};
+
+function LogCheck({ logs, branch, setBranch }) {
+  const [date, setDate] = React.useState(TODAY.iso);
+  const [copied, setCopied] = React.useState("");
+  const names = membersIn(branch).map((m) => m.name);
+
+  /* その日の日報（名前ごと） */
+  const md = mdFromIso(date);
+  const byName = {};
+  logs.forEach((l) => {
+    if (l.date !== md) return;
+    const cur = byName[l.name] || { taio: 0, apu: 0, apo: 0, items: 0, editedAt: 0 };
+    cur.taio += num(l.taio); cur.apu += num(l.apu); cur.apo += num(l.apo);
+    cur.items += itemsOf(l).length;
+    cur.editedAt = Math.max(cur.editedAt, Number(l.editedAt || 0));
+    byName[l.name] = cur;
+  });
+  const missing = names.filter((n) => !byName[n]);
+
+  /* 直近14日のマトリクス */
+  const days = [];
+  for (let i = 13; i >= 0; i--) days.push(isoAdd(date, -i));
+  const has = (n, iso) => logs.some((l) => l.name === n && l.date === mdFromIso(iso));
+
+  const copyMissing = async () => {
+    const text = `${md} の日報が未入力です：${missing.join("、")}`;
+    try { await navigator.clipboard.writeText(text); setCopied("コピーしました"); }
+    catch (e) { setCopied("コピーできませんでした"); }
+    setTimeout(() => setCopied(""), 4000);
+  };
+
+  return (
+    <>
+      <header className="mb-8">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">DAILY CHECK</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">日報チェック</h1>
+        <p className="mt-2 text-sm text-slate-500">日付を選ぶと、その日の日報を入れていない人が分かります</p>
+      </header>
+
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+        />
+        <BranchSelect branch={branch} setBranch={setBranch} />
+        <span className={`rounded-full px-3 py-1 text-xs font-medium ${isWorkday(date) ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
+          {isWorkday(date) ? "出勤日（土日祝）" : "平日"}
+        </span>
+      </div>
+
+      <Card className="mb-6 p-6">
+        <SectionTitle note={`${md} 時点`}>提出状況</SectionTitle>
+        <p className="mb-4 text-sm">
+          <span className="text-2xl font-bold text-slate-900">{names.length - missing.length}</span>
+          <span className="text-slate-400"> / {names.length} 名 提出済み</span>
+        </p>
+        {missing.length > 0 && (
+          <div className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-100">
+            <p className="font-semibold">未入力 {missing.length} 名</p>
+            <p className="mt-1">{missing.join("、")}</p>
+            <button onClick={copyMissing} className="mt-2 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
+              名前をコピー
+            </button>
+            <span className="ml-2 text-xs text-amber-700">{copied}</span>
+          </div>
+        )}
+        <div className="w-full max-w-full overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                {["氏名", "支店", "日報", "対応", "アプ", "アポ", "商談明細", "更新"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {membersIn(branch).map((m) => {
+                const v = byName[m.name];
+                return (
+                  <tr key={m.name} className="border-b border-slate-50 last:border-0">
+                    <td className="px-4 py-3 font-semibold text-slate-800">{m.name}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{branchLabel(m.branch)}</td>
+                    <td className="px-4 py-3">
+                      {v
+                        ? <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-100">入力あり</span>
+                        : <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-100">未入力</span>}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{v ? v.taio : "-"}</td>
+                    <td className="px-4 py-3 text-slate-600">{v ? v.apu : "-"}</td>
+                    <td className="px-4 py-3 text-slate-600">{v ? v.apo : "-"}</td>
+                    <td className="px-4 py-3 text-slate-600">{v ? (v.items || "-") : "-"}</td>
+                    <td className="px-4 py-3 text-xs text-slate-400">
+                      {v && v.editedAt ? new Date(v.editedAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <SectionTitle note="濃い列が出勤日（土日祝）。○が入力済み">直近14日</SectionTitle>
+        <p className="mb-2 text-xs text-slate-400 sm:hidden">← 表は横にスクロールできます →</p>
+        <div className="w-full max-w-full overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                <th className="px-3 py-3 text-left font-medium">氏名</th>
+                {days.map((iso) => (
+                  <th key={iso} className={`px-2 py-3 text-center font-medium ${isWorkday(iso) ? "bg-blue-50 text-blue-700" : ""}`}>
+                    {mdFromIso(iso)}
+                  </th>
+                ))}
+                <th className="px-3 py-3 text-center font-medium">出勤日の入力</th>
+              </tr>
+            </thead>
+            <tbody>
+              {membersIn(branch).map((m) => {
+                const work = days.filter((iso) => isWorkday(iso));
+                const done = work.filter((iso) => has(m.name, iso)).length;
+                return (
+                  <tr key={m.name} className="border-b border-slate-50 last:border-0">
+                    <td className="px-3 py-2 font-semibold text-slate-800">{m.name}</td>
+                    {days.map((iso) => {
+                      const ok = has(m.name, iso);
+                      const wd = isWorkday(iso);
+                      return (
+                        <td key={iso} className={`px-2 py-2 text-center ${wd ? "bg-blue-50/40" : ""}`}>
+                          {ok ? <span className="font-semibold text-emerald-600">○</span>
+                              : wd ? <span className="font-semibold text-amber-500">×</span>
+                              : <span className="text-slate-300">-</span>}
+                        </td>
+                      );
+                    })}
+                    <td className={`px-3 py-2 text-center text-xs font-semibold ${done === work.length ? "text-emerald-600" : "text-amber-600"}`}>
+                      {done} / {work.length}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </>
+  );
+}
+
+function WeeklyReport({ stats, targets, goal, month, setMonth, branch, setBranch }) {
+  const weeks = weekDefsOf(month);
+  const thisWeek = weekStartOf(TODAY.date);
+  const [week, setWeek] = React.useState(
+    weeks.some((w) => w.start === thisWeek) ? thisWeek : weeks[0].start
+  );
+  const [copied, setCopied] = React.useState("");
+  /* 完工は契約ベースで数えます（キャンセルは営業ログ側でキャンセル登録され、ここから除かれます） */
+  const kankoKey = "kanko";
+  /* 支店としての月間目標。メンバー目標の合計とは別に決められるようにします */
+  const goalKey = `craft-report-goal-${month}`;
+  const [manual, setManual] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(goalKey) || "{}"); } catch (e) { return {}; }
+  });
+  React.useEffect(() => {
+    try { setManual(JSON.parse(localStorage.getItem(goalKey) || "{}")); } catch (e) { setManual({}); }
+  }, [month]);
+  const setManualField = (k, v) => {
+    const next = { ...manual };
+    if (v === "" || v == null) delete next[k]; else next[k] = Number(v);
+    setManual(next);
+    try { localStorage.setItem(goalKey, JSON.stringify(next)); } catch (e) {}
+  };
+  React.useEffect(() => {
+    if (!weeks.some((w) => w.start === week)) setWeek(weeks[0].start);
+  }, [month]);
+
+  const text = React.useMemo(() => {
+    const M = stats.members || {};
+    const names = membersIn(branch).map((m) => m.name);
+    const sum = (k) => names.reduce((a, n) => a + ((M[n] && Number(M[n][k])) || 0), 0);
+    const tgt = (k) => names.reduce((a, n) => a + ((targets[n] && Number(targets[n][k])) || 0), 0);
+    const keiyaku = sum("keiyaku"), kanko = sum(kankoKey), sales = sum("sales");
+    const apo = sum("apo"), shodan = sum("shodan");
+    const tKanko = manual.kanko != null ? manual.kanko : (BRANCH_GOAL.kanko != null ? BRANCH_GOAL.kanko : tgt("kanko"));
+    const tApo    = manual.apo    != null ? manual.apo    : tgt("apo");
+    const tShodan = manual.shodan != null ? manual.shodan : tgt("shodan");
+    const pct = (a, b) => (b > 0 ? Math.round((a / b) * 1000) / 10 : 0);
+
+    const w = (stats.weeks || []).find((x) => x.start === week) || { apo: 0, range: week };
+    const weekApoTarget = manual.weekApo != null ? manual.weekApo
+      : (tApo > 0 ? Math.round(tApo / weeks.length) : 0);
+
+    /* 完工した人を、完工数→売上の順に並べます */
+    const rank = names
+      .map((n) => ({ name: n, kanko: (M[n] && Number(M[n][kankoKey])) || 0, sales: (M[n] && Number(M[n].sales)) || 0 }))
+      .filter((x) => x.kanko > 0)
+      .sort((a, b) => b.kanko - a.kanko || b.sales - a.sales)
+      .slice(0, 8);
+
+    /* チームごとの個人進捗。チーム表に無い人は「その他」にまとめます */
+    const listed = new Set([].concat(...TEAMS.map((t) => t.members)));
+    const rest = names.filter((n) => !listed.has(n))
+      .filter((n) => ((targets[n] && Number(targets[n].kanko)) || 0) > 0 || ((M[n] && Number(M[n][kankoKey])) || 0) > 0);
+    const blocks = TEAMS.concat(rest.length ? [{ name: "その他", members: rest }] : [])
+      .map((t) => {
+        const rows = t.members
+          .filter((n) => names.indexOf(n) >= 0)
+          .map((n) => {
+            const g = (targets[n] && Number(targets[n].kanko)) || 0;
+            const v = (M[n] && Number(M[n][kankoKey])) || 0;
+            const pad = n + "\u3000".repeat(Math.max(0, 4 - n.length));
+            return g > 0
+              ? `${pad}目標:${g}完工 進捗:${Math.round((v / g) * 100)}%`
+              : `${pad}実績:${v}完工`;
+          });
+        return rows.length ? `◉${t.name}\n${rows.join("\n")}` : "";
+      })
+      .filter(Boolean);
+
+    return [
+      `【${month}月 進捗報告】`,
+      `進捗報告ー！🔥${keiyaku}契約`,
+      `${kanko}/${tKanko}完工`,
+      `月間売上：${yen(sales)}`,
+      `月間アポ：${apo}（目標${tApo}）`,
+      `月間商談：${shodan}件（目標${tShodan}）`,
+      `商談アポ率：${pct(shodan, apo)}％（目標${goal.shodanApoRate}％）`,
+      `商談完工率：${pct(kanko, shodan)}％（目標${goal.shodanKankoRate}％）`,
+      `週間アポ：${w.apo || 0}（目標${weekApoTarget}）　※${w.range || week}`,
+      ``,
+      ...rank.map((x, i) => `${MEDAL[i] || i + 1 + "位"}　${x.name}　${x.kanko}完工（${yen(x.sales)}）`),
+      ``,
+      `【個人進捗】`,
+      blocks.join("\n\n")
+    ].join("\n");
+  }, [stats, targets, goal, month, week, branch, manual, kankoKey]);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied("コピーしました");
+    } catch (e) {
+      const ta = document.getElementById("reportText");
+      if (ta) { ta.focus(); ta.select(); }
+      setCopied("長押しして「コピー」を選んでください");
+    }
+    setTimeout(() => setCopied(""), 4000);
+  };
+
+  return (
+    <>
+      <header className="mb-8">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">WEEKLY REPORT</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">週次報告</h1>
+        <p className="mt-2 text-sm text-slate-500">そのまま貼れる文面を作ります。数字は日報と商談から自動で入ります</p>
+      </header>
+
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+        <BranchSelect branch={branch} setBranch={setBranch} />
+        <select
+          value={week}
+          onChange={(e) => setWeek(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+        >
+          {weeks.map((w) => (
+            <option key={w.start} value={w.start}>{w.range}</option>
+          ))}
+        </select>
+        <span className="text-xs text-slate-500">週間アポの対象週</span>
+      </div>
+
+      <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="mb-3 text-xs font-semibold tracking-wide text-slate-500">支店の月間目標（空欄ならメンバー目標の合計）</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {[
+            { k: "kanko", label: "完工" },
+            { k: "apo", label: "アポ" },
+            { k: "shodan", label: "商談" },
+            { k: "weekApo", label: "週間アポ" },
+            { k: "sales", label: "売上（円）" }
+          ].map((f) => (
+            <label key={f.k} className="text-xs text-slate-500">
+              {f.label}
+              <input
+                type="number"
+                min="0"
+                value={manual[f.k] == null ? "" : manual[f.k]}
+                onChange={(e) => setManualField(f.k, e.target.value)}
+                placeholder="自動"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+              />
+            </label>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-slate-400">この端末にだけ保存されます。月ごとに別々に覚えます。幹部会議アジェンダでも同じ目標を使います。</p>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <textarea
+          id="reportText"
+          readOnly
+          value={text}
+          rows={26}
+          className="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-[13px] leading-relaxed"
+          onFocus={(e) => e.target.select()}
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            onClick={copy}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+            style={{ backgroundColor: NAVY }}
+          >
+            文面をコピー
+          </button>
+          <span className="text-xs text-slate-500">{copied}</span>
+        </div>
+        <p className="mt-3 text-xs leading-relaxed text-slate-500">
+          完工数は契約ベースです（キャンセル登録されたものは除かれます）。支店の完工目標の既定は15件で、上の欄で変えられます。目標はメンバーごとの月間目標の合計で、
+          週間アポの目標は月間アポ目標を週数で割った数です。チーム分けを変えるときは log.html の TEAMS を直してください。
+        </p>
+      </div>
+    </>
+  );
+}
+
+
+/* ══════════════════════════════════════════
+   幹部会議アジェンダ（森野のみ）
+   実績は営業ログから自動で入り、議論の中身は手で書いて保存します。
+   ══════════════════════════════════════════ */
+const AGENDA_MEMBERS = "橋本・斉藤・熊澤・森野・山崎";
+const AGENDA_SECTIONS = [
+  { k: "prev",  n: "1. 前回のアクション進捗確認（5分）", ph: "* 新人のロープレ実施状況（鄭・石・藤代など）\n   * ステータス：" },
+  { k: "issue", n: "現状のボトルネック分析 & 対策", ph: "* 課題①\n* 対策①\n* 課題②\n* 対策②" },
+  { k: "ope",   n: "3. オペレーション（10分）", ph: "* ハウスキャパシティと追加手配の状況\n   * 今週出勤予定" },
+  { k: "team",  n: "4. 支店の一体感の立て直し（10分）", ph: "* チーム制導入の進捗確認\n* 結果確認：" },
+  { k: "rate",  n: "5. 商談数・アポ率低下の原因分析と改善施策（10分）", ph: "* 商談アポ率（目標25%）の底上げ施策\n* 【相談事項】" },
+  { k: "next",  n: "6. 次回アクションアイテムの決定（5分）", ph: "* " }
+];
+
+function Agenda({ stats, targets, goal, month, setMonth, branch, setBranch, logs }) {
+  const weeks = weekDefsOf(month);
+  const thisWeek = weekStartOf(TODAY.date);
+  const [week, setWeek] = React.useState(weeks.some((w) => w.start === thisWeek) ? thisWeek : weeks[weeks.length - 1].start);
+  const [date, setDate] = React.useState(TODAY.iso);
+  const [copied, setCopied] = React.useState("");
+  const key = `craft-agenda-${date}`;
+  const [body, setBody] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch (e) { return {}; }
+  });
+  React.useEffect(() => {
+    try { setBody(JSON.parse(localStorage.getItem(key) || "{}")); } catch (e) { setBody({}); }
+    if (!weeks.some((w) => w.start === week)) setWeek(weeks[weeks.length - 1].start);
+  }, [date, month]);
+  const setField = (k, v) => {
+    const next = { ...body, [k]: v };
+    setBody(next);
+    try { localStorage.setItem(key, JSON.stringify(next)); } catch (e) {}
+  };
+
+  const text = React.useMemo(() => {
+    const M = stats.members || {};
+    const names = membersIn(branch).map((m) => m.name);
+    const sum = (k) => names.reduce((a, n) => a + ((M[n] && Number(M[n][k])) || 0), 0);
+    /* 週次報告の画面で決めた支店目標があればそちらを使います */
+    let manual = {};
+    try { manual = JSON.parse(localStorage.getItem(`craft-report-goal-${month}`) || "{}"); } catch (e) {}
+    const tgt = (k) => (manual[k] != null ? Number(manual[k])
+      : (k === "kanko" && BRANCH_GOAL.kanko != null) ? BRANCH_GOAL.kanko
+      : names.reduce((a, n) => a + ((targets[n] && Number(targets[n][k])) || 0), 0));
+    const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) : "0.0");
+    const mark = (ok) => (ok ? "🔵" : "❌");
+    const ok = (a, b, t) => (b > 0 ? (a / b) * 100 >= t : false);
+
+    const sales = sum("sales"), tSales = tgt("sales") || (goal.sales || 0);
+    const apo = sum("apo"), tApo = tgt("apo");
+    const shodan = sum("shodan"), keiyaku = sum("keiyaku"), kanko = sum("kanko");
+    const shukkin = sum("shukkin"), tShukkin = tgt("shukkin");
+    const apoRate = pct(shodan, apo), kankoRate = pct(kanko, shodan);
+    const apoOk = ok(shodan, apo, goal.shodanApoRate), kankoOk = ok(kanko, shodan, goal.shodanKankoRate);
+
+    const w = (stats.weeks || []).find((x) => x.start === week) || {};
+    const wApoRate = pct(w.shodan || 0, w.apo || 0);
+    const wKankoRate = pct(w.kanko || 0, w.shodan || 0);
+    const wApoOk = ok(w.shodan || 0, w.apo || 0, goal.shodanApoRate);
+    const wKankoOk = ok(w.kanko || 0, w.shodan || 0, goal.shodanKankoRate);
+
+    const sec = (k) => (body[k] || "").trim();
+    const d = new Date(date + "T00:00:00");
+    const head = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 | 幹部会議`;
+
+    return [
+      head,
+      `参加者: ${body.people || AGENDA_MEMBERS}`,
+      ``,
+      `1. 前回のアクション進捗確認（5分）`,
+      ``,
+      sec("prev") || "* （前回のアクションを記入）",
+      ``,
+      `2. 実績振り返り（15分）`,
+      ``,
+      `* 【${month}月 月間進捗】`,
+      `   * 月間売上目標： ${Number(sales).toLocaleString("ja-JP")}円${tSales ? `（達成率 ${pct(sales, tSales)}%）` : ""}`,
+      `   * 月間アポ獲得目標： ${apo} / ${tApo}件（達成率 ${pct(apo, tApo)}%${tShukkin ? ` ※出勤進捗 ${pct(shukkin, tShukkin)}%` : ""}）`,
+      `   * 実績数値： 商談 ${shodan}件 ｜ 契約 ${keiyaku}件 ｜ 完工 ${kanko}件`,
+      `   * 商談アポ率： ${apoRate}% ${mark(apoOk)}（目標${goal.shodanApoRate}%）`,
+      `   * 商談完工率： ${kankoRate}% ${mark(kankoOk)}（目標${goal.shodanKankoRate}%）`,
+      `* 【直近の週間実績（${w.range || week}）】`,
+      `   * 対応数： ${w.taio || 0} ｜ アポ数： ${w.apo || 0}件 ｜ 商談数： ${w.shodan || 0}件 ｜ 完工数： ${w.kanko || 0}件`,
+      `   * 1人1日あたり： 対応 ${w.shukkin ? ((w.taio || 0) / w.shukkin).toFixed(1) : "-"} ｜ アポ ${w.shukkin ? ((w.apo || 0) / w.shukkin).toFixed(1) : "-"}（延べ出勤 ${w.shukkin || 0}人日）`,
+      `   * 商談アポ率： ${wApoRate}% ${mark(wApoOk)}（判定：${wApoOk ? "OK" : "NG"}）`,
+      `   * 商談完工率： ${wKankoRate}% ${mark(wKankoOk)}（判定：${wKankoOk ? "OK" : "NG"}）`,
+      `* 現状のボトルネック分析 & 対策`,
+      sec("issue") || "   * （課題と対策を記入）",
+      ``,
+      AGENDA_SECTIONS[2].n,
+      ``,
+      sec("ope") || "* （記入）",
+      ``,
+      AGENDA_SECTIONS[3].n,
+      ``,
+      sec("team") || "* （記入）",
+      ``,
+      AGENDA_SECTIONS[4].n,
+      ``,
+      sec("rate") || "* （記入）",
+      ``,
+      AGENDA_SECTIONS[5].n,
+      ``,
+      sec("next") || "* （記入）"
+    ].join("\n");
+  }, [stats, targets, goal, month, week, branch, body, date]);
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); setCopied("コピーしました"); }
+    catch (e) {
+      const ta = document.getElementById("agendaText");
+      if (ta) { ta.focus(); ta.select(); }
+      setCopied("長押しして「コピー」を選んでください");
+    }
+    setTimeout(() => setCopied(""), 4000);
+  };
+
+  return (
+    <>
+      <header className="mb-8">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">EXECUTIVE MEETING</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">幹部会議アジェンダ</h1>
+        <p className="mt-2 text-sm text-slate-500">実績は営業ログから自動で入ります。議論の中身を書き足して、まとめてコピーしてください</p>
+      </header>
+
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+        <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+        <BranchSelect branch={branch} setBranch={setBranch} />
+        <select value={week} onChange={(e) => setWeek(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+          {weeks.map((w) => <option key={w.start} value={w.start}>{w.range}</option>)}
+        </select>
+        <span className="text-xs text-slate-500">直近の週間実績に使う週</span>
+      </div>
+
+      <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <label className="text-xs text-slate-500">参加者
+          <input value={body.people == null ? AGENDA_MEMBERS : body.people}
+            onChange={(e) => setField("people", e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900" />
+        </label>
+        {AGENDA_SECTIONS.map((sct) => (
+          <label key={sct.k} className="mt-4 block text-xs text-slate-500">
+            {sct.n}
+            <textarea rows={4} value={body[sct.k] || ""} placeholder={sct.ph}
+              onChange={(e) => setField(sct.k, e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-[13px] text-slate-900" />
+          </label>
+        ))}
+        <p className="mt-3 text-xs text-slate-400">この端末に、日付ごとに保存されます。「2. 実績振り返り」の数字は自動です。</p>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <textarea id="agendaText" readOnly value={text} rows={30}
+          onFocus={(e) => e.target.select()}
+          className="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-[13px] leading-relaxed" />
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button onClick={copy} className="rounded-lg px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: NAVY }}>
+            アジェンダをコピー
+          </button>
+          <span className="text-xs text-slate-500">{copied}</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ══════════════════════════════════════════
    メニュー
    ══════════════════════════════════════════ */
+/* 週次報告タブを見られる人。名前を足せば増やせます */
+const REPORT_VIEWERS = ["森野"];
+
+/* 支店としての月間目標。画面で上書きできます（空欄ならこの値、それも無ければメンバー目標の合計） */
+const BRANCH_GOAL = { kanko: 15 };
+
 const NAV_ITEMS = [
   { id: "my", label: "マイ成績", icon: Target },
   { id: "ranking", label: "ランキング", icon: Trophy },
+  { id: "report", label: "週次報告", icon: ClipboardCheck, only: REPORT_VIEWERS },
+  { id: "check", label: "日報チェック", icon: ClipboardCheck, only: REPORT_VIEWERS },
+  { id: "agenda", label: "幹部会議", icon: Target, only: REPORT_VIEWERS },
   { id: "dashboard", label: "全社ダッシュボード", icon: LayoutDashboard },
   { id: "input", label: "日報・成績入力", icon: PenSquare },
   { id: "mishodan", label: "商談管理", icon: ClipboardCheck },
@@ -6509,15 +7163,11 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v85</p>
-          <p className="mt-1 text-[10px] leading-relaxed text-blue-200/40" title="ナビと数字が合わないときに、同じ接続先を見ているかを確かめるための表示です">
-            接続先 …{(String(API_URL).match(/\/s\/([^\/]+)\//) || ["", ""])[1].slice(-10)}
-            <br />日報 {logs.length}件
-          </p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v86</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+          {NAV_ITEMS.filter((x) => !x.only || x.only.indexOf(me?.name) >= 0).map(({ id, label, icon: Icon }) => {
             const active = page === id;
             return (
               <button
@@ -6593,7 +7243,7 @@ function App() {
             </button>
           </div>
           <div className="flex gap-2 overflow-x-auto px-4 pb-3">
-            {NAV_ITEMS.map(({ id, label }) => (
+            {NAV_ITEMS.filter((x) => !x.only || x.only.indexOf(me?.name) >= 0).map(({ id, label }) => (
               <button
                 key={id}
                 onClick={() => setPage(id)}
@@ -6708,6 +7358,30 @@ function App() {
               stats={stats}
             />
           )}
+          {page === "agenda" && REPORT_VIEWERS.indexOf(me?.name) >= 0 && <Agenda
+              stats={stats}
+              targets={targets}
+              goal={goal}
+              month={month}
+              setMonth={setMonth}
+              branch={branch}
+              setBranch={setBranch}
+              logs={logs}
+            />}
+          {page === "check" && REPORT_VIEWERS.indexOf(me?.name) >= 0 && <LogCheck
+              logs={logs}
+              branch={branch}
+              setBranch={setBranch}
+            />}
+          {page === "report" && REPORT_VIEWERS.indexOf(me?.name) >= 0 && <WeeklyReport
+              stats={stats}
+              targets={targets}
+              goal={goal}
+              month={month}
+              setMonth={setMonth}
+              branch={branch}
+              setBranch={setBranch}
+            />}
           {page === "aggregate" && <Aggregate
               excl={excl}
               setExcl={setExcl}

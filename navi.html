@@ -2348,7 +2348,7 @@ let ROSTER_META = {};   /* { 氏名: { rank, gen } } */
 const DEFAULT_META = (() => {
   const m = {};
   const put = (names, key, val) => names.forEach(n => { m[n] = Object.assign({}, m[n], { [key]: val }); });
-  put(["保坂", "扇田", "石", "塚原", "新井田", "樋熊"], "rank", "trainee");
+  put(["保坂", "扇田", "石", "塚原", "新井田", "樋熊", "島", "棗", "山上"], "rank", "trainee");
   put(["藤代", "鄭", "伊藤"], "rank", "bronze");
   put(["佐伯", "三瀬"], "rank", "silver");
   put(["山﨑", "大川", "沼口", "森野"], "rank", "gold");
@@ -2360,7 +2360,7 @@ const DEFAULT_META = (() => {
 
   put(["佐伯", "山﨑"], "gen", 1);
   put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", 2);
-  put(["扇田", "保坂", "塚原", "新井田", "樋熊"], "gen", 3);
+  put(["扇田", "保坂", "塚原", "新井田", "樋熊", "島", "棗", "山上"], "gen", 3);
   return m;
 })();
 

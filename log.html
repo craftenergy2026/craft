@@ -6467,6 +6467,14 @@ function WeeklyReport({ stats, targets, goal, month, setMonth, branch, setBranch
       .sort((a, b) => b.kanko - a.kanko || b.sales - a.sales)
       .slice(0, 8);
 
+    /* 目標完工数。サーバー側が未設定（0）なら、メンバー表の既定値で補います */
+    const goalKanko = (n) => {
+      const srv = Number((targets[n] || {}).kanko) || 0;
+      if (srv > 0) return srv;
+      const def = MEMBERS.find((m) => m.name === n);
+      return (def && Number(def.target.kanko)) || 0;
+    };
+
     /* チームごとの個人進捗。チーム表に無い人は「その他」にまとめます */
     const listed = new Set([].concat(...TEAMS.map((t) => t.members)));
     /* チーム表に名前が無い人も必ず出します（報告から誰も漏れないように） */
@@ -6476,12 +6484,10 @@ function WeeklyReport({ stats, targets, goal, month, setMonth, branch, setBranch
         const rows = t.members
           .filter((n) => names.indexOf(n) >= 0 && REPORT_SKIP.indexOf(n) < 0)
           .map((n) => {
-            const g = (targets[n] && Number(targets[n].kanko)) || 0;
+            const g = goalKanko(n);
             const v = (M[n] && Number(M[n][kankoKey])) || 0;
             const pad = n + "\u3000".repeat(Math.max(0, 4 - n.length));
-            return g > 0
-              ? `${pad}目標:${g}完工 進捗:${Math.round((v / g) * 100)}%`
-              : `${pad}実績:${v}完工`;
+            return `${pad}目標:${g || "－"}完工 進捗:${g > 0 ? Math.round((v / g) * 100) : 0}%`;
           });
         return rows.length ? `◉${t.name}\n${rows.join("\n")}` : "";
       })
@@ -7362,7 +7368,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v89</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v90</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">

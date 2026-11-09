@@ -532,13 +532,33 @@ const num = (v) => Number(v || 0);
 const LOG_KEYS = ["taio", "apu", "apo", "shodan", "keiyaku", "kanko", "sales"];
 const dayNum = (date) => Number(date.split("/")[1]);
 const monthOf = (date) => Number(String(date).split("/")[0]);
-const weekStartOf = (date) => `${monthOf(date)}/${1 + Math.floor((dayNum(date) - 1) / 7) * 7}`;
+/* ───────── 週の区切り（土曜始まり） ─────────
+   どの画面でも同じ切り方になるよう、ここだけで決めています。
+   月内の表では、月をまたぐぶんは月初・月末で切って表示します。 */
+const satOfMD = (date) => {
+  const d = new Date(PERIOD.year, monthOf(date) - 1, dayNum(date));
+  d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+  return d;
+};
+const mdLabel = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+/* その日が属する週の土曜日（"M/D"）。週をまとめるときの鍵になります */
+const weekStartOf = (date) => mdLabel(satOfMD(date));
 const weekDefsOf = (month) => {
-  const last = new Date(PERIOD.year, month, 0).getDate();
-  return [1, 8, 15, 22, 29].map((d) => {
-    const end = Math.min(d + 6, last);
-    return { start: `${month}/${d}`, range: `${month}/${d}〜${month}/${end}` };
-  });
+  const first = new Date(PERIOD.year, month - 1, 1);
+  const last = new Date(PERIOD.year, month, 0);
+  const out = [];
+  let sat = new Date(first);
+  sat.setDate(sat.getDate() - ((sat.getDay() + 1) % 7));
+  while (sat <= last) {
+    const end = new Date(sat);
+    end.setDate(end.getDate() + 6);
+    const from = sat < first ? first : sat;
+    const to = end > last ? last : end;
+    out.push({ start: mdLabel(sat), range: `${mdLabel(from)}〜${mdLabel(to)}`, full: `${mdLabel(sat)}〜${mdLabel(end)}` });
+    sat = new Date(sat);
+    sat.setDate(sat.getDate() + 7);
+  }
+  return out;
 };
 
 /* 日報の商談明細から、商談レコードを組み立てる。
@@ -1925,20 +1945,6 @@ function recentWeeks(n, anchor) {
     const from = addDays(base, -7 * i);
     const to = addDays(from, 6);
     out.push({ from, to, label: `${mdOf(from)}〜${mdOf(to)}` });
-  }
-  return out;
-}
-
-/* その月にかかる、土曜始まりの週。月をまたいだぶんも含めて1週間で数えます */
-function satWeeksOfMonth(month) {
-  const first = new Date(PERIOD.year, month - 1, 1);
-  const last = new Date(PERIOD.year, month, 0);
-  const out = [];
-  let s = saturdayOf(first);
-  while (dayKey(s) <= dayKey(last)) {
-    const e = addDays(s, 6);
-    out.push({ key: dayKey(s), from: s, to: e, label: `${mdOf(s)}〜${mdOf(e)}` });
-    s = addDays(s, 7);
   }
   return out;
 }
@@ -4320,9 +4326,9 @@ function PhaseTrend({ logs, month, branch, fixedName, title }) {
   /* 週別（土曜始まり。月をまたぐ週も1週間で数えます）／月別（日報のある月すべて） */
   const buckets = useMemo(() => {
     if (span === "week") {
-      return satWeeksOfMonth(month).map((w) => ({
-        label: w.label,
-        rows: mine.filter((l) => dayKey(saturdayOf(dateOfMD(l.date))) === w.key),
+      return weekDefsOf(month).map((w) => ({
+        label: w.range,
+        rows: mine.filter((l) => monthOf(l.date) === month && weekStartOf(l.date) === w.start),
       }));
     }
     const months = [...new Set(mine.map((l) => monthOf(l.date)))].sort((a, b) => a - b);
@@ -7382,7 +7388,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v91</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v92</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">

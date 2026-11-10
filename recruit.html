@@ -88,6 +88,13 @@ table.t tbody tr:hover{background:#F8FAFD}
 /* ── タイル ── */
 .tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
 .tile{background:#F8FAFD;border:1px solid var(--line);border-radius:var(--r);padding:11px 12px}
+.tile.clickable{cursor:pointer}
+.tile.clickable:hover{border-color:var(--accent)}
+.tile.on{border-color:var(--accent);background:#EEF4FF}
+/* 採用後の育成：たたんだ行 */
+.afold{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;cursor:pointer;width:100%;background:none;border:0;padding:0;text-align:left;font:inherit;color:inherit}
+.afold .nm{font-weight:700;font-size:15px}
+.afold .caret{color:var(--muted);font-size:12px;margin-left:auto}
 .tile .label-sm{display:block}
 .tile b{display:block;font-size:22px;line-height:1.3;font-variant-numeric:tabular-nums}
 .tile .note{font-size:11px}
@@ -175,7 +182,7 @@ tr.irow.soon td{background:var(--warn-soft)}
 <header>
   <div class="hrow">
     <div class="brand">
-      <h1>採用・育成ボード</h1><span>画面 v84</span>
+      <h1>採用・育成ボード</h1><span>画面 v85</span>
     </div>
     <a class="nav" href="./log.html">営業ログ</a>
     <a class="nav" href="./navi.html">目標ナビ</a>
@@ -238,6 +245,14 @@ tr.irow.soon td{background:var(--warn-soft)}
     <div class="panel">
       <h3>選考中 <span class="label-sm" id="boardCount"></span>
         <span class="spacer"></span>
+        <select id="fPhase" style="width:auto">
+          <option value="all">フェーズ：すべて</option>
+          <option value="noseat">着座日が未定</option>
+          <option value="waiting">着座待ち（判定前）</option>
+          <option value="remind">催促対象</option>
+          <option value="silent">返信なし</option>
+          <option value="late">予定を超過</option>
+        </select>
         <select id="fMedia" style="width:auto"></select>
         <select id="fOwner" style="width:auto"></select>
         <select id="fSort" style="width:auto">
@@ -275,6 +290,11 @@ tr.irow.soon td{background:var(--warn-soft)}
         </select>
       </h3>
       <div class="tiles" id="afterTiles" style="margin-bottom:12px"></div>
+      <div class="row" style="margin-bottom:8px">
+        <button class="btn ghost small" id="aOpenAll">すべて開く</button>
+        <button class="btn ghost small" id="aCloseAll">すべて閉じる</button>
+        <span class="label-sm">名前を押すと、その人の育成フェーズが開きます</span>
+      </div>
       <p class="note">
         予定日は採用日から自動で入ります。日付を直したり、「済」を押して進めてください。
         ロープレは回数を増やせます。トークテストは、結果を「再受験」にすると再受験の行を足せます。
@@ -990,22 +1010,38 @@ function renderBoard() {
   const all = filtered();
   /* 自動で離脱と判定した人も、確定するまでは催促できるようボードに残します */
   /* このタブは採用までを見ます。採用後は「採用後の育成」タブへ */
-  const live = sortBoard(all.filter((r) => !isDropped(r) && !isHired(r)));
+  const liveAll = sortBoard(all.filter((r) => !isDropped(r) && !isHired(r)));
+  /* フェーズでの絞り込み。タイルを押しても切り替わります */
+  const phase = $("#fPhase") ? $("#fPhase").value : "all";
+  const inPhase = (r) => {
+    if (phase === "all") return true;
+    if (phase === "noseat") return !isSeated(r);
+    if (phase === "waiting") return isSeated(r) && isPending(r);
+    if (phase === "remind") { const a = seatAlert(r); return !!a && a.level === "remind"; }
+    if (phase === "silent") return autoDropped(r);
+    if (phase === "late") return !autoDropped(r) && nextOf(r).state === "late";
+    return true;
+  };
+  const live = liveAll.filter(inPhase);
   const done = sortBoard(all.filter((r) => isHired(r) && !isDropped(r)));
   const dropped = all.filter(effDropped);
 
   const remind = all.filter((r) => { const a = seatAlert(r); return a && a.level === "remind"; }).length;
   const silent = all.filter(autoDropped).length;
   const pending = all.filter(isPending).length;
-  const late = live.filter((r) => !autoDropped(r) && nextOf(r).state === "late").length;
-  const tile = (k, v, sub, cls) =>
-    '<div class="tile"><span class="label-sm">' + k + '</span><b class="' + (cls || "") + '">' + v + '</b><span class="note">' + sub + "</span></div>";
+  const noseat = liveAll.filter((r) => !isSeated(r)).length;
+  const late = liveAll.filter((r) => !autoDropped(r) && nextOf(r).state === "late").length;
+  const tile = (k, v, sub, cls, ph) =>
+    '<div class="tile' + (ph ? " clickable" : "") + (ph && ph === phase ? " on" : "") + '"' +
+    (ph ? ' data-phase="' + ph + '" title="押すと絞り込みます"' : "") +
+    '><span class="label-sm">' + k + '</span><b class="' + (cls || "") + '">' + v + '</b><span class="note">' + sub + "</span></div>";
   $("#boardTiles").innerHTML =
-    tile("選考中", live.length + "名", "採用・不採用がこれから") +
-    tile("着座待ち", pending + "名", "採用・不採用がまだの人") +
-    tile("着座の催促", remind + "名", "応募から" + SEAT_REMIND_DAYS + "日以上", remind ? "cell-warn" : "") +
-    tile("返信なし", silent + "名", SEAT_DROP_DAYS + "日経過・離脱と判定", silent ? "cell-bad" : "") +
-    tile("予定を超過", late + "名", "研修・初出勤の遅れ", late ? "cell-bad" : "") +
+    tile("選考中", liveAll.length + "名", "採用・不採用がこれから", "", "all") +
+    tile("着座日が未定", noseat + "名", "まず日程を決める", noseat ? "cell-warn" : "", "noseat") +
+    tile("着座待ち", pending + "名", "採用・不採用がまだの人", "", "waiting") +
+    tile("着座の催促", remind + "名", "応募から" + SEAT_REMIND_DAYS + "日以上", remind ? "cell-warn" : "", "remind") +
+    tile("返信なし", silent + "名", SEAT_DROP_DAYS + "日経過・離脱と判定", silent ? "cell-bad" : "", "silent") +
+    tile("予定を超過", late + "名", "研修・初出勤の遅れ", late ? "cell-bad" : "", "late") +
     tile("採用済み", done.length + "名", "出勤 " + done.filter(isStarted).length + "・継続 " + done.filter(isKeeping).length + "名") +
     tile("離脱", dropped.length + "名", "応募 " + all.length + "名のうち", dropped.length ? "cell-warn" : "");
 
@@ -1045,7 +1081,8 @@ function renderBoard() {
   sh += seatRow("合計", src, true);
   $("#seatTable").innerHTML = sh + "</tbody>";
 
-  $("#boardCount").textContent = live.length + "名";
+  $("#boardCount").textContent = phase === "all" ? live.length + "名"
+    : live.length + "名／" + liveAll.length + "名中";
   $("#board").innerHTML = live.length
     ? live.map(cardHtml).join("")
     : '<div class="empty">選考中の応募者はいません。上のフォームから登録してください。</div>';
@@ -1110,7 +1147,11 @@ function itemRow(r, it) {
     "</tr>";
 }
 
+/* 開いている人（採用後の育成）。既定は全部たたんだ状態です */
+const AOPEN = new Set();
+
 function afterCard(r) {
+  const open = AOPEN.has(r.id);
   const items = afterItems(r);
   const nx = nextOf(r);
   const prog = progressOf(r);
@@ -1154,18 +1195,26 @@ function afterCard(r) {
     }
   });
 
+  /* たたんだ状態は1行だけ。押すと中身が開きます */
+  const head = '<button class="afold" data-afold="' + r.id + '" aria-expanded="' + (open ? "true" : "false") + '">' +
+    '<div class="avatar">' + esc((r.name || "？").slice(0, 1)) + "</div>" +
+    '<span class="nm">' + esc(r.name) + "</span>" +
+    '<span class="tag media">' + esc(r.media) + "</span>" +
+    (isKeeping(r) ? '<span class="tag ok">継続</span>' : isStarted(r) ? '<span class="tag">出勤中</span>' : '<span class="tag">初出勤前</span>') +
+    (late ? '<span class="tag bad">期限切れ ' + late + "件</span>" : "") +
+    '<span class="label-sm">進捗 ' + prog + "%</span>" +
+    (open ? "" : '<span class="label-sm">' + (nx.kind === "done" ? "すべて完了" : "次：" + esc(nx.label) + (nx.due ? "（" + leftText(nx.due) + "）" : "")) + "</span>") +
+    '<span class="caret">' + (open ? "閉じる ▲" : "開く ▼") + "</span>" +
+    "</button>";
+
+  if (!open) {
+    return '<div class="panel" data-after="' + r.id + '" style="padding:12px 14px">' + head + "</div>";
+  }
+
   return '<div class="panel" data-after="' + r.id + '">' +
-    '<div class="who" style="margin-bottom:8px">' +
-      '<div class="avatar">' + esc((r.name || "？").slice(0, 1)) + "</div>" +
-      '<span class="nm">' + esc(r.name) + "</span>" +
-      '<span class="tag media">' + esc(r.media) + "</span>" +
-      (isKeeping(r) ? '<span class="tag ok">継続</span>' : isStarted(r) ? '<span class="tag">出勤中</span>' : '<span class="tag">初出勤前</span>') +
-      '<span class="label-sm">採用 ' + md(r.hireDate) + "／採用担当 " + esc(r.owner || "未設定") +
-        (r.trainer ? "／教育 " + esc(r.trainer) : "") + "</span>" +
-      '<span class="spacer"></span>' +
-      (late ? '<span class="tag bad">期限切れ ' + late + "件</span>" : "") +
-      '<span class="label-sm">進捗 ' + prog + "%</span>" +
-    "</div>" +
+    head +
+    '<p class="label-sm" style="margin:8px 0 10px">採用 ' + md(r.hireDate) + "／採用担当 " + esc(r.owner || "未設定") +
+      (r.trainer ? "／教育 " + esc(r.trainer) : "") + "</p>" +
     '<div class="mbar ' + (prog >= 100 ? "ok" : late ? "bad" : "") + '" style="width:100%;margin-bottom:10px"><i style="width:' + prog + '%"></i></div>' +
     '<p class="next ' + nx.state + '" style="margin:0 0 8px">' +
       (nx.kind === "done" ? "すべて完了" : "次：" + esc(nx.label)) +
@@ -1814,6 +1863,21 @@ $("#addPlan").addEventListener("click", async () => {
 
 /* カード内の操作 */
 document.addEventListener("click", async (e) => {
+  /* タイルを押してフェーズで絞り込む */
+  const ph = e.target.closest("[data-phase]");
+  if (ph) { $("#fPhase").value = ph.dataset.phase; renderBoard(); return; }
+
+  /* 採用後の育成：名前を押して開閉 */
+  const fo = e.target.closest("[data-afold]");
+  if (fo) {
+    const id = fo.dataset.afold;
+    if (AOPEN.has(id)) AOPEN.delete(id); else AOPEN.add(id);
+    renderAfter();
+    return;
+  }
+  if (e.target.id === "aOpenAll") { afterRows().forEach((r) => AOPEN.add(r.id)); renderAfter(); return; }
+  if (e.target.id === "aCloseAll") { AOPEN.clear(); renderAfter(); return; }
+
   const t = e.target.closest("[data-node],[data-edit],[data-del],[data-jump],[data-drop],[data-revive],[data-undrop],[data-seatnow],[data-hire],[data-reject],[data-plandel],[data-ledit],[data-rpadd],[data-rpdel],[data-rtadd],[data-rtdel]");
   if (!t) return;
   if (t.disabled) return;
@@ -2010,7 +2074,7 @@ document.addEventListener("change", async (e) => {
   const el = e.target;
 
   /* 絞り込みと並べ替え */
-  if (["fMedia", "fOwner", "fSort", "fPeriod2"].indexOf(el.id) >= 0) { renderBoard(); return; }
+  if (["fPhase", "fMedia", "fOwner", "fSort", "fPeriod2"].indexOf(el.id) >= 0) { renderBoard(); return; }
   if (el.id === "fPeriod") { renderFunnel(); return; }
   if (el.id === "goalMonth") { renderGoal(); return; }
   if (el.id === "perfMonth") { renderPerf(); return; }

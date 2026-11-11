@@ -182,7 +182,7 @@ tr.irow.soon td{background:var(--warn-soft)}
 <header>
   <div class="hrow">
     <div class="brand">
-      <h1>採用・育成ボード</h1><span>画面 v85</span>
+      <h1>採用・育成ボード</h1><span>画面 v86</span>
     </div>
     <a class="nav" href="./log.html">営業ログ</a>
     <a class="nav" href="./navi.html">目標ナビ</a>
@@ -238,7 +238,7 @@ tr.irow.soon td{background:var(--warn-soft)}
       <p class="note" style="margin-top:8px">
         「着座待ち」は、採用・不採用がまだ出ていない人です（着座日を入れただけの人も含みます）。
         応募から <b id="remindTxt">7</b> 日たっても着座日が決まらない人は「催促対象」、
-        <b id="dropTxt">14</b> 日を過ぎた人は「返信なし」として離脱（応募→着座）に数えています。
+        <b id="dropTxt">14</b> 日を過ぎた人は「連絡なし」の印がつきます。離脱に数えるのは、手で「離脱にする」を押したときだけです。
       </p>
     </div>
 
@@ -250,7 +250,7 @@ tr.irow.soon td{background:var(--warn-soft)}
           <option value="noseat">着座日が未定</option>
           <option value="waiting">着座待ち（判定前）</option>
           <option value="remind">催促対象</option>
-          <option value="silent">返信なし</option>
+          <option value="silent">連絡なし</option>
           <option value="late">予定を超過</option>
         </select>
         <select id="fMedia" style="width:auto"></select>
@@ -645,7 +645,7 @@ const isSeated = (r) => !!r.seatDate || !!r.hireDate || isStarted(r) || ["着座
 /* 採用まで進んだ人。研修の入力は、ここを過ぎてから始めます */
 const isHired = (r) => !!r.hireDate || isStarted(r) || ["採用", "出勤", "継続"].indexOf(r.status) >= 0;
 /* 採用・不採用がまだ決まっていない人。着座日を入れただけの人もここに含みます。 */
-const isPending = (r) => !isHired(r) && !isDropped(r) && !autoDropped(r);
+const isPending = (r) => !isHired(r) && !isDropped(r);
 
 /* ── 着座待ちの管理 ──────────────────────
    応募から SEAT_REMIND_DAYS 日で催促、SEAT_DROP_DAYS 日で離脱と判定します。 */
@@ -658,10 +658,10 @@ function seatAlert(r) {
   if (d >= SEAT_REMIND_DAYS) return { level: "remind", days: d };
   return null;
 }
-/* 2週間returnが無く、自動で離脱とみなしている人 */
-const autoDropped = (r) => { const a = seatAlert(r); return !!a && a.level === "drop"; };
-/* 集計でも画面でも、これを「離脱」として扱います */
-const effDropped = (r) => isDropped(r) || autoDropped(r);
+/* 応募から日数がたっても着座日が決まらない人。注意を出すだけで、離脱にはしません */
+const noReply = (r) => { const a = seatAlert(r); return !!a && a.level === "drop"; };
+/* 離脱は、手で「離脱にする」を押したときだけです */
+const effDropped = (r) => isDropped(r);
 /* いまの進み具合から、離脱した段階を自動で決めます */
 function dropStageAuto(r) {
   if (isStarted(r)) return "afterStart";
@@ -856,6 +856,37 @@ function sortBoard(list) {
   });
 }
 
+/* 応募 → 着座 → 採用 → 研修4つ → 初出勤 をひと続きで表示します。
+   研修の丸は、採用を押すまで押せません。 */
+function stepsHtml(r) {
+  const nx = nextOf(r);
+  const hired = isHired(r);
+  const nodes = [
+    { key: "apply", short: "応", nm: "応募", done: true, lock: true },
+    { key: "seat",  short: "着", nm: "着座", done: isSeated(r), act: "seat" },
+    { key: "hire",  short: "採", nm: "採用", done: hired, act: "hire", lock: !isSeated(r) }
+  ].concat(STEPS.map((sp) => {
+    const st = r.steps[sp.key];
+    return {
+      key: sp.key, short: sp.short, nm: sp.nm, done: st.done, act: "step", lock: !hired,
+      late: hired && !st.done && st.plan && daysBetween(TODAY, st.plan) < 0,
+      now: hired && !st.done && nx.kind === "step" && nx.step === "step|" + sp.key,
+      plan: st.plan
+    };
+  })).concat([{ key: "start", short: "出", nm: "初出勤", done: isStarted(r), act: "start", lock: !hired }]);
+
+  let out = "";
+  nodes.forEach((nd, i) => {
+    if (i > 0) out += '<i class="bar ' + (nodes[i - 1].done ? "done" : "") + '"></i>';
+    const title = nd.nm + (nd.done ? "（済）" : nd.lock ? "（採用後に入力します）" : nd.plan ? "（予定 " + md(nd.plan) + "）" : "");
+    const cls = nd.done ? "done" : nd.lock ? "lock" : nd.late ? "late" : nd.now ? "now" : "";
+    const attr = nd.lock || !nd.act ? ' disabled aria-disabled="true"' : ' data-node="' + r.id + "|" + nd.act + "|" + nd.key + '"';
+    out += '<div class="step"><button class="dot ' + cls + '"' + attr + ' title="' + esc(title) + '">' +
+      (nd.done ? "✓" : nd.short) + "</button></div>";
+  });
+  return out;
+}
+
 function cardHtml(r) {
   const nx = nextOf(r);
   const prog = progressOf(r);
@@ -863,39 +894,15 @@ function cardHtml(r) {
   const cls = isKeeping(r) ? "done" : nx.state === "late" ? "late" : nx.state === "soon" ? "soon" : "";
   const pcls = prog >= 100 ? "ok" : nx.state === "late" ? "bad" : nx.state === "soon" ? "warn" : "";
 
-  /* 応募 → 着座 → 採用 → 研修4つ → 初出勤 をひと続きで表示します。
-     研修の丸は、採用を押すまで押せません。 */
   const hired = isHired(r);
-  const nodes = [
-    { key: "apply", short: "応", nm: "応募", done: true, lock: true },
-    { key: "seat",  short: "着", nm: "着座", done: isSeated(r), act: "seat" },
-    { key: "hire",  short: "採", nm: "採用", done: hired, act: "hire", lock: !isSeated(r) }
-  ].concat(STEPS.map((s) => {
-    const st = r.steps[s.key];
-    return {
-      key: s.key, short: s.short, nm: s.nm, done: st.done, act: "step", lock: !hired,
-      late: hired && !st.done && st.plan && daysBetween(TODAY, st.plan) < 0,
-      now: hired && !st.done && nx.kind === "step" && nx.step === "step|" + s.key,
-      plan: st.plan
-    };
-  })).concat([{ key: "start", short: "出", nm: "初出勤", done: isStarted(r), act: "start", lock: !hired }]);
-
-  let steps = "";
-  nodes.forEach((nd, i) => {
-    if (i > 0) steps += '<i class="bar ' + (nodes[i - 1].done ? "done" : "") + '"></i>';
-    const title = nd.nm + (nd.done ? "（済）" : nd.lock ? "（採用後に入力します）" : nd.plan ? "（予定 " + md(nd.plan) + "）" : "");
-    const cls = nd.done ? "done" : nd.lock ? "lock" : nd.late ? "late" : nd.now ? "now" : "";
-    const attr = nd.lock || !nd.act ? ' disabled aria-disabled="true"' : ' data-node="' + r.id + "|" + nd.act + "|" + nd.key + '"';
-    steps += '<div class="step"><button class="dot ' + cls + '"' + attr + ' title="' + esc(title) + '">' +
-      (nd.done ? "✓" : nd.short) + "</button></div>";
-  });
+  const steps = stepsHtml(r);
 
   const mediaTag = '<span class="tag media">' + esc(r.media) + "</span>";
   const ownerTag = '<span class="label-sm">採用 ' + esc(r.owner || "未設定") +
     (r.trainer ? "／教育 " + esc(r.trainer) : "") + "</span>";
-  const auto = autoDropped(r);
+  const auto = noReply(r);
   const statusTag = isDropped(r) ? '<span class="tag bad">離脱・' + esc(dropNm(dropStageOf(r))) + "</span>"
-    : auto ? '<span class="tag bad">離脱（自動判定）</span>'
+    : auto ? '<span class="tag warn">連絡なし</span>'
     : isKeeping(r) ? '<span class="tag ok">継続</span>'
     : '<span class="tag">' + esc(r.status) + "</span>";
 
@@ -904,10 +911,10 @@ function cardHtml(r) {
   const alertHtml = !al ? "" :
     '<div class="alert ' + (al.level === "drop" ? "bad" : "warn") + '">' +
       (al.level === "drop"
-        ? "<b>応募から " + al.days + "日、着座が決まっていません。</b>　" + SEAT_DROP_DAYS +
-          "日を過ぎたため離脱（応募→着座）として集計しています。連絡がついた場合は「やりとり再開」を押してください。"
-        : "<b>応募から " + al.days + "日が経過。着座の催促をしてください。</b>　" +
-          (SEAT_DROP_DAYS - al.days) + "日後に自動で離脱と判定されます。") +
+        ? "<b>応募から " + al.days + "日、着座が決まっていません。</b>　" +
+          "連絡がつかない場合は「離脱にする」を押して記録してください。押すまでは選考中のままです。"
+        : "<b>応募から " + al.days + "日が経過。着座の催促をしてください。</b>　応募から " +
+          SEAT_DROP_DAYS + "日で「連絡なし」の印がつきます。") +
     "</div>";
 
   /* 状況に応じたボタン。着座したら「採用」「不採用」が出ます */
@@ -916,8 +923,8 @@ function cardHtml(r) {
   if (isDropped(r)) {
     act = '<button class="btn ghost small" data-undrop="' + r.id + '">離脱を取り消す</button>';
   } else if (auto) {
-    act = '<button class="btn ghost small" data-revive="' + r.id + '">やりとり再開</button>' +
-      '<button class="btn danger small" data-drop="' + r.id + '">離脱を確定</button>';
+    act = '<button class="btn ghost small" data-seatnow="' + r.id + '">着座にする</button>' +
+      '<button class="btn danger small" data-drop="' + r.id + '">離脱にする</button>';
   } else if (!isSeated(r)) {
     act = '<button class="btn ghost small" data-seatnow="' + r.id + '">着座にする</button>' +
       '<button class="btn danger small" data-drop="' + r.id + '">離脱にする</button>';
@@ -1018,8 +1025,8 @@ function renderBoard() {
     if (phase === "noseat") return !isSeated(r);
     if (phase === "waiting") return isSeated(r) && isPending(r);
     if (phase === "remind") { const a = seatAlert(r); return !!a && a.level === "remind"; }
-    if (phase === "silent") return autoDropped(r);
-    if (phase === "late") return !autoDropped(r) && nextOf(r).state === "late";
+    if (phase === "silent") return noReply(r);
+    if (phase === "late") return !noReply(r) && nextOf(r).state === "late";
     return true;
   };
   const live = liveAll.filter(inPhase);
@@ -1027,10 +1034,10 @@ function renderBoard() {
   const dropped = all.filter(effDropped);
 
   const remind = all.filter((r) => { const a = seatAlert(r); return a && a.level === "remind"; }).length;
-  const silent = all.filter(autoDropped).length;
+  const silent = all.filter(noReply).length;
   const pending = all.filter(isPending).length;
   const noseat = liveAll.filter((r) => !isSeated(r)).length;
-  const late = liveAll.filter((r) => !autoDropped(r) && nextOf(r).state === "late").length;
+  const late = liveAll.filter((r) => !noReply(r) && nextOf(r).state === "late").length;
   const tile = (k, v, sub, cls, ph) =>
     '<div class="tile' + (ph ? " clickable" : "") + (ph && ph === phase ? " on" : "") + '"' +
     (ph ? ' data-phase="' + ph + '" title="押すと絞り込みます"' : "") +
@@ -1040,7 +1047,7 @@ function renderBoard() {
     tile("着座日が未定", noseat + "名", "まず日程を決める", noseat ? "cell-warn" : "", "noseat") +
     tile("着座待ち", pending + "名", "採用・不採用がまだの人", "", "waiting") +
     tile("着座の催促", remind + "名", "応募から" + SEAT_REMIND_DAYS + "日以上", remind ? "cell-warn" : "", "remind") +
-    tile("返信なし", silent + "名", SEAT_DROP_DAYS + "日経過・離脱と判定", silent ? "cell-bad" : "", "silent") +
+    tile("連絡なし", silent + "名", SEAT_DROP_DAYS + "日たっても着座日が未定", silent ? "cell-warn" : "", "silent") +
     tile("予定を超過", late + "名", "研修・初出勤の遅れ", late ? "cell-bad" : "", "late") +
     tile("採用済み", done.length + "名", "出勤 " + done.filter(isStarted).length + "・継続 " + done.filter(isKeeping).length + "名") +
     tile("離脱", dropped.length + "名", "応募 " + all.length + "名のうち", dropped.length ? "cell-warn" : "");
@@ -1048,7 +1055,7 @@ function renderBoard() {
   /* 媒体ごとの応募数と着座率 */
   const src = RECRUITS.filter((r) => inPeriodBy(r, $("#fPeriod2").value));
   let sh = '<thead><tr><th class="l">媒体</th><th>応募数</th><th>着座</th><th>着座率</th>' +
-    "<th>着座待ち</th><th>催促対象</th><th>返信なし</th><th>平均着座日数</th></tr></thead><tbody>";
+    "<th>着座待ち</th><th>催促対象</th><th>連絡なし</th><th>平均着座日数</th></tr></thead><tbody>";
   const seatRow = (label, list, strong) => {
     const ap = list.length;
     const st = list.filter(isSeated).length;
@@ -1057,7 +1064,7 @@ function renderBoard() {
     const dated = pending.filter(isSeated).length;      /* 着座日は決まっているが判定前 */
     const undated = pending.length - dated;             /* 着座日もまだ */
     const rem = pending.filter((r) => { const a = seatAlert(r); return a && a.level === "remind"; }).length;
-    const sil = list.filter(autoDropped).length;
+    const sil = list.filter(noReply).length;
     const ds = list.filter((r) => r.applyDate && r.seatDate).map((r) => daysBetween(r.applyDate, r.seatDate));
     const avg = ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : null;
     const q = ap ? st / ap : null;
@@ -1125,11 +1132,9 @@ function afterRows() {
     .filter((r) => isHired(r) && !isDropped(r))
     .filter((r) => !o || r.owner === o)
     .filter((r) => st === "all" ? true : st === "started" ? isStarted(r) : !isStarted(r))
-    .sort((a, b) => {
-      const na = nextOf(a), nb = nextOf(b);
-      const rank = { late: 0, soon: 1, calm: 2 };
-      return (rank[na.state] - rank[nb.state]) || (na.due || "9999").localeCompare(nb.due || "9999");
-    });
+    /* 採用日が古い順。採用日が入っていない人は最後にまわします */
+    .sort((a, b) => (a.hireDate || "9999").localeCompare(b.hireDate || "9999") ||
+      String(a.name).localeCompare(String(b.name), "ja"));
 }
 
 /* 1項目ぶんの行（予定日と「済」） */
@@ -1196,23 +1201,32 @@ function afterCard(r) {
   });
 
   /* たたんだ状態は1行だけ。押すと中身が開きます */
+  const bro = r.brother && r.brother.name
+    ? '<span class="tag">ブラザー ' + esc(r.brother.name) + (r.brother.done ? "" : "（接点まだ）") + "</span>"
+    : '<span class="tag warn">ブラザー未定</span>';
+
   const head = '<button class="afold" data-afold="' + r.id + '" aria-expanded="' + (open ? "true" : "false") + '">' +
     '<div class="avatar">' + esc((r.name || "？").slice(0, 1)) + "</div>" +
     '<span class="nm">' + esc(r.name) + "</span>" +
     '<span class="tag media">' + esc(r.media) + "</span>" +
     (isKeeping(r) ? '<span class="tag ok">継続</span>' : isStarted(r) ? '<span class="tag">出勤中</span>' : '<span class="tag">初出勤前</span>') +
+    bro +
     (late ? '<span class="tag bad">期限切れ ' + late + "件</span>" : "") +
+    '<span class="label-sm">採用 ' + md(r.hireDate) + "</span>" +
     '<span class="label-sm">進捗 ' + prog + "%</span>" +
     (open ? "" : '<span class="label-sm">' + (nx.kind === "done" ? "すべて完了" : "次：" + esc(nx.label) + (nx.due ? "（" + leftText(nx.due) + "）" : "")) + "</span>") +
     '<span class="caret">' + (open ? "閉じる ▲" : "開く ▼") + "</span>" +
     "</button>";
 
+  /* たたんでいても進み具合が分かるように、丸の並びを出します */
+  const dots = '<div class="steps" style="margin-top:8px">' + stepsHtml(r) + "</div>";
+
   if (!open) {
-    return '<div class="panel" data-after="' + r.id + '" style="padding:12px 14px">' + head + "</div>";
+    return '<div class="panel" data-after="' + r.id + '" style="padding:12px 14px">' + head + dots + "</div>";
   }
 
   return '<div class="panel" data-after="' + r.id + '">' +
-    head +
+    head + dots +
     '<p class="label-sm" style="margin:8px 0 10px">採用 ' + md(r.hireDate) + "／採用担当 " + esc(r.owner || "未設定") +
       (r.trainer ? "／教育 " + esc(r.trainer) : "") + "</p>" +
     '<div class="mbar ' + (prog >= 100 ? "ok" : late ? "bad" : "") + '" style="width:100%;margin-bottom:10px"><i style="width:' + prog + '%"></i></div>' +

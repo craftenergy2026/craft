@@ -182,7 +182,7 @@ tr.irow.soon td{background:var(--warn-soft)}
 <header>
   <div class="hrow">
     <div class="brand">
-      <h1>採用・育成ボード</h1><span>画面 v86</span>
+      <h1>採用・育成ボード</h1><span>画面 v87</span>
     </div>
     <a class="nav" href="./log.html">営業ログ</a>
     <a class="nav" href="./navi.html">目標ナビ</a>
@@ -228,11 +228,7 @@ tr.irow.soon td{background:var(--warn-soft)}
     <div class="panel">
       <h3>媒体ごとの応募数と着座率
         <span class="spacer"></span>
-        <select id="fPeriod2" style="width:auto">
-          <option value="all">全期間</option>
-          <option value="90">直近3か月</option>
-          <option value="30">直近1か月</option>
-        </select>
+        <select id="fPeriod2" style="width:auto"></select>
       </h3>
       <div class="tscroll"><table class="t" id="seatTable"></table></div>
       <p class="note" style="margin-top:8px">
@@ -324,20 +320,12 @@ tr.irow.soon td{background:var(--warn-soft)}
     <div class="panel">
       <h3>媒体別の歩留まり
         <span class="spacer"></span>
-        <select id="fPeriod" style="width:auto">
-          <option value="all">全期間</option>
-          <option value="90">直近3か月</option>
-          <option value="30">直近1か月</option>
-        </select>
+        <select id="fPeriod" style="width:auto"></select>
       </h3>
       <div class="tscroll"><table class="t" id="funnelTable"></table></div>
       <p class="note" style="margin-top:8px">
         各率は「ひとつ前の段階に対する割合」です。継続率は、初出勤した人のうち継続と判定した人の割合を指します。
       </p>
-    </div>
-    <div class="panel">
-      <h3>採用担当別</h3>
-      <div class="tscroll"><table class="t" id="ownerTable"></table></div>
     </div>
     <div class="panel">
       <h3>離脱した段階 <span class="label-sm">どこで抜けているかを見て、施策を決めます</span></h3>
@@ -1269,10 +1257,37 @@ function renderAfter() {
 /* ══════════════════════════════════════════
    媒体別の歩留まり
    ══════════════════════════════════════════ */
+/* 期間の絞り込み。
+   "all" は全期間、"90"/"30" は直近の日数、"2026-11" のような値はその月の応募ぶんです。 */
 function inPeriodBy(r, v) {
   if (!v || v === "all" || !r.applyDate) return true;
+  if (String(v).indexOf("-") > 0) return String(r.applyDate).slice(0, 7) === v;
   const left = daysBetween(r.applyDate, TODAY);
   return left != null && left <= Number(v);
+}
+/* 応募日のある月を新しい順に並べます */
+function applyMonths() {
+  const set = {};
+  RECRUITS.forEach((r) => { if (r.applyDate) set[String(r.applyDate).slice(0, 7)] = true; });
+  const cur = TODAY.slice(0, 7);
+  set[cur] = true;
+  return Object.keys(set).sort().reverse();
+}
+/* 期間のプルダウンを作ります（選んでいたものは残します） */
+function fillPeriodSelects() {
+  const months = applyMonths()
+    .map((m) => '<option value="' + m + '">' + Number(m.slice(0, 4)) + "年" + Number(m.slice(5, 7)) + "月</option>")
+    .join("");
+  const html = '<option value="all">全期間</option>' +
+    '<option value="90">直近3か月</option>' +
+    '<option value="30">直近1か月</option>' + months;
+  ["#fPeriod", "#fPeriod2"].forEach((sel) => {
+    const el = $(sel);
+    if (!el) return;
+    const keep = el.value;
+    el.innerHTML = html;
+    el.value = Array.prototype.some.call(el.options, (o) => o.value === keep) ? keep : "all";
+  });
 }
 const inPeriod = (r) => inPeriodBy(r, $("#fPeriod").value);
 /* 段階に到達しているか。後の段階に進んでいれば前の段階も通過とみなします */
@@ -1329,14 +1344,6 @@ function renderFunnel() {
   const allAvg = allDays.length ? allDays.reduce((a, b) => a + b, 0) / allDays.length : null;
   h += '<tr style="background:#F8FAFD">' + funnelRow("合計", list, '<td class="num">' + (allAvg == null ? "–" : f1(allAvg) + "日") + "</td>").slice(4);
   $("#funnelTable").innerHTML = h + "</tbody>";
-
-  /* 採用担当別 */
-  const owners = Array.from(new Set(list.map((r) => r.owner).filter(Boolean)));
-  let oh = '<thead><tr><th class="l">採用担当</th>' + STAGES.map((s) => "<th>" + s.nm + "</th>").join("") +
-    "<th>着座率</th><th>採用率</th><th>出勤率</th><th>継続率</th><th>応募→継続</th></tr></thead><tbody>";
-  if (!owners.length) oh += '<tr><td class="l" colspan="11"><span class="note">採用担当が設定されている応募者がいません。</span></td></tr>';
-  owners.forEach((o) => { oh += funnelRow(o, list.filter((r) => r.owner === o)); });
-  $("#ownerTable").innerHTML = oh + "</tbody>";
 
   /* 離脱の内訳 */
   const dropped = list.filter(effDropped);
@@ -1790,6 +1797,7 @@ function renderList() {
    画面の制御
    ══════════════════════════════════════════ */
 function renderAll() {
+  fillPeriodSelects();   /* 応募日の月が増えたら、期間の選択肢も増やします */
   renderBoard();
   renderAfter();
   renderGoal();
@@ -1809,6 +1817,7 @@ $$("nav.tabs button").forEach((b) => b.addEventListener("click", () => switchTab
 
 /* 選択肢の組み立て */
 function fillSelects() {
+  fillPeriodSelects();
   const names = ROSTER.map((x) => x.name);
   const opts = (list, blank) => (blank ? '<option value="">' + blank + "</option>" : "") +
     list.map((x) => '<option value="' + esc(x) + '">' + esc(x) + "</option>").join("");

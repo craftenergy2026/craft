@@ -182,7 +182,7 @@ tr.irow.soon td{background:var(--warn-soft)}
 <header>
   <div class="hrow">
     <div class="brand">
-      <h1>採用・育成ボード</h1><span>画面 v87</span>
+      <h1>採用・育成ボード</h1><span>画面 v88</span>
     </div>
     <a class="nav" href="./log.html">営業ログ</a>
     <a class="nav" href="./navi.html">目標ナビ</a>
@@ -228,6 +228,7 @@ tr.irow.soon td{background:var(--warn-soft)}
     <div class="panel">
       <h3>媒体ごとの応募数と着座率
         <span class="spacer"></span>
+        <span class="label-sm">応募日</span>
         <select id="fPeriod2" style="width:auto"></select>
       </h3>
       <div class="tscroll"><table class="t" id="seatTable"></table></div>
@@ -320,11 +321,17 @@ tr.irow.soon td{background:var(--warn-soft)}
     <div class="panel">
       <h3>媒体別の歩留まり
         <span class="spacer"></span>
+        <span class="label-sm">応募日</span>
         <select id="fPeriod" style="width:auto"></select>
       </h3>
       <div class="tscroll"><table class="t" id="funnelTable"></table></div>
       <p class="note" style="margin-top:8px">
         各率は「ひとつ前の段階に対する割合」です。継続率は、初出勤した人のうち継続と判定した人の割合を指します。
+      </p>
+      <p class="note" style="margin-top:8px">
+        <b>数え方</b>　月で絞ると、その月に<b>応募した人</b>を追いかけます。採用日が翌月以降になった人も、応募した月の「採用」に数えます。
+        また「採用」には、採用のあとで離脱した人も含まれます（その人は「採用後の育成」には出ません）。
+        採用した月で見たいときは「採用後の育成」タブの採用日を見てください。
       </p>
     </div>
     <div class="panel">
@@ -1276,11 +1283,11 @@ function applyMonths() {
 /* 期間のプルダウンを作ります（選んでいたものは残します） */
 function fillPeriodSelects() {
   const months = applyMonths()
-    .map((m) => '<option value="' + m + '">' + Number(m.slice(0, 4)) + "年" + Number(m.slice(5, 7)) + "月</option>")
+    .map((m) => '<option value="' + m + '">' + Number(m.slice(0, 4)) + "年" + Number(m.slice(5, 7)) + "月に応募</option>")
     .join("");
   const html = '<option value="all">全期間</option>' +
-    '<option value="90">直近3か月</option>' +
-    '<option value="30">直近1か月</option>' + months;
+    '<option value="90">直近3か月に応募</option>' +
+    '<option value="30">直近1か月に応募</option>' + months;
   ["#fPeriod", "#fPeriod2"].forEach((sel) => {
     const el = $(sel);
     if (!el) return;
@@ -1312,8 +1319,13 @@ function countsFor(list) {
 }
 function funnelRow(label, list, extra) {
   const c = countsFor(list);
+  /* 採用したあとで離脱した人は「採用後の育成」に出ないので、ここで内訳を出します */
+  const hiredOut = list.filter((r) => reached(r, "hire") && isDropped(r)).length;
   return "<tr><td class=\"l\"><b>" + esc(label) + "</b></td>" +
-    STAGES.map((s) => '<td class="num">' + c[s.key] + "</td>").join("") +
+    STAGES.map((s) => '<td class="num">' + c[s.key] +
+      (s.key === "hire" && hiredOut
+        ? '<br><span class="note">うち離脱 ' + hiredOut + "</span>"
+        : "") + "</td>").join("") +
     '<td class="num">' + pct(c.seat, c.apply) + "</td>" +
     '<td class="num">' + pct(c.hire, c.seat) + "</td>" +
     '<td class="num">' + pct(c.start, c.hire) + "</td>" +

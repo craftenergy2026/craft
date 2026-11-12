@@ -46,6 +46,11 @@ section[hidden]{display:none}
 .panel h3{margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .spacer{flex:1}
 .note{margin:0;color:var(--muted);font-size:12px;line-height:1.7}
+.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line)}
+.mrow:first-child{border-top:0}
+.mrow input{flex:1 1 9em;min-width:0}
+.mrow .label-sm{white-space:nowrap}
+.mrow .mbtns{display:flex;gap:6px;margin-left:auto}
 .label-sm{font-size:11px;font-weight:400;color:var(--muted)}
 
 input,select,textarea{font:inherit;font-size:15px;color:var(--ink);background:#fff;border:1px solid var(--line);
@@ -100,7 +105,7 @@ table.t tbody tr:hover{background:#F8FAFD}
 
 <header>
   <div class="hrow">
-    <div class="brand"><h1>大阪支店 営業ログ</h1><span id="verTxt">画面 v4</span></div>
+    <div class="brand"><h1>大阪支店 営業ログ</h1><span id="verTxt">画面 v5</span></div>
     <span class="label-sm" style="color:rgba(255,255,255,.8)">あなた</span>
     <select id="who" style="max-width:9em"></select>
     <span class="pill" id="modePill">接続中…</span>
@@ -113,6 +118,7 @@ table.t tbody tr:hover{background:#F8FAFD}
     <button data-tab="input" aria-selected="false">日報入力</button>
     <button data-tab="team" aria-selected="false">支店全体</button>
     <button data-tab="target" aria-selected="false">目標設定</button>
+    <button data-tab="member" aria-selected="false">メンバー</button>
   </div>
 </nav>
 
@@ -236,6 +242,28 @@ table.t tbody tr:hover{background:#F8FAFD}
       <div class="tscroll"><table class="t" id="tgtTable"></table></div>
     </div>
   </section>
+
+  <section data-sec="member" hidden>
+    <div class="panel">
+      <h3>メンバーを追加</h3>
+      <div class="fields">
+        <label class="f" for="m-name">氏名<input id="m-name" type="text" placeholder="梅島 愛斗"></label>
+        <button class="btn" id="addMember">追加する</button>
+      </div>
+      <p class="note" style="margin-top:8px">
+        追加するとすぐに、日報入力や目標設定の一覧に出ます。
+      </p>
+    </div>
+
+    <div class="panel">
+      <h3>メンバー一覧 <span class="label-sm" id="memberCount"></span></h3>
+      <p class="note" style="margin-bottom:10px">
+        名前を直して「変える」を押すと、これまでの日報・商談・目標もまとめて新しい名前に付け替わります。
+        「外す」を押した人は一覧から消えますが、その人の日報は残ります（集計には出なくなります）。
+      </p>
+      <div id="memberList"></div>
+    </div>
+  </section>
 </main>
 
 <script>
@@ -245,13 +273,14 @@ table.t tbody tr:hover{background:#F8FAFD}
    ══════════════════════════════════════════ */
 const API_URL = "https://script.google.com/macros/s/AKfycbwbJ3SoL1fUul01GHunDsuj5wosSdGzVQvbAVCjAb9wvSS_-EWVYoR7oYf8H_4FhVSKfw/exec";
 
-/* 大阪支店のメンバー。Code.gs の MEMBERS と同じ並びにしてください */
-const MEMBERS = [
+/* 大阪支店のメンバー。ここは最初の並びで、
+   画面の「メンバー」タブで足したり名前を変えたりすると、そちらが使われます。 */
+let MEMBERS = [
   "大内祐樹", "寺廻令", "瀬尾竜汰", "野瀬貴由樹", "神田拡也",
   "松本陽仁", "岩下凛", "小坂萌依", "山口竜輝", "前田尚大",
-  "池谷 美咲", "池田 力龍", "竿本 歩輝", "高島 葵香", "竹内 秀多朗",
+  "池谷 光咲", "池田 力龍", "竿本 歩輝", "高島 葵香", "竹内 秀多朗",
   "田村 琉生", "根来 優那", "平田 夢翔", "藤井 晴斗", "前田 晃希",
-  "宮本 美希", "三好 翔斗", "村上 綾香", "渡邊晴葵"
+  "宮本 美希", "三好 翔斗", "村上 綾香", "渡邊晴葵", "梅島 愛斗"
 ];
 
 /* 見る指標 */
@@ -583,13 +612,15 @@ function renderTargets() {
 /* ══════════════════════════════════════════
    保存
    ══════════════════════════════════════════ */
-async function call(fn, arg, msg) {
+async function call(fn, arg, msg) { return callN(fn, [arg], msg); }
+
+async function callN(fn, args, msg) {
   if (BUSY) return;
   BUSY = true;
   setMode("", "保存しています…");
   showErr("");
   try {
-    const d = await api(fn, arg);
+    const d = await api(fn, ...args);
     apply(d);
     setMode("ok", "保存しました");
     if (msg) flash(msg);
@@ -610,7 +641,22 @@ let EDIT_DEAL = null;
    ほかの人が同時に別のメンバーの目標を直しても、消し合わないようにするためです。 */
 let TGT_DIRTY = {};
 
-function renderAll() { renderMy(); renderInput(); renderTeam(); renderTargets(); }
+function renderMembers() {
+  if (!$("#memberList")) return;
+  $("#memberCount").textContent = MEMBERS.length + "名";
+  const used = (n) => LOGS.filter((l) => l.name === n).length + DEALS.filter((d) => d.name === n).length;
+  $("#memberList").innerHTML = MEMBERS.map((n) =>
+    '<div class="mrow">' +
+      '<input type="text" data-mname="' + esc(n) + '" value="' + esc(n) + '">' +
+      '<span class="label-sm">日報・商談 ' + used(n) + "件</span>" +
+      '<span class="mbtns">' +
+        '<button class="btn ghost small" data-mrename="' + esc(n) + '">変える</button>' +
+        '<button class="btn ghost small danger" data-mdel="' + esc(n) + '">外す</button>' +
+      "</span>" +
+    "</div>").join("");
+}
+
+function renderAll() { renderMy(); renderInput(); renderTeam(); renderTargets(); renderMembers(); }
 
 function switchTab(name) {
   if (!document.querySelector('section[data-sec="' + name + '"]')) name = "my";
@@ -677,8 +723,39 @@ $("#saveTargets").addEventListener("click", async () => {
   await call("saveTargets", { [ym]: month }, ym.slice(5) + "月の目標を保存しました（" + keys.length + "項目）");
 });
 
+/* メンバーの追加 */
+$("#addMember").addEventListener("click", async () => {
+  const name = ($("#m-name").value || "").trim();
+  if (!name) { flash("氏名を入れてください"); return; }
+  if (MEMBERS.indexOf(name) >= 0) { flash("すでに一覧にいます"); return; }
+  await call("saveMembers", MEMBERS.concat([name]), name + " さんを追加しました");
+  $("#m-name").value = "";
+});
+
 /* 一覧の操作 */
 document.addEventListener("click", async (e) => {
+  const mt = e.target.closest("[data-mrename],[data-mdel]");
+  if (mt) {
+    if (mt.dataset.mrename) {
+      const from = mt.dataset.mrename;
+      const box = $('[data-mname="' + from.replace(/"/g, '\\"') + '"]');
+      const to = ((box && box.value) || "").trim();
+      if (!to) { flash("氏名を入れてください"); return; }
+      if (to === from) { flash("名前が変わっていません"); return; }
+      if (!confirm(from + " さんの名前を「" + to + "」に変えます。\nこれまでの日報・商談・目標も、まとめて新しい名前になります。よろしいですか？")) return;
+      if (ME === from) {
+        ME = to;
+        try { localStorage.setItem(WHO_KEY, ME); } catch (err) {}
+      }
+      await callN("renameMember", [from, to], from + " さん →「" + to + "」に変えました");
+      return;
+    }
+    const name = mt.dataset.mdel;
+    const cnt = LOGS.filter((l) => l.name === name).length + DEALS.filter((d) => d.name === name).length;
+    if (!confirm(name + " さんを一覧から外します。" + (cnt ? "\n入力済みの" + cnt + "件は残りますが、集計には出なくなります。" : "") + "\nよろしいですか？")) return;
+    await call("saveMembers", MEMBERS.filter((n) => n !== name), name + " さんを一覧から外しました");
+    return;
+  }
   const t = e.target.closest("[data-ledit],[data-ldel],[data-dedit],[data-ddel],[data-sort]");
   if (!t) return;
   if (t.dataset.sort) {
@@ -767,13 +844,25 @@ function apply(d) {
   LOGS = ((d && d.logs) || []).map(normLog);
   DEALS = (d && d.deals) || [];
   TARGETS = (d && d.targets) || {};
-  if (d && d.version) $("#verTxt").textContent = "画面 v4 / " + d.version;
+  if (d && d.members && d.members.length) {
+    MEMBERS = d.members.slice();
+    fillWho();
+  }
+  if (d && d.version) $("#verTxt").textContent = "画面 v5 / " + d.version;
+}
+
+/* 氏名のプルダウンを作り直します */
+function fillWho() {
+  const sel = $("#who");
+  if (!sel) return;
+  if (MEMBERS.indexOf(ME) < 0) ME = MEMBERS[0];
+  sel.innerHTML = MEMBERS.map((n) => '<option value="' + esc(n) + '">' + esc(n) + "</option>").join("");
+  sel.value = ME;
 }
 
 async function boot() {
-  $("#who").innerHTML = MEMBERS.map((n) => '<option value="' + esc(n) + '">' + esc(n) + "</option>").join("");
   try { const w = localStorage.getItem(WHO_KEY); if (w && MEMBERS.indexOf(w) >= 0) ME = w; } catch (e) {}
-  $("#who").value = ME;
+  fillWho();
   [["#myMonth", THIS_MONTH], ["#histMonth", THIS_MONTH], ["#teamMonth", THIS_MONTH], ["#tgtMonth", THIS_MONTH]]
     .forEach(([sel, v]) => ($(sel).value = v));
   $("#l-date").value = TODAY;
@@ -794,6 +883,8 @@ async function boot() {
   /* ほかの人の入力を取り込みます */
   setInterval(async () => {
     if (BUSY || EDIT_LOG || EDIT_DEAL || Object.keys(TGT_DIRTY).length) return;
+    /* メンバーの名前を打ちかけているときは、打った字が消えないように待ちます */
+    if ($$("[data-mname]").some((el) => el.value.trim() !== el.dataset.mname)) return;
     try {
       const d = await api("getData");
       apply(d);

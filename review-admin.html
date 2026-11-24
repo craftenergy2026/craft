@@ -121,7 +121,6 @@ function openDetail(i){var r=rows[i],its=RANK_ITEMS[r.rank]||[],self=r.scores,mg
  var ptLine=el("div","hint","累計pt："+fmt(r.totalPt)+"pt"+(tg!=null?(ptOk?"（"+tg+"pt到達）":"（あと"+fmt(tg-r.totalPt)+"pt）"):""));box.appendChild(ptLine);
  var gapsBox=el("div");box.appendChild(gapsBox);
  box.appendChild(el("div","hint","昇格の条件は「累計ptが基準に到達」と「評価面談の合格」の両方です。両者を見比べて総合判定を選んでください。"));
- [["本人：今月の強み",r.strength],["本人：来月の課題",r.challenge]].forEach(function(p){var f=el("div","field");f.appendChild(el("span","l",p[0]));f.lastChild.style.cssText="font-size:13px;font-weight:700";f.appendChild(el("div","quote",p[1]||"（記入なし）"));box.appendChild(f)});
  box.appendChild(el("div","sec","面談結果"));var ch=el("div","choice");["昇格推薦","現ランク維持"].forEach(function(v){var lab=el("label");var inp=document.createElement("input");inp.type="radio";inp.name="dec";inp.value=v;if(r.mgr&&r.mgr.decision===v)inp.checked=true;lab.appendChild(inp);lab.appendChild(el("span",null,v));ch.appendChild(lab)});box.appendChild(ch);
  var cf=el("div","field");var cl=el("label","l","支部長からのコメント");cl.setAttribute("for","a-comment");cf.appendChild(cl);var ta=document.createElement("textarea");ta.id="a-comment";ta.maxLength=1500;ta.value=(r.mgr&&r.mgr.comment)||"";cf.appendChild(ta);box.appendChild(cf);
  var am=el("div","msg");am.hidden=true;box.appendChild(am);var sv=el("button","btn pri","採点と面談結果を保存");sv.type="button";box.appendChild(sv);

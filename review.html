@@ -41,6 +41,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .choice input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .back{background:none;border:0;color:var(--accent);font:inherit;font-weight:700;min-height:44px;padding:0;cursor:pointer;align-self:flex-start}
 .cmp{width:100%;border-collapse:collapse;font-size:14px}.cmp th,.cmp td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:center}.cmp th{font-size:12px;color:var(--muted)}.cmp td:first-child{text-align:left;font-weight:700}
+.cmp.detail td{vertical-align:top}.cmp.detail td.lt{text-align:left;font-weight:400}.cmp.detail .tt{font-weight:700;font-size:14px}.cmp.detail .dd{font-size:12px;color:var(--muted);line-height:1.5}
+.cmp.detail td.num{font-family:var(--font-num);font-weight:700;white-space:nowrap;width:44px}.cmp.detail tr.grow td{text-align:left;background:var(--pale);font-size:12px;font-weight:700;color:var(--fg)}
+.cmp.detail tr.big td{background:var(--warn-bg)}.cmp.detail tr.big td.num:last-child{color:var(--warn)}
 .gap{font-size:12px;color:var(--muted)}.gap.big{color:var(--warn);font-weight:700}.self{font-family:var(--font-num);font-weight:700}
 @media (max-width:420px){.calc{grid-template-columns:1fr 1fr}.dots{padding-left:0}}
 </style></head><body>
@@ -63,9 +66,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 <div id="items-empty" class="msg info">上の「現ランク」を選ぶと、そのランクの評価項目が表示されます。</div>
 <div id="items-wrap" hidden><div class="grp">自分ごと ｜ 個人の力（人間性・行動・スキル）</div><div id="items-self"></div><div class="grp">組織ごと ｜ チームへの貢献</div><div id="items-team"></div><div class="grp">カルチャー ｜ 組織を大きくする姿勢</div><div id="items-culture"></div></div>
 <div class="tally"><div class="stat"><span id="c-high-l">4点以上</span><b id="c-high">–</b></div><div class="stat"><span>2点以下（0でクリア）</span><b id="c-low">–</b></div></div><div id="c-pass"></div></section>
-<section class="card"><div class="sec">【振り返り】</div>
-<div class="field"><label class="l" for="f-strength">今月発揮できた強み・うまくいったこと</label><textarea id="f-strength" maxlength="1000"></textarea></div>
-<div class="field"><label class="l" for="f-challenge">来月さらに伸ばしたいこと・課題</label><textarea id="f-challenge" maxlength="1000"></textarea></div></section>
 </main></div>
 <div class="bar"><div class="wrap"><button class="btn sec2" id="btn-draft" type="button">この端末に一時保存</button><button class="btn pri" id="btn-submit" type="button">提出する</button></div></div>
 <script src="review-config.js"></script>
@@ -111,7 +111,7 @@ function recalc(){$("c-pt").textContent=fmt(num("f-contracts")*0.5+num("f-comple
  var t=$("f-target").value;if(TH[t]!=null){var left=Math.max(0,TH[t]-num("f-total"));$("c-left").textContent=left===0?"到達":fmt(left)+"pt"}else $("c-left").textContent="–";
  var j=judge(scores());$("c-high-l").textContent=j.n?"4点以上（"+need(j.n)+"以上でクリア）":"4点以上";$("c-high").textContent=j.n?j.hi+" / "+j.n:"–";$("c-low").textContent=j.n?String(j.lo):"–";
  var p=$("c-pass");clear(p);if(j.n)p.appendChild(!j.done?pill("draft",j.n+"項目すべて採点すると判定が出ます"):j.ok?pill("ok","自己評価では合格条件をクリア"):pill("ng","自己評価では合格条件に未達"))}
-function collect(){return {name:$("f-name").value.trim().slice(0,40),month:$("f-month").value,currentRank:$("f-rank").value,targetRank:$("f-target").value,contracts:num("f-contracts"),completions:num("f-completions"),totalPt:num("f-total"),workdays:num("f-days"),appointments:num("f-apo"),scores:scores(),strength:$("f-strength").value.slice(0,1000),challenge:$("f-challenge").value.slice(0,1000)}}
+function collect(){return {name:$("f-name").value.trim().slice(0,40),month:$("f-month").value,currentRank:$("f-rank").value,targetRank:$("f-target").value,contracts:num("f-contracts"),completions:num("f-completions"),totalPt:num("f-total"),workdays:num("f-days"),appointments:num("f-apo"),scores:scores()}}
 function saveDraft(silent){if(!silent&&!$("f-name").value.trim()){msg("ng","一時保存するには、先に名前を入力してください。");return}try{localStorage.setItem(DRAFT_KEY,JSON.stringify(collect()));if(!silent)msg("ok","この端末に一時保存しました。まだ提出はされていません。")}catch(e){if(!silent)msg("ng","この端末では一時保存が使えません。そのまま提出してください。")}}
 function readDraft(){try{return JSON.parse(localStorage.getItem(DRAFT_KEY)||"null")}catch(e){return null}}
 function dropDraft(){try{localStorage.removeItem(DRAFT_KEY)}catch(e){}}
@@ -123,8 +123,8 @@ function resume(){var d=readDraft();if(!d){$("resume").hidden=true;return}var nm
 function loadDraft(d){if(!d)return;
  $("f-name").value=d.name||"";if(d.month)$("f-month").value=d.month;$("f-rank").value=d.currentRank||"";buildItems(d.currentRank||"",d.scores||[]);syncTarget();if(d.targetRank)$("f-target").value=d.targetRank;
  var map={contracts:"f-contracts",completions:"f-completions",totalPt:"f-total",workdays:"f-days",appointments:"f-apo"};Object.keys(map).forEach(function(k){if(d[k])$(map[k]).value=d[k]});
- $("f-strength").value=d.strength||"";$("f-challenge").value=d.challenge||"";recalc()}
-function resetForm(){["f-name","f-contracts","f-completions","f-total","f-days","f-apo","f-strength","f-challenge"].forEach(function(id){$(id).value=""});
+ recalc()}
+function resetForm(){["f-name","f-contracts","f-completions","f-total","f-days","f-apo"].forEach(function(id){$(id).value=""});
  $("f-month").value=thisMonth();$("f-rank").value="";$("f-target").value="";buildItems("");syncTarget();var st=$("f-status");clear(st);st.appendChild(pill("draft","未提出"));recalc()}
 function onChange(){recalc();clearTimeout(t0);t0=setTimeout(function(){if($("f-name").value.trim()&&$("resume").hidden)saveDraft(true)},600)}
 function top(){window.scrollTo({top:0,behavior:"smooth"})}
@@ -139,7 +139,7 @@ function submit(){if(sending)return;var d=collect();
   .withFailureHandler(function(err){sending=false;$("btn-submit").disabled=$("btn-draft").disabled=false;$("btn-submit").textContent="提出する";
    msg("ng",(err&&err.message)?("提出できませんでした："+err.message):"提出できませんでした。通信状況を確認して、もう一度お試しください。");top()}).submit(d)}
 $("f-rank").addEventListener("change",function(){buildItems($("f-rank").value);syncTarget();onChange()});
-["f-name","f-month","f-target","f-contracts","f-completions","f-total","f-days","f-apo","f-strength","f-challenge"].forEach(function(id){$(id).addEventListener("input",onChange);$(id).addEventListener("change",onChange)});
+["f-name","f-month","f-target","f-contracts","f-completions","f-total","f-days","f-apo"].forEach(function(id){$(id).addEventListener("input",onChange);$(id).addEventListener("change",onChange)});
 $("btn-draft").addEventListener("click",function(){saveDraft(false)});$("btn-submit").addEventListener("click",submit);
 $("btn-resume").addEventListener("click",resume);$("btn-discard").addEventListener("click",function(){dropDraft();$("resume").hidden=true;resetForm();msg("info","保存されていた内容を消去しました。")});
 $("f-month").value=thisMonth();checkDraft();recalc()})();

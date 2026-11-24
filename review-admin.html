@@ -41,6 +41,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .choice input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .back{background:none;border:0;color:var(--accent);font:inherit;font-weight:700;min-height:44px;padding:0;cursor:pointer;align-self:flex-start}
 .cmp{width:100%;border-collapse:collapse;font-size:14px}.cmp th,.cmp td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:center}.cmp th{font-size:12px;color:var(--muted)}.cmp td:first-child{text-align:left;font-weight:700}
+.cmp.detail td{vertical-align:top}.cmp.detail td.lt{text-align:left;font-weight:400}.cmp.detail .tt{font-weight:700;font-size:14px}.cmp.detail .dd{font-size:12px;color:var(--muted);line-height:1.5}
+.cmp.detail td.num{font-family:var(--font-num);font-weight:700;white-space:nowrap;width:44px}.cmp.detail tr.grow td{text-align:left;background:var(--pale);font-size:12px;font-weight:700;color:var(--fg)}
+.cmp.detail tr.big td{background:var(--warn-bg)}.cmp.detail tr.big td.num:last-child{color:var(--warn)}
 .gap{font-size:12px;color:var(--muted)}.gap.big{color:var(--warn);font-weight:700}.self{font-family:var(--font-num);font-weight:700}
 @media (max-width:420px){.calc{grid-template-columns:1fr 1fr}.dots{padding-left:0}}
 </style></head><body>
@@ -98,7 +101,7 @@ function openDetail(i){var r=rows[i],its=RANK_ITEMS[r.rank]||[],self=r.scores,mg
  [["対象月",r.month],["当月pt",fmt(r.pt)+"pt（契約"+r.contracts+"・完工"+r.completions+"）"],["累計pt",fmt(r.totalPt)+"pt"+(tg!=null?"（"+RANK_JP[r.target]+"は"+tg+"pt："+(ptOk?"到達":"あと"+fmt(tg-r.totalPt)+"pt")+"）":"")],["出勤アポ率",(r.rate||"–")+"（アポ"+r.appointments+"／出勤"+r.workdays+"日）"],["提出日時",r.at]].forEach(function(p){dl.appendChild(el("dt",null,p[0]));dl.appendChild(el("dd",null,p[1]))});box.appendChild(dl);
  box.appendChild(el("div","sec","支部長の採点（"+RANK_JP[r.rank]+"の評価項目）"));box.appendChild(el("div","hint","各項目を1〜5で採点してください。本人の自己評価と差が表示されます。"));
  var wrap=el("div");its.forEach(function(it,k){var div=el("div","item"),head=el("div","it-head"),b2=el("div");head.appendChild(el("span","it-no",String(k+1).padStart(2,"0")));
-  b2.appendChild(el("div","it-t",it.t));var dd=el("div","it-d","本人の自己評価：");var s=el("b","self",String(self[k]||"–"));if(self[k]>=4)s.style.color="var(--accent)";if(self[k]&&self[k]<=2)s.style.color="var(--warn)";dd.appendChild(s);
+  var tt=el("div","it-t",it.t+" ");var kk=el("span","hint",it.k);kk.style.fontWeight="500";tt.appendChild(kk);b2.appendChild(tt);b2.appendChild(el("div","it-d",it.d));var dd=el("div","it-d","本人の自己評価：");dd.style.marginTop="2px";var s=el("b","self",String(self[k]||"–"));if(self[k]>=4)s.style.color="var(--accent)";if(self[k]&&self[k]<=2)s.style.color="var(--warn)";dd.appendChild(s);
   var gp=el("span","gap");gp.id="gap-"+k;dd.appendChild(gp);b2.appendChild(dd);head.appendChild(b2);div.appendChild(head);div.appendChild(dotsFor("mg-"+k,it.t+"（支部長）",mg[k],recalc));wrap.appendChild(div)});box.appendChild(wrap);
  box.appendChild(el("div","sec","本人と支部長の比較"));var tb=document.createElement("table");tb.className="cmp";
  var js=judge(self);function avg(a){return a.length&&a.every(function(x){return x>0})?(a.reduce(function(x,y){return x+y},0)/a.length).toFixed(1):"–"}
@@ -106,6 +109,15 @@ function openDetail(i){var r=rows[i],its=RANK_ITEMS[r.rank]||[],self=r.scores,mg
  function addRow(label,a,id){var r2=document.createElement("tr");r2.appendChild(el("td",null,label));var c1=el("td");if(a&&a.nodeType)c1.appendChild(a);else c1.textContent=a;r2.appendChild(c1);var c2=el("td",null,"–");c2.id=id;r2.appendChild(c2);tb.appendChild(r2)}
  addRow("4点以上（"+need(js.n)+"以上で合格）",js.hi+" / "+js.n,"m-high");addRow("2点以下（0で合格）",String(js.lo),"m-low");addRow("平均点",avg(self),"m-avg");
  addRow("評価面談",js.done?(js.ok?pill("ok","クリア"):pill("ng","未達")):pill("draft","未採点あり"),"m-pass");box.appendChild(tb);
+ box.appendChild(el("div","sec","項目別の比較（全"+its.length+"項目）"));box.appendChild(el("div","hint","差は「支部長 − 本人」。2点以上の差がある行は赤で示します。"));
+ var dt=document.createElement("table");dt.className="cmp detail";var hr=document.createElement("tr");["No","評価項目","本人","支部長","差"].forEach(function(t){hr.appendChild(el("th",null,t))});dt.appendChild(hr);
+ var GL={self:"自分ごと｜個人の力",team:"組織ごと｜チーム貢献",culture:"カルチャー｜組織を大きくする姿勢"},lastG="";
+ its.forEach(function(it,k){if(it.g!==lastG){lastG=it.g;var gr=document.createElement("tr");gr.className="grow";var gc=el("td",null,GL[it.g]||"");gc.colSpan=5;gr.appendChild(gc);dt.appendChild(gr)}
+  var tr2=document.createElement("tr");tr2.id="t-row-"+k;tr2.appendChild(el("td","num",String(k+1).padStart(2,"0")));
+  var c=el("td","lt");c.appendChild(el("div","tt",it.t));c.appendChild(el("div","dd",it.d));tr2.appendChild(c);
+  var cs=el("td","num",String(self[k]||"–"));if(self[k]>=4)cs.style.color="var(--accent)";if(self[k]&&self[k]<=2)cs.style.color="var(--warn)";tr2.appendChild(cs);
+  var cm=el("td","num","–");cm.id="t-m-"+k;tr2.appendChild(cm);var cd=el("td","num","–");cd.id="t-d-"+k;tr2.appendChild(cd);dt.appendChild(tr2)});
+ var tw=el("div");tw.style.overflowX="auto";tw.appendChild(dt);box.appendChild(tw);
  var ptLine=el("div","hint","累計pt："+fmt(r.totalPt)+"pt"+(tg!=null?(ptOk?"（"+tg+"pt到達）":"（あと"+fmt(tg-r.totalPt)+"pt）"):""));box.appendChild(ptLine);
  var gapsBox=el("div");box.appendChild(gapsBox);
  box.appendChild(el("div","hint","昇格の条件は「累計ptが基準に到達」と「評価面談の合格」の両方です。両者を見比べて総合判定を選んでください。"));
@@ -116,6 +128,8 @@ function openDetail(i){var r=rows[i],its=RANK_ITEMS[r.rank]||[],self=r.scores,mg
  function cur(){return its.map(function(_,k){return picked("mg-"+k)})}
  function recalc(){var v=cur(),jm=judge(v),any=v.some(function(x){return x>0});$("m-high").textContent=any?jm.hi+" / "+jm.n:"–";$("m-low").textContent=any?String(jm.lo):"–";$("m-avg").textContent=avg(v);
   var mp=$("m-pass");clear(mp);mp.appendChild(!jm.done?pill("draft","採点中"):jm.ok?pill("ok","クリア"):pill("ng","未達"));
+  its.forEach(function(it,k){var a=self[k]||0,b=v[k]||0,cm=$("t-m-"+k),cd=$("t-d-"+k),row=$("t-row-"+k);cm.textContent=b?String(b):"–";cm.style.color=b>=4?"var(--accent)":(b&&b<=2?"var(--warn)":"");
+   if(a&&b){var df=b-a;cd.textContent=df===0?"0":(df>0?"+":"")+df;row.className=Math.abs(df)>=2?"big":""}else{cd.textContent="–";row.className=""}});
   var gaps=[];its.forEach(function(it,k){var a=self[k]||0,b=v[k]||0,g=$("gap-"+k);if(a&&b){var df=b-a;g.textContent=df===0?"　一致":"　支部長 "+b+"（"+(df>0?"+":"")+df+"）";g.className="gap"+(Math.abs(df)>=2?" big":"");if(Math.abs(df)>=2)gaps.push(it.t+"（本人"+a+"／支部長"+b+"）")}else{g.textContent="";g.className="gap"}});
   clear(gapsBox);if(gaps.length){var mm=el("div","msg info");mm.appendChild(el("b",null,"認識のずれが大きい項目（2点以上の差）"));gaps.forEach(function(t){mm.appendChild(document.createElement("br"));mm.appendChild(document.createTextNode(t))});mm.appendChild(document.createElement("br"));mm.appendChild(document.createTextNode("面談でこの項目を重点的にすり合わせましょう。"));gapsBox.appendChild(mm)}
   return jm}

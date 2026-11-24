@@ -47,6 +47,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 <header><div class="wrap head"><div class="brand"><span>■ 評価制度 ｜ 月次評価面談</span><b>CRAFT ENERGY</b></div><h1>評価面談フォーム</h1></div></header>
 <div class="wrap"><main>
 <div id="form-msg" class="msg info">毎月1回、自分のランクの項目で自己評価して提出してください。同じ名前・同じ月で提出し直すと、内容が上書きされます。</div>
+<div id="resume" class="msg info" hidden><b>この端末に、入力途中の内容が保存されています。</b><br>自分の続きなら、下の名前欄に保存したときと同じ名前を入れて「続きを呼び出す」を押してください。自分のものでなければ「消去する」を押してください。<div style="display:flex;gap:8px;margin-top:10px"><button class="btn sec2" id="btn-resume" type="button">続きを呼び出す</button><button class="btn sec2" id="btn-discard" type="button">消去する</button></div></div>
 <section class="card"><div class="sec">【名前・対象月・ランク】</div>
 <div class="field"><label class="l" for="f-name">名前（フルネーム）</label><input type="text" id="f-name" maxlength="40" autocomplete="name" placeholder="例：山田 太郎"></div>
 <div class="row"><div class="field"><label class="l" for="f-month">対象月</label><input type="month" id="f-month"></div><div class="field"><span class="l" style="font-size:13px;font-weight:700">提出状況</span><div id="f-status"><span class="pill draft">未提出</span></div></div></div>
@@ -111,12 +112,21 @@ function recalc(){$("c-pt").textContent=fmt(num("f-contracts")*0.5+num("f-comple
  var j=judge(scores());$("c-high-l").textContent=j.n?"4点以上（"+need(j.n)+"以上でクリア）":"4点以上";$("c-high").textContent=j.n?j.hi+" / "+j.n:"–";$("c-low").textContent=j.n?String(j.lo):"–";
  var p=$("c-pass");clear(p);if(j.n)p.appendChild(!j.done?pill("draft",j.n+"項目すべて採点すると判定が出ます"):j.ok?pill("ok","自己評価では合格条件をクリア"):pill("ng","自己評価では合格条件に未達"))}
 function collect(){return {name:$("f-name").value.trim().slice(0,40),month:$("f-month").value,currentRank:$("f-rank").value,targetRank:$("f-target").value,contracts:num("f-contracts"),completions:num("f-completions"),totalPt:num("f-total"),workdays:num("f-days"),appointments:num("f-apo"),scores:scores(),strength:$("f-strength").value.slice(0,1000),challenge:$("f-challenge").value.slice(0,1000)}}
-function saveDraft(silent){try{localStorage.setItem(DRAFT_KEY,JSON.stringify(collect()));if(!silent)msg("ok","この端末に一時保存しました。まだ提出はされていません。")}catch(e){if(!silent)msg("ng","この端末では一時保存が使えません。そのまま提出してください。")}}
-function loadDraft(){var d=null;try{d=JSON.parse(localStorage.getItem(DRAFT_KEY)||"null")}catch(e){d=null}if(!d)return;
+function saveDraft(silent){if(!silent&&!$("f-name").value.trim()){msg("ng","一時保存するには、先に名前を入力してください。");return}try{localStorage.setItem(DRAFT_KEY,JSON.stringify(collect()));if(!silent)msg("ok","この端末に一時保存しました。まだ提出はされていません。")}catch(e){if(!silent)msg("ng","この端末では一時保存が使えません。そのまま提出してください。")}}
+function readDraft(){try{return JSON.parse(localStorage.getItem(DRAFT_KEY)||"null")}catch(e){return null}}
+function dropDraft(){try{localStorage.removeItem(DRAFT_KEY)}catch(e){}}
+function checkDraft(){var d=readDraft();$("resume").hidden=!(d&&d.name)}
+function resume(){var d=readDraft();if(!d){$("resume").hidden=true;return}var nm=$("f-name").value.trim();
+ if(!nm){msg("ng","続きを呼び出すには、先に名前を入力してください。");$("f-name").focus();return}
+ if(nm!==d.name){msg("ng","保存されている内容の名前と一致しません。自分の内容でなければ「消去する」を押してください。");return}
+ $("resume").hidden=true;msg("info","入力途中の内容を呼び出しました。");loadDraft(d)}
+function loadDraft(d){if(!d)return;
  $("f-name").value=d.name||"";if(d.month)$("f-month").value=d.month;$("f-rank").value=d.currentRank||"";buildItems(d.currentRank||"",d.scores||[]);syncTarget();if(d.targetRank)$("f-target").value=d.targetRank;
  var map={contracts:"f-contracts",completions:"f-completions",totalPt:"f-total",workdays:"f-days",appointments:"f-apo"};Object.keys(map).forEach(function(k){if(d[k])$(map[k]).value=d[k]});
- $("f-strength").value=d.strength||"";$("f-challenge").value=d.challenge||""}
-function onChange(){recalc();clearTimeout(t0);t0=setTimeout(function(){saveDraft(true)},600)}
+ $("f-strength").value=d.strength||"";$("f-challenge").value=d.challenge||"";recalc()}
+function resetForm(){["f-name","f-contracts","f-completions","f-total","f-days","f-apo","f-strength","f-challenge"].forEach(function(id){$(id).value=""});
+ $("f-month").value=thisMonth();$("f-rank").value="";$("f-target").value="";buildItems("");syncTarget();var st=$("f-status");clear(st);st.appendChild(pill("draft","未提出"));recalc()}
+function onChange(){recalc();clearTimeout(t0);t0=setTimeout(function(){if($("f-name").value.trim()&&$("resume").hidden)saveDraft(true)},600)}
 function top(){window.scrollTo({top:0,behavior:"smooth"})}
 function submit(){if(sending)return;var d=collect();
  if(!d.name){msg("ng","名前を入力してください。");$("f-name").focus();top();return}
@@ -124,13 +134,14 @@ function submit(){if(sending)return;var d=collect();
  if(!d.currentRank||!d.targetRank){msg("ng","現ランクと目標ランクを選んでください。");top();return}
  if(!d.scores.length||d.scores.some(function(x){return !x})){msg("ng","定性評価の"+d.scores.length+"項目すべてに点数をつけてから提出してください。");top();return}
  sending=true;$("btn-submit").disabled=$("btn-draft").disabled=true;$("btn-submit").textContent="送信中…";
- google.script.run.withSuccessHandler(function(r){sending=false;$("btn-submit").disabled=$("btn-draft").disabled=false;$("btn-submit").textContent="内容を直して再提出";
-   var st=$("f-status");clear(st);st.appendChild(pill("ok","提出済み"));msg("ok",(r&&r.updated?"前回の提出を上書きしました。":"提出しました。")+"面談で一緒に確認しましょう。");saveDraft(true);top()})
+ google.script.run.withSuccessHandler(function(r){sending=false;$("btn-submit").disabled=$("btn-draft").disabled=false;$("btn-submit").textContent="提出する";
+   dropDraft();resetForm();msg("ok",d.name+"さんの"+(r&&r.updated?"内容を上書きして受け付けました。":"提出を受け付けました。")+"次の人が使えるよう、入力内容はこの画面から消去しました。直したいときは、もう一度入力して提出してください（同じ名前・同じ月なら上書きされます）。");top()})
   .withFailureHandler(function(err){sending=false;$("btn-submit").disabled=$("btn-draft").disabled=false;$("btn-submit").textContent="提出する";
    msg("ng",(err&&err.message)?("提出できませんでした："+err.message):"提出できませんでした。通信状況を確認して、もう一度お試しください。");top()}).submit(d)}
 $("f-rank").addEventListener("change",function(){buildItems($("f-rank").value);syncTarget();onChange()});
 ["f-name","f-month","f-target","f-contracts","f-completions","f-total","f-days","f-apo","f-strength","f-challenge"].forEach(function(id){$(id).addEventListener("input",onChange);$(id).addEventListener("change",onChange)});
 $("btn-draft").addEventListener("click",function(){saveDraft(false)});$("btn-submit").addEventListener("click",submit);
-$("f-month").value=thisMonth();loadDraft();recalc()})();
+$("btn-resume").addEventListener("click",resume);$("btn-discard").addEventListener("click",function(){dropDraft();$("resume").hidden=true;resetForm();msg("info","保存されていた内容を消去しました。")});
+$("f-month").value=thisMonth();checkDraft();recalc()})();
 </script>
 </body></html>

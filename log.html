@@ -317,21 +317,19 @@ const MEMBERS = [
   { name: "鄭", branch: "東京", role: "アポインター", target: { shukkin: 11, taio: 700, apo: 20, shodan: 8, kanko: 2, rate: 40 } },
   { name: "佐伯", branch: "東京", role: "アポインター", target: { shukkin: 11, taio: 480, apo: 20, shodan: 4, kanko: 2, rate: 20 } },
   { name: "石", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 600, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
-  { name: "伊藤", branch: "東京", role: "クローザー", target: { shukkin: 10, taio: 700, apo: 20, shodan: 3, kanko: 1, rate: 15 } },
   { name: "藤代", branch: "東京", role: "アポインター", target: { shukkin: 8, taio: 480, apo: 16, shodan: 5, kanko: 2, rate: 31 } },
   { name: "山﨑", branch: "東京", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 25, shodan: 8, kanko: 2, rate: 32 } },
   { name: "三瀬", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 3, rate: 25 } },
-  { name: "大川", branch: "東京", role: "クローザー", target: { shukkin: 4, taio: 200, apo: 16, shodan: 4, kanko: 2, rate: 25 } },
   { name: "森野", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 3, rate: 0 } },
   { name: "斉藤", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 6, rate: 0 } },
   { name: "橋本", branch: "東京", role: "クローザー", target: { shukkin: 20, taio: 0, apo: 0, shodan: 10, kanko: 2, rate: 0 } },
 
   { name: "山上", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
-  { name: "山田", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
 
   /* ── 静岡支店 ── */
   { name: "扇田", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
-  { name: "保坂", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "山田", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
+  { name: "渡邉", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
   { name: "熊澤", branch: "静岡", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 15, shodan: 8, kanko: 2, rate: 30 } },
 
   /* ── Bizlabo ── */
@@ -362,13 +360,13 @@ const powerOf = (v) =>
 const DEFAULT_ROSTER_META = (() => {
   const m = {};
   const put = (names, key, val) => names.forEach((n) => { m[n] = { ...(m[n] || {}), [key]: val }; });
-  put(["保坂", "扇田", "石", "塚原", "新井田", "樋熊", "島", "棗", "山上", "山田"], "rank", "trainee");
-  put(["藤代", "鄭", "伊藤"], "rank", "bronze");
+  put(["扇田", "石", "塚原", "新井田", "樋熊", "島", "棗", "山上", "山田", "渡邉"], "rank", "trainee");
+  put(["藤代", "鄭"], "rank", "bronze");
   put(["佐伯", "三瀬"], "rank", "silver");
-  put(["山﨑", "大川", "沼口", "森野"], "rank", "gold");
+  put(["山﨑", "沼口", "森野"], "rank", "gold");
   put(["佐伯", "山﨑"], "gen", 1);
   put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", 2);
-  put(["扇田", "保坂", "塚原", "新井田", "樋熊", "島", "棗", "山上", "山田"], "gen", 3);
+  put(["扇田", "塚原", "新井田", "樋熊", "島", "棗", "山上", "山田", "渡邉"], "gen", 3);
   return m;
 })();
 const KAN_NUM = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
@@ -791,7 +789,7 @@ const ALERT_TO = ["森野"];
 const ALERT_BRANCH = "東京";
 const ALERT_ROLE = "アポインター";
 /* 上の条件に当てはまっても、対象から外す人 */
-const ALERT_EXCLUDE = ["伊藤"];
+const ALERT_EXCLUDE = [];
 /* 達成率が、月の進みの何割を下回ったら遅れとみなすか */
 const ALERT_RATIO = 0.8;
 /* アラートの対象メンバー */
@@ -1194,8 +1192,17 @@ function MemberSelect({ value, onChange, includeAll = false, label = "入力者"
    フェーズ内訳の入力
    対応が「どの段階で終わったか」と、アポの質（〇△✖）を記録します
    ══════════════════════════════════════════ */
-function PhaseFields({ values, onPatch, required = false }) {
+function PhaseFields({ values, onPatch, required = false, person = "" }) {
   const n = (k) => Number(values[k] || 0);
+  /* クローザーは商談だけの日があるので、9項目をまとめて0にできるようにします */
+  const isCloser = MEMBERS.find((m) => m.name === person)?.role === "クローザー";
+  const filled = (k) => values[k] !== "" && values[k] != null;
+  const allZero = PHASE_ALL.every((p) => filled(p.key) && Number(values[p.key]) === 0);
+  const zeroAll = () => {
+    const o = {};
+    PHASE_ALL.forEach((p) => (o[p.key] = 0));
+    onPatch(o);
+  };
   const phTotal = PHASE_KEYS.reduce((a, k) => a + n(k), 0);
   const apoTotal = GRADE_KEYS.reduce((a, k) => a + n(k), 0);
   const taio = Number(values.taio || 0);
@@ -1244,17 +1251,28 @@ function PhaseFields({ values, onPatch, required = false }) {
           </p>
           <p className="mt-0.5 text-xs text-slate-400">
             対応が「どの段階で終わったか」を入れます。やっていない段階は 0 と入れてください。
+            {isCloser ? "　商談だけの日は「9項目をまとめて0にする」で一度に埋められます。" : ""}
           </p>
         </div>
-        {phTotal > 0 && (
-          <button
-            onClick={applyTotals}
-            className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:bg-slate-50"
-            style={{ borderColor: NAVY, color: NAVY }}
-          >
-            対応・アプ・アポに反映
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {isCloser && !allZero && (
+            <button
+              onClick={zeroAll}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+            >
+              9項目をまとめて0にする
+            </button>
+          )}
+          {phTotal > 0 && (
+            <button
+              onClick={applyTotals}
+              className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:bg-slate-50"
+              style={{ borderColor: NAVY, color: NAVY }}
+            >
+              対応・アプ・アポに反映
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{PHASES.map(field)}</div>
@@ -1677,6 +1695,7 @@ function EntryModal({ author, setAuthor, onClose, onSubmit, isAdmin }) {
             values={values}
             onPatch={(o) => setValues((prev) => ({ ...prev, ...o }))}
             required={needPhase}
+            person={author}
           />
           {missing.length > 0 && (
             <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold leading-relaxed text-rose-700 ring-1 ring-rose-100">
@@ -1792,6 +1811,7 @@ function EditLogModal({ log, onClose, onSave, onDelete, currentUser }) {
             values={draft}
             onPatch={(o) => setDraft((prev) => ({ ...prev, ...o }))}
             required={needPhase}
+            person={log.name}
           />
           {missing.length > 0 && (
             <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold leading-relaxed text-rose-700 ring-1 ring-rose-100">
@@ -3202,6 +3222,7 @@ function DailyInput({ author, setAuthor, onGoMishodan, currentUser, isAdmin, sta
                 setValues((prev) => ({ ...prev, ...o }));
               }}
               required={needPhase}
+              person={author}
             />
           </div>
           <div className="mt-5">
@@ -6233,9 +6254,9 @@ function SyncBadge({ sync, onRefresh, dark = false, intervalMs }) {
    チーム分けはここで変えてください。
    ══════════════════════════════════════════ */
 const TEAMS = [
-  { name: "山﨑チーム", members: ["大川", "山﨑", "伊藤", "沼口", "新井田", "藤代", "島", "棗"] },
+  { name: "山﨑チーム", members: ["山﨑", "沼口", "新井田", "藤代", "島", "棗"] },
   { name: "森野チーム", members: ["森野", "佐伯", "鄭", "石", "三瀬", "樋熊", "塚原", "山上"] },
-  { name: "橋本チーム", members: ["橋本", "熊澤", "保坂", "扇田", "山田"] }
+  { name: "橋本チーム", members: ["橋本", "熊澤", "扇田", "山田", "渡邉"] }
 ];
 /* 週次報告の「個人進捗」に出さない人（支店の合計やランキングには入ります） */
 const REPORT_SKIP = ["斉藤"];
@@ -7388,7 +7409,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v92</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v93</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>評価面談フォーム｜Craft Energy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap">
+<style>
+:root{--bg:#F5F8FC;--surface:#FFFFFF;--pale:#EAF1FB;--line:#D5DCE6;--fg:#15171C;--muted:#4A5160;--accent:#2E62D9;--accent-fg:#FFFFFF;--ok:#1C7C4A;--warn:#B42318;--ok-bg:#E3F3EA;--warn-bg:#FBE9E7;--font-jp:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;--font-num:"Inter","Helvetica Neue",Arial,sans-serif;color-scheme:light}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-jp);font-size:15px;line-height:1.6}[hidden]{display:none!important}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}.head{display:flex;flex-direction:column;gap:8px;padding-block:14px}
+.brand{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}.brand b{font-family:var(--font-num);font-weight:800;letter-spacing:1px;color:var(--fg);font-size:13px}
+h1{margin:0;font-size:21px;font-weight:900;line-height:1.35}main{display:flex;flex-direction:column;gap:16px;padding-block:18px 120px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.sec{font-weight:700;color:var(--accent);font-size:16px}.hint{font-size:13px;color:var(--muted)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:6px;min-width:0}label.l{font-size:13px;font-weight:700}
+input[type=text],input[type=password],input[type=number],input[type=month],select,textarea{width:100%;font:inherit;font-size:16px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:46px}
+textarea{min-height:110px;resize:vertical;line-height:1.6}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,.dot input:focus-visible+span{outline:3px solid var(--accent);outline-offset:2px}
+.calc{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:var(--pale);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column}
+.stat span{font-size:12px;color:var(--muted)}.stat b{font-family:var(--font-num);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.grp{background:var(--pale);border-radius:8px;padding:4px 10px;font-size:13px;font-weight:700}
+.item{display:flex;flex-direction:column;gap:8px;padding-block:12px;border-bottom:1px solid var(--line)}.item:last-child{border-bottom:0}
+.it-head{display:flex;gap:10px;align-items:baseline}.it-no{font-family:var(--font-num);font-weight:700;color:var(--accent);width:22px;flex:none}.it-t{font-weight:700}.it-d{font-size:13px;color:var(--muted)}
+.dots{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding-left:32px}.dot{position:relative}.dot input{position:absolute;opacity:0;inset:0}
+.dot span{display:flex;align-items:center;justify-content:center;height:46px;border-radius:999px;border:1.5px solid var(--line);font-family:var(--font-num);font-weight:700;font-size:16px;background:var(--surface);cursor:pointer}
+.dot.low span{color:var(--warn)}.dot input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}.tally{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.ng{background:var(--warn-bg);color:var(--warn)}.pill.draft{background:var(--pale);color:var(--muted)}.pill.sub{background:var(--accent);color:var(--accent-fg)}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}.bar .wrap{display:flex;gap:10px;padding-block:10px}
+.btn{min-height:48px;border-radius:12px;font:inherit;font-weight:700;font-size:16px;cursor:pointer;padding:0 16px}.btn.pri{flex:2;background:var(--accent);color:var(--accent-fg);border:0}
+.btn.sec2{flex:1;background:var(--surface);color:var(--fg);border:1px solid var(--line)}.btn:disabled{opacity:.5;cursor:default}
+.msg{border-radius:12px;padding:12px 14px;font-size:14px}.msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.ng{background:var(--warn-bg);color:var(--warn)}.msg.info{background:var(--pale);color:var(--fg)}
+.list{display:flex;flex-direction:column}.li{display:flex;align-items:center;gap:8px;padding-block:12px;border:0;border-bottom:1px solid var(--line);background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;min-height:56px;width:100%}
+.li .nm{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.li .meta{font-size:12px;color:var(--muted)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px;margin:0}.kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:700}
+.quote{white-space:pre-wrap;background:var(--pale);border-radius:10px;padding:10px 12px;font-size:14px;min-height:20px}
+.choice{display:grid;grid-template-columns:1fr 1fr;gap:8px}.choice label{position:relative}.choice input{position:absolute;opacity:0;inset:0}
+.choice span{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:12px;border:1.5px solid var(--line);font-weight:700;cursor:pointer;text-align:center;padding:4px 8px}
+.choice input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.back{background:none;border:0;color:var(--accent);font:inherit;font-weight:700;min-height:44px;padding:0;cursor:pointer;align-self:flex-start}
+.cmp{width:100%;border-collapse:collapse;font-size:14px}.cmp th,.cmp td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:center}.cmp th{font-size:12px;color:var(--muted)}.cmp td:first-child{text-align:left;font-weight:700}
+.gap{font-size:12px;color:var(--muted)}.gap.big{color:var(--warn);font-weight:700}.self{font-family:var(--font-num);font-weight:700}
+@media (max-width:420px){.calc{grid-template-columns:1fr 1fr}.dots{padding-left:0}}
+</style></head><body>
+<header><div class="wrap head"><div class="brand"><span>■ 評価制度 ｜ 月次評価面談</span><b>CRAFT ENERGY</b></div><h1>評価面談フォーム</h1></div></header>
+<div class="wrap"><main>
+<div id="form-msg" class="msg info">毎月1回、自分のランクの項目で自己評価して提出してください。同じ名前・同じ月で提出し直すと、内容が上書きされます。</div>
+<section class="card"><div class="sec">【名前・対象月・ランク】</div>
+<div class="field"><label class="l" for="f-name">名前（フルネーム）</label><input type="text" id="f-name" maxlength="40" autocomplete="name" placeholder="例：山田 太郎"></div>
+<div class="row"><div class="field"><label class="l" for="f-month">対象月</label><input type="month" id="f-month"></div><div class="field"><span class="l" style="font-size:13px;font-weight:700">提出状況</span><div id="f-status"><span class="pill draft">未提出</span></div></div></div>
+<div class="row"><div class="field"><label class="l" for="f-rank">現ランク</label><select id="f-rank"><option value="">選択</option><option value="BEGINNER">ビギナー</option><option value="BRONZE">ブロンズ</option><option value="SILVER">シルバー</option><option value="GOLD">ゴールド</option></select></div>
+<div class="field"><label class="l" for="f-target">目標ランク</label><select id="f-target"><option value="">選択</option><option value="BRONZE">ブロンズ</option><option value="SILVER">シルバー</option><option value="GOLD">ゴールド</option></select></div></div></section>
+<section class="card"><div class="sec">【定量実績】</div><div class="hint">昇格基準：ブロンズ 2pt ／ シルバー 6pt ／ ゴールド 14pt（契約1件＝0.5pt、完工1件＝1.0pt）</div>
+<div class="row"><div class="field"><label class="l" for="f-contracts">当月の契約件数</label><input type="number" inputmode="numeric" min="0" step="1" id="f-contracts" placeholder="0"></div><div class="field"><label class="l" for="f-completions">当月の完工件数</label><input type="number" inputmode="numeric" min="0" step="1" id="f-completions" placeholder="0"></div></div>
+<div class="row"><div class="field"><label class="l" for="f-total">累計pt（当月を含む）</label><input type="number" inputmode="decimal" min="0" step="0.5" id="f-total" placeholder="0"></div><div class="field"><label class="l" for="f-days">当月の出勤日数</label><input type="number" inputmode="numeric" min="0" step="1" id="f-days" placeholder="0"></div></div>
+<div class="row"><div class="field"><label class="l" for="f-apo">当月の獲得アポ数</label><input type="number" inputmode="numeric" min="0" step="1" id="f-apo" placeholder="0"></div><div></div></div>
+<div class="calc"><div class="stat"><span>当月pt</span><b id="c-pt">0pt</b></div><div class="stat"><span>出勤アポ率</span><b id="c-apo">–</b></div><div class="stat"><span>目標まで</span><b id="c-left">–</b></div></div></section>
+<section class="card"><div class="sec">【定性評価】</div><div class="hint" id="items-lead">現ランクの評価項目で、自分を1〜5で採点してください。</div>
+<div class="legend"><span>5 一つ上のランク水準</span><span>4 常にできている（合格ライン）</span><span>3 大体できている</span><span>2 ほとんどできていない</span><span>1 できていない</span></div>
+<div id="items-empty" class="msg info">上の「現ランク」を選ぶと、そのランクの評価項目が表示されます。</div>
+<div id="items-wrap" hidden><div class="grp">自分ごと ｜ 個人の力（人間性・行動・スキル）</div><div id="items-self"></div><div class="grp">組織ごと ｜ チームへの貢献</div><div id="items-team"></div><div class="grp">カルチャー ｜ 組織を大きくする姿勢</div><div id="items-culture"></div></div>
+<div class="tally"><div class="stat"><span id="c-high-l">4点以上</span><b id="c-high">–</b></div><div class="stat"><span>2点以下（0でクリア）</span><b id="c-low">–</b></div></div><div id="c-pass"></div></section>
+<section class="card"><div class="sec">【振り返り】</div>
+<div class="field"><label class="l" for="f-strength">今月発揮できた強み・うまくいったこと</label><textarea id="f-strength" maxlength="1000"></textarea></div>
+<div class="field"><label class="l" for="f-challenge">来月さらに伸ばしたいこと・課題</label><textarea id="f-challenge" maxlength="1000"></textarea></div></section>
+</main></div>
+<div class="bar"><div class="wrap"><button class="btn sec2" id="btn-draft" type="button">この端末に一時保存</button><button class="btn pri" id="btn-submit" type="button">提出する</button></div></div>
+<script src="review-config.js"></script>
+<script>var RANK_ITEMS={"BEGINNER":[{"g":"self","k":"人間性","t":"自責思考・素直さ","d":"失敗を隠さず報告し、指摘を素直に受け止めているか"},{"g":"self","k":"行動","t":"行動量の確保","d":"出勤率90%以上を守り、決められた行動量をこなしているか"},{"g":"self","k":"行動","t":"時間厳守・メモ習慣","d":"5〜10分前行動ができ、学んだことをメモに残しているか"},{"g":"self","k":"スキル","t":"基本トークの習得","d":"基本トークを一通り話せる状態になっているか"},{"g":"self","k":"行動","t":"挨拶","d":"出社時・訪問先・お客様に、自分から明るくはっきり挨拶しているか"},{"g":"self","k":"スキル","t":"礼儀・ノンバーバル","d":"言葉遣いや礼儀が整い、表情や姿勢が及第点にあるか"},{"g":"team","k":"組織","t":"報連相の徹底","d":"報告・連絡・相談を漏れなく、早めに行っているか"},{"g":"team","k":"組織","t":"即レス","d":"上司や仲間からの連絡・チャットに、すぐ返信しているか"},{"g":"team","k":"組織","t":"ルール・規範の遵守","d":"支部のルールや規範を守って行動しているか"},{"g":"culture","k":"カルチャー","t":"前向きな言動","d":"明るく前向きな言葉を使い、ネガティブな発言で場の空気を下げていないか"},{"g":"culture","k":"カルチャー","t":"素直に即実行","d":"教わったことを素直に受け取り、その日のうちに試しているか"},{"g":"culture","k":"カルチャー","t":"当たり前の徹底","d":"期限・提出物・準備など小さな約束を、愚直に守り続けているか"}],"BRONZE":[{"g":"self","k":"人間性","t":"言い訳しない","d":"結果の理由を外に求めず、自分の行動で変えようとしているか"},{"g":"self","k":"人間性","t":"レジリエンス","d":"断りを人格否定と捉えず、引きずらずに次へ切り替えているか"},{"g":"self","k":"行動","t":"行動量の安定","d":"波なく、毎月安定した行動量を保てているか"},{"g":"self","k":"行動","t":"ロープレ","d":"週1回以上ロープレを行っているか"},{"g":"self","k":"スキル","t":"商材理解","d":"ZEH・蓄電池などの商材を、お客様に説明できる水準で理解しているか"},{"g":"self","k":"スキル","t":"営業概念の実践","d":"SPIN話法などを実践し、ノンバーバルも含め違和感のないトークができているか"},{"g":"team","k":"組織","t":"新人のフォローアップ","d":"新人に声をかけ、つまずきを早めにフォローしているか"},{"g":"team","k":"組織","t":"MTG・講習会への参加","d":"ミーティング・講習会に参加率90%以上で、積極的に関わっているか"},{"g":"culture","k":"カルチャー","t":"自ら手を挙げる","d":"新しい役割・目標・取り組みに、指名を待たず自分から手を挙げているか"},{"g":"culture","k":"カルチャー","t":"愚直な継続","d":"成果が出ない時期も、決めた行動量とやり方をやめずに続けているか"},{"g":"culture","k":"カルチャー","t":"一体感をつくる","d":"仲間の成果を一緒に喜び、声をかけ合う雰囲気をつくっているか"}],"SILVER":[{"g":"self","k":"人間性","t":"数字に愚直","d":"目標数字から逃げず、達成に向けて行動を積み上げているか"},{"g":"self","k":"人間性","t":"成長意欲・自己課題の把握","d":"自分の課題を明確に言え、成長への意欲を行動で示しているか"},{"g":"self","k":"行動","t":"失敗の言語化と改善","d":"うまくいかなかった理由を言語化し、改善のサイクルを回しているか"},{"g":"self","k":"行動","t":"中長期の計画と自発的な相談","d":"中長期の行動計画を立て、行き詰まる前に自分から相談しているか"},{"g":"self","k":"スキル","t":"トーク練度・切り返し","d":"トークの練度が高く、反論への切り返しがスムーズか"},{"g":"self","k":"スキル","t":"確率で営業をコントロール","d":"訪問数・アポ率・契約率から逆算して活動を組み立てているか"},{"g":"team","k":"組織","t":"周囲への好影響","d":"前向きな言動で、チームの士気を高めているか"},{"g":"team","k":"組織","t":"新人への指導・FB","d":"新人のノンバーバルやトークに、具体的なフィードバックをしているか"},{"g":"team","k":"組織","t":"支部の模範となる行動","d":"行動・姿勢そのものが、支部の手本になっているか"},{"g":"culture","k":"カルチャー","t":"オーナーシップ","d":"支部の課題を「誰かがやる」にせず、自分ごととして動いているか"},{"g":"culture","k":"カルチャー","t":"若手の挑戦を後押し","d":"後輩に任せて挑戦させ、失敗を責めずに次の挑戦につなげているか"},{"g":"culture","k":"カルチャー","t":"変化を楽しむ","d":"新しいやり方やルールの変更を前向きに受け入れ、まず試しているか"}],"GOLD":[{"g":"self","k":"人間性","t":"組織視点","d":"自分の数字だけでなく、支店全体の成果最大化を考えて動いているか"},{"g":"self","k":"人間性","t":"圧倒的な当事者意識","d":"支店の課題を自分ごととして捉え、先回りして手を打っているか"},{"g":"self","k":"行動","t":"ノウハウの体系化・共有","d":"自分のやり方を体系化し、誰でも使える形で共有しているか"},{"g":"self","k":"スキル","t":"営業論の確立","d":"成果の出し方を高い言語化と再現性で説明できるか"},{"g":"self","k":"スキル","t":"反論処理","d":"あらゆる反論にスムーズに対応できているか"},{"g":"team","k":"組織","t":"ロープレ指導・教育の主導","d":"ロープレや勉強会を自ら企画・主導しているか"},{"g":"team","k":"組織","t":"育成と目標達成の牽引","d":"メンバーを育て、チームの目標達成を牽引しているか"},{"g":"team","k":"組織","t":"戦略展開・改善提案","d":"支部全体への戦略展開や改善提案を行っているか"},{"g":"culture","k":"カルチャー","t":"仲間集めへの貢献","d":"紹介や採用面談への同席などで、組織を大きくする仲間集めに関わっているか"},{"g":"culture","k":"カルチャー","t":"次のリーダーの育成","d":"自分の役割を任せられるリーダー候補を、意図して育てているか"},{"g":"culture","k":"カルチャー","t":"カルチャーの体現と発信","d":"ミッション・クレドを自ら体現し、メンバーに言葉で伝え続けているか"}]};
+var google={script:{run:mk(null,null)}};
+function mk(s,f){var o={withSuccessHandler:function(x){return mk(x,f)},withFailureHandler:function(x){return mk(s,x)}};
+ ["submit","adminList","adminSave"].forEach(function(n){o[n]=function(){callApi(n,Array.prototype.slice.call(arguments),s,f)}});return o}
+function callApi(fn,args,s,f){
+ var url=(window.CRAFT_CONFIG&&window.CRAFT_CONFIG.API_URL)||"";
+ if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)){f&&f({message:"保存先（review-config.js の API_URL）が設定されていません。支部長に連絡してください。"});return}
+ fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn:fn,args:args})})
+  .then(function(r){return r.json()})
+  .then(function(j){if(j&&j.error){f&&f({message:j.error})}else{s&&s(j?j.result:null)}})
+  .catch(function(){f&&f({message:"通信できませんでした。電波の良い場所で、もう一度お試しください。"})});
+}</script>
+<script>
+var RANK_JP={BEGINNER:"ビギナー",BRONZE:"ブロンズ",SILVER:"シルバー",GOLD:"ゴールド"};var NEXT={BEGINNER:"BRONZE",BRONZE:"SILVER",SILVER:"GOLD",GOLD:"GOLD"};
+var ORDER=["BEGINNER","BRONZE","SILVER","GOLD"];var TH={BRONZE:2,SILVER:6,GOLD:14};
+function $(id){return document.getElementById(id)}function need(n){return Math.ceil(n*0.8)}
+function thisMonth(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
+function fmt(n){return (Math.round(n*10)/10).toString()}
+function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+function clear(n){while(n.firstChild)n.removeChild(n.firstChild)}
+function pill(kind,text){return el("span","pill "+kind,text)}
+function dotsFor(name,label,checked,onChange){var dots=el("div","dots");dots.setAttribute("role","radiogroup");dots.setAttribute("aria-label",label);
+  for(var n=1;n<=5;n++){var lab=el("label","dot"+(n<=2?" low":""));var inp=document.createElement("input");inp.type="radio";inp.name=name;inp.value=String(n);inp.setAttribute("aria-label",label+" "+n+"点");
+  if(Number(checked)===n)inp.checked=true;inp.addEventListener("change",onChange);lab.appendChild(inp);lab.appendChild(el("span",null,String(n)));dots.appendChild(lab)}return dots}
+function picked(name){var c=document.querySelector("input[name=\""+name+"\"]:checked");return c?Number(c.value):0}
+function judge(s){var n=s.length,hi=s.filter(function(x){return x>=4}).length,lo=s.filter(function(x){return x>0&&x<=2}).length,done=n>0&&s.every(function(x){return x>0});return {n:n,hi:hi,lo:lo,done:done,ok:done&&hi>=need(n)&&lo===0}}
+(function(){var DRAFT_KEY="craft-review-draft";var ITEMS=[],sending=false,t0=null;
+function num(id){var v=parseFloat($(id).value);return isFinite(v)&&v>=0?v:0}
+function msg(kind,text){var m=$("form-msg");m.className="msg "+kind;m.textContent=text;m.hidden=!text}
+function buildItems(rank,keep){ITEMS=RANK_ITEMS[rank]||[];["self","team","culture"].forEach(function(g){clear($("items-"+g))});
+ $("items-wrap").hidden=!ITEMS.length;$("items-empty").hidden=!!ITEMS.length;
+ $("items-lead").textContent=ITEMS.length?RANK_JP[rank]+"の評価項目（"+ITEMS.length+"項目）で、自分を1〜5で採点してください。":"現ランクの評価項目で、自分を1〜5で採点してください。";
+ ITEMS.forEach(function(it,i){var div=el("div","item"),head=el("div","it-head"),box=el("div");head.appendChild(el("span","it-no",String(i+1).padStart(2,"0")));
+  var t=el("div","it-t",it.t+" ");var k=el("span","hint",it.k);k.style.fontWeight="500";t.appendChild(k);box.appendChild(t);box.appendChild(el("div","it-d",it.d));head.appendChild(box);
+  div.appendChild(head);div.appendChild(dotsFor("sc-"+i,it.t,keep?keep[i]:0,onChange));($("items-"+it.g)||$("items-team")).appendChild(div)})}
+function scores(){return ITEMS.map(function(_,i){return picked("sc-"+i)})}
+function syncTarget(){var r=$("f-rank").value,t=$("f-target");Array.prototype.forEach.call(t.options,function(o){if(!o.value)return;o.disabled=r?ORDER.indexOf(o.value)<=ORDER.indexOf(r)&&r!=="GOLD":false});
+ if(r&&(!t.value||t.options[t.selectedIndex].disabled))t.value=NEXT[r]}
+function recalc(){$("c-pt").textContent=fmt(num("f-contracts")*0.5+num("f-completions"))+"pt";var days=num("f-days");$("c-apo").textContent=days>0?fmt(num("f-apo")/days):"–";
+ var t=$("f-target").value;if(TH[t]!=null){var left=Math.max(0,TH[t]-num("f-total"));$("c-left").textContent=left===0?"到達":fmt(left)+"pt"}else $("c-left").textContent="–";
+ var j=judge(scores());$("c-high-l").textContent=j.n?"4点以上（"+need(j.n)+"以上でクリア）":"4点以上";$("c-high").textContent=j.n?j.hi+" / "+j.n:"–";$("c-low").textContent=j.n?String(j.lo):"–";
+ var p=$("c-pass");clear(p);if(j.n)p.appendChild(!j.done?pill("draft",j.n+"項目すべて採点すると判定が出ます"):j.ok?pill("ok","自己評価では合格条件をクリア"):pill("ng","自己評価では合格条件に未達"))}
+function collect(){return {name:$("f-name").value.trim().slice(0,40),month:$("f-month").value,currentRank:$("f-rank").value,targetRank:$("f-target").value,contracts:num("f-contracts"),completions:num("f-completions"),totalPt:num("f-total"),workdays:num("f-days"),appointments:num("f-apo"),scores:scores(),strength:$("f-strength").value.slice(0,1000),challenge:$("f-challenge").value.slice(0,1000)}}
+function saveDraft(silent){try{localStorage.setItem(DRAFT_KEY,JSON.stringify(collect()));if(!silent)msg("ok","この端末に一時保存しました。まだ提出はされていません。")}catch(e){if(!silent)msg("ng","この端末では一時保存が使えません。そのまま提出してください。")}}
+function loadDraft(){var d=null;try{d=JSON.parse(localStorage.getItem(DRAFT_KEY)||"null")}catch(e){d=null}if(!d)return;
+ $("f-name").value=d.name||"";if(d.month)$("f-month").value=d.month;$("f-rank").value=d.currentRank||"";buildItems(d.currentRank||"",d.scores||[]);syncTarget();if(d.targetRank)$("f-target").value=d.targetRank;
+ var map={contracts:"f-contracts",completions:"f-completions",totalPt:"f-total",workdays:"f-days",appointments:"f-apo"};Object.keys(map).forEach(function(k){if(d[k])$(map[k]).value=d[k]});
+ $("f-strength").value=d.strength||"";$("f-challenge").value=d.challenge||""}
+function onChange(){recalc();clearTimeout(t0);t0=setTimeout(function(){saveDraft(true)},600)}
+function top(){window.scrollTo({top:0,behavior:"smooth"})}
+function submit(){if(sending)return;var d=collect();
+ if(!d.name){msg("ng","名前を入力してください。");$("f-name").focus();top();return}
+ if(!d.month){msg("ng","対象月を選んでください。");top();return}
+ if(!d.currentRank||!d.targetRank){msg("ng","現ランクと目標ランクを選んでください。");top();return}
+ if(!d.scores.length||d.scores.some(function(x){return !x})){msg("ng","定性評価の"+d.scores.length+"項目すべてに点数をつけてから提出してください。");top();return}
+ sending=true;$("btn-submit").disabled=$("btn-draft").disabled=true;$("btn-submit").textContent="送信中…";
+ google.script.run.withSuccessHandler(function(r){sending=false;$("btn-submit").disabled=$("btn-draft").disabled=false;$("btn-submit").textContent="内容を直して再提出";
+   var st=$("f-status");clear(st);st.appendChild(pill("ok","提出済み"));msg("ok",(r&&r.updated?"前回の提出を上書きしました。":"提出しました。")+"面談で一緒に確認しましょう。");saveDraft(true);top()})
+  .withFailureHandler(function(err){sending=false;$("btn-submit").disabled=$("btn-draft").disabled=false;$("btn-submit").textContent="提出する";
+   msg("ng",(err&&err.message)?("提出できませんでした："+err.message):"提出できませんでした。通信状況を確認して、もう一度お試しください。");top()}).submit(d)}
+$("f-rank").addEventListener("change",function(){buildItems($("f-rank").value);syncTarget();onChange()});
+["f-name","f-month","f-target","f-contracts","f-completions","f-total","f-days","f-apo","f-strength","f-challenge"].forEach(function(id){$(id).addEventListener("input",onChange);$(id).addEventListener("change",onChange)});
+$("btn-draft").addEventListener("click",function(){saveDraft(false)});$("btn-submit").addEventListener("click",submit);
+$("f-month").value=thisMonth();loadDraft();recalc()})();
+</script>
+</body></html>

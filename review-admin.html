@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>支部長採点｜Craft Energy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap">
+<style>
+:root{--bg:#F5F8FC;--surface:#FFFFFF;--pale:#EAF1FB;--line:#D5DCE6;--fg:#15171C;--muted:#4A5160;--accent:#2E62D9;--accent-fg:#FFFFFF;--ok:#1C7C4A;--warn:#B42318;--ok-bg:#E3F3EA;--warn-bg:#FBE9E7;--font-jp:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;--font-num:"Inter","Helvetica Neue",Arial,sans-serif;color-scheme:light}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-jp);font-size:15px;line-height:1.6}[hidden]{display:none!important}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}.head{display:flex;flex-direction:column;gap:8px;padding-block:14px}
+.brand{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}.brand b{font-family:var(--font-num);font-weight:800;letter-spacing:1px;color:var(--fg);font-size:13px}
+h1{margin:0;font-size:21px;font-weight:900;line-height:1.35}main{display:flex;flex-direction:column;gap:16px;padding-block:18px 120px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.sec{font-weight:700;color:var(--accent);font-size:16px}.hint{font-size:13px;color:var(--muted)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:6px;min-width:0}label.l{font-size:13px;font-weight:700}
+input[type=text],input[type=password],input[type=number],input[type=month],select,textarea{width:100%;font:inherit;font-size:16px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:46px}
+textarea{min-height:110px;resize:vertical;line-height:1.6}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,.dot input:focus-visible+span{outline:3px solid var(--accent);outline-offset:2px}
+.calc{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:var(--pale);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column}
+.stat span{font-size:12px;color:var(--muted)}.stat b{font-family:var(--font-num);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.grp{background:var(--pale);border-radius:8px;padding:4px 10px;font-size:13px;font-weight:700}
+.item{display:flex;flex-direction:column;gap:8px;padding-block:12px;border-bottom:1px solid var(--line)}.item:last-child{border-bottom:0}
+.it-head{display:flex;gap:10px;align-items:baseline}.it-no{font-family:var(--font-num);font-weight:700;color:var(--accent);width:22px;flex:none}.it-t{font-weight:700}.it-d{font-size:13px;color:var(--muted)}
+.dots{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding-left:32px}.dot{position:relative}.dot input{position:absolute;opacity:0;inset:0}
+.dot span{display:flex;align-items:center;justify-content:center;height:46px;border-radius:999px;border:1.5px solid var(--line);font-family:var(--font-num);font-weight:700;font-size:16px;background:var(--surface);cursor:pointer}
+.dot.low span{color:var(--warn)}.dot input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}.tally{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.ng{background:var(--warn-bg);color:var(--warn)}.pill.draft{background:var(--pale);color:var(--muted)}.pill.sub{background:var(--accent);color:var(--accent-fg)}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}.bar .wrap{display:flex;gap:10px;padding-block:10px}
+.btn{min-height:48px;border-radius:12px;font:inherit;font-weight:700;font-size:16px;cursor:pointer;padding:0 16px}.btn.pri{flex:2;background:var(--accent);color:var(--accent-fg);border:0}
+.btn.sec2{flex:1;background:var(--surface);color:var(--fg);border:1px solid var(--line)}.btn:disabled{opacity:.5;cursor:default}
+.msg{border-radius:12px;padding:12px 14px;font-size:14px}.msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.ng{background:var(--warn-bg);color:var(--warn)}.msg.info{background:var(--pale);color:var(--fg)}
+.list{display:flex;flex-direction:column}.li{display:flex;align-items:center;gap:8px;padding-block:12px;border:0;border-bottom:1px solid var(--line);background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;min-height:56px;width:100%}
+.li .nm{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.li .meta{font-size:12px;color:var(--muted)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px;margin:0}.kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:700}
+.quote{white-space:pre-wrap;background:var(--pale);border-radius:10px;padding:10px 12px;font-size:14px;min-height:20px}
+.choice{display:grid;grid-template-columns:1fr 1fr;gap:8px}.choice label{position:relative}.choice input{position:absolute;opacity:0;inset:0}
+.choice span{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:12px;border:1.5px solid var(--line);font-weight:700;cursor:pointer;text-align:center;padding:4px 8px}
+.choice input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.back{background:none;border:0;color:var(--accent);font:inherit;font-weight:700;min-height:44px;padding:0;cursor:pointer;align-self:flex-start}
+.cmp{width:100%;border-collapse:collapse;font-size:14px}.cmp th,.cmp td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:center}.cmp th{font-size:12px;color:var(--muted)}.cmp td:first-child{text-align:left;font-weight:700}
+.gap{font-size:12px;color:var(--muted)}.gap.big{color:var(--warn);font-weight:700}.self{font-family:var(--font-num);font-weight:700}
+@media (max-width:420px){.calc{grid-template-columns:1fr 1fr}.dots{padding-left:0}}
+</style></head><body>
+<header><div class="wrap head"><div class="brand"><span>■ 評価制度 ｜ 支部長採点</span><b>CRAFT ENERGY</b></div><h1>支部長採点</h1></div></header>
+<div class="wrap"><main>
+<section class="card" id="login"><div class="sec">【支部長の合言葉】</div><div class="field"><label class="l" for="a-pass">合言葉</label><input type="password" id="a-pass" autocomplete="current-password"></div>
+<div id="login-msg" class="msg ng" hidden></div><button class="btn pri" id="a-login" type="button">開く</button></section>
+<section class="card" id="list-card" hidden><div class="row"><div class="field"><label class="l" for="a-month">対象月</label><input type="month" id="a-month"></div><div class="field"><span class="l" style="font-size:13px;font-weight:700">提出数</span><div id="a-count" class="hint">–</div></div></div>
+<div id="a-list" class="list"></div></section>
+<section class="card" id="detail" hidden></section>
+</main></div>
+<script src="review-config.js"></script>
+<script>var RANK_ITEMS={"BEGINNER":[{"g":"self","k":"人間性","t":"自責思考・素直さ","d":"失敗を隠さず報告し、指摘を素直に受け止めているか"},{"g":"self","k":"行動","t":"行動量の確保","d":"出勤率90%以上を守り、決められた行動量をこなしているか"},{"g":"self","k":"行動","t":"時間厳守・メモ習慣","d":"5〜10分前行動ができ、学んだことをメモに残しているか"},{"g":"self","k":"スキル","t":"基本トークの習得","d":"基本トークを一通り話せる状態になっているか"},{"g":"self","k":"行動","t":"挨拶","d":"出社時・訪問先・お客様に、自分から明るくはっきり挨拶しているか"},{"g":"self","k":"スキル","t":"礼儀・ノンバーバル","d":"言葉遣いや礼儀が整い、表情や姿勢が及第点にあるか"},{"g":"team","k":"組織","t":"報連相の徹底","d":"報告・連絡・相談を漏れなく、早めに行っているか"},{"g":"team","k":"組織","t":"即レス","d":"上司や仲間からの連絡・チャットに、すぐ返信しているか"},{"g":"team","k":"組織","t":"ルール・規範の遵守","d":"支部のルールや規範を守って行動しているか"},{"g":"culture","k":"カルチャー","t":"前向きな言動","d":"明るく前向きな言葉を使い、ネガティブな発言で場の空気を下げていないか"},{"g":"culture","k":"カルチャー","t":"素直に即実行","d":"教わったことを素直に受け取り、その日のうちに試しているか"},{"g":"culture","k":"カルチャー","t":"当たり前の徹底","d":"期限・提出物・準備など小さな約束を、愚直に守り続けているか"}],"BRONZE":[{"g":"self","k":"人間性","t":"言い訳しない","d":"結果の理由を外に求めず、自分の行動で変えようとしているか"},{"g":"self","k":"人間性","t":"レジリエンス","d":"断りを人格否定と捉えず、引きずらずに次へ切り替えているか"},{"g":"self","k":"行動","t":"行動量の安定","d":"波なく、毎月安定した行動量を保てているか"},{"g":"self","k":"行動","t":"ロープレ","d":"週1回以上ロープレを行っているか"},{"g":"self","k":"スキル","t":"商材理解","d":"ZEH・蓄電池などの商材を、お客様に説明できる水準で理解しているか"},{"g":"self","k":"スキル","t":"営業概念の実践","d":"SPIN話法などを実践し、ノンバーバルも含め違和感のないトークができているか"},{"g":"team","k":"組織","t":"新人のフォローアップ","d":"新人に声をかけ、つまずきを早めにフォローしているか"},{"g":"team","k":"組織","t":"MTG・講習会への参加","d":"ミーティング・講習会に参加率90%以上で、積極的に関わっているか"},{"g":"culture","k":"カルチャー","t":"自ら手を挙げる","d":"新しい役割・目標・取り組みに、指名を待たず自分から手を挙げているか"},{"g":"culture","k":"カルチャー","t":"愚直な継続","d":"成果が出ない時期も、決めた行動量とやり方をやめずに続けているか"},{"g":"culture","k":"カルチャー","t":"一体感をつくる","d":"仲間の成果を一緒に喜び、声をかけ合う雰囲気をつくっているか"}],"SILVER":[{"g":"self","k":"人間性","t":"数字に愚直","d":"目標数字から逃げず、達成に向けて行動を積み上げているか"},{"g":"self","k":"人間性","t":"成長意欲・自己課題の把握","d":"自分の課題を明確に言え、成長への意欲を行動で示しているか"},{"g":"self","k":"行動","t":"失敗の言語化と改善","d":"うまくいかなかった理由を言語化し、改善のサイクルを回しているか"},{"g":"self","k":"行動","t":"中長期の計画と自発的な相談","d":"中長期の行動計画を立て、行き詰まる前に自分から相談しているか"},{"g":"self","k":"スキル","t":"トーク練度・切り返し","d":"トークの練度が高く、反論への切り返しがスムーズか"},{"g":"self","k":"スキル","t":"確率で営業をコントロール","d":"訪問数・アポ率・契約率から逆算して活動を組み立てているか"},{"g":"team","k":"組織","t":"周囲への好影響","d":"前向きな言動で、チームの士気を高めているか"},{"g":"team","k":"組織","t":"新人への指導・FB","d":"新人のノンバーバルやトークに、具体的なフィードバックをしているか"},{"g":"team","k":"組織","t":"支部の模範となる行動","d":"行動・姿勢そのものが、支部の手本になっているか"},{"g":"culture","k":"カルチャー","t":"オーナーシップ","d":"支部の課題を「誰かがやる」にせず、自分ごととして動いているか"},{"g":"culture","k":"カルチャー","t":"若手の挑戦を後押し","d":"後輩に任せて挑戦させ、失敗を責めずに次の挑戦につなげているか"},{"g":"culture","k":"カルチャー","t":"変化を楽しむ","d":"新しいやり方やルールの変更を前向きに受け入れ、まず試しているか"}],"GOLD":[{"g":"self","k":"人間性","t":"組織視点","d":"自分の数字だけでなく、支店全体の成果最大化を考えて動いているか"},{"g":"self","k":"人間性","t":"圧倒的な当事者意識","d":"支店の課題を自分ごととして捉え、先回りして手を打っているか"},{"g":"self","k":"行動","t":"ノウハウの体系化・共有","d":"自分のやり方を体系化し、誰でも使える形で共有しているか"},{"g":"self","k":"スキル","t":"営業論の確立","d":"成果の出し方を高い言語化と再現性で説明できるか"},{"g":"self","k":"スキル","t":"反論処理","d":"あらゆる反論にスムーズに対応できているか"},{"g":"team","k":"組織","t":"ロープレ指導・教育の主導","d":"ロープレや勉強会を自ら企画・主導しているか"},{"g":"team","k":"組織","t":"育成と目標達成の牽引","d":"メンバーを育て、チームの目標達成を牽引しているか"},{"g":"team","k":"組織","t":"戦略展開・改善提案","d":"支部全体への戦略展開や改善提案を行っているか"},{"g":"culture","k":"カルチャー","t":"仲間集めへの貢献","d":"紹介や採用面談への同席などで、組織を大きくする仲間集めに関わっているか"},{"g":"culture","k":"カルチャー","t":"次のリーダーの育成","d":"自分の役割を任せられるリーダー候補を、意図して育てているか"},{"g":"culture","k":"カルチャー","t":"カルチャーの体現と発信","d":"ミッション・クレドを自ら体現し、メンバーに言葉で伝え続けているか"}]};
+var google={script:{run:mk(null,null)}};
+function mk(s,f){var o={withSuccessHandler:function(x){return mk(x,f)},withFailureHandler:function(x){return mk(s,x)}};
+ ["submit","adminList","adminSave"].forEach(function(n){o[n]=function(){callApi(n,Array.prototype.slice.call(arguments),s,f)}});return o}
+function callApi(fn,args,s,f){
+ var url=(window.CRAFT_CONFIG&&window.CRAFT_CONFIG.API_URL)||"";
+ if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)){f&&f({message:"保存先（review-config.js の API_URL）が設定されていません。支部長に連絡してください。"});return}
+ fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn:fn,args:args})})
+  .then(function(r){return r.json()})
+  .then(function(j){if(j&&j.error){f&&f({message:j.error})}else{s&&s(j?j.result:null)}})
+  .catch(function(){f&&f({message:"通信できませんでした。電波の良い場所で、もう一度お試しください。"})});
+}</script>
+<script>
+var RANK_JP={BEGINNER:"ビギナー",BRONZE:"ブロンズ",SILVER:"シルバー",GOLD:"ゴールド"};var NEXT={BEGINNER:"BRONZE",BRONZE:"SILVER",SILVER:"GOLD",GOLD:"GOLD"};
+var ORDER=["BEGINNER","BRONZE","SILVER","GOLD"];var TH={BRONZE:2,SILVER:6,GOLD:14};
+function $(id){return document.getElementById(id)}function need(n){return Math.ceil(n*0.8)}
+function thisMonth(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
+function fmt(n){return (Math.round(n*10)/10).toString()}
+function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+function clear(n){while(n.firstChild)n.removeChild(n.firstChild)}
+function pill(kind,text){return el("span","pill "+kind,text)}
+function dotsFor(name,label,checked,onChange){var dots=el("div","dots");dots.setAttribute("role","radiogroup");dots.setAttribute("aria-label",label);
+  for(var n=1;n<=5;n++){var lab=el("label","dot"+(n<=2?" low":""));var inp=document.createElement("input");inp.type="radio";inp.name=name;inp.value=String(n);inp.setAttribute("aria-label",label+" "+n+"点");
+  if(Number(checked)===n)inp.checked=true;inp.addEventListener("change",onChange);lab.appendChild(inp);lab.appendChild(el("span",null,String(n)));dots.appendChild(lab)}return dots}
+function picked(name){var c=document.querySelector("input[name=\""+name+"\"]:checked");return c?Number(c.value):0}
+function judge(s){var n=s.length,hi=s.filter(function(x){return x>=4}).length,lo=s.filter(function(x){return x>0&&x<=2}).length,done=n>0&&s.every(function(x){return x>0});return {n:n,hi:hi,lo:lo,done:done,ok:done&&hi>=need(n)&&lo===0}}
+(function(){var PASS="",rows=[];
+function loginMsg(t){var m=$("login-msg");m.textContent=t;m.hidden=!t}
+function load(){var m=$("a-month").value;$("a-count").textContent="読み込み中…";
+ google.script.run.withSuccessHandler(function(list){$("login").hidden=true;$("list-card").hidden=false;rows=list||[];renderList()})
+ .withFailureHandler(function(err){$("login").hidden=false;$("list-card").hidden=true;loginMsg(err&&err.message?err.message:"読み込めませんでした。")}).adminList(PASS,m)}
+function renderList(){$("detail").hidden=true;$("list-card").hidden=false;var list=$("a-list");clear(list);
+ var done=rows.filter(function(r){return r.mgr}).length;$("a-count").textContent="提出 "+rows.length+"人 ／ 採点済み "+done+"人";
+ if(!rows.length){list.appendChild(el("div","hint","この月の提出はまだありません。"));return}
+ rows.forEach(function(r,i){var b=el("button","li");b.type="button";b.appendChild(el("span","nm",r.name));b.appendChild(el("span","meta",RANK_JP[r.rank]||""));
+  var j=judge(r.scores);b.appendChild(pill(j.ok?"ok":"ng","本人："+(j.ok?"合格ライン":"未達")));b.appendChild(r.mgr?pill("sub","採点済み"):pill("draft","採点待ち"));
+  b.addEventListener("click",function(){openDetail(i)});list.appendChild(b)})}
+function openDetail(i){var r=rows[i],its=RANK_ITEMS[r.rank]||[],self=r.scores,mg=(r.mgr&&r.mgr.scores)||[];
+ var box=$("detail");clear(box);box.hidden=false;$("list-card").hidden=true;window.scrollTo({top:0});
+ var back=el("button","back","← 一覧に戻る");back.type="button";back.onclick=renderList;box.appendChild(back);
+ var h=el("div");h.style.cssText="display:flex;justify-content:space-between;align-items:center;gap:10px";h.appendChild(el("div",null,r.name));h.firstChild.style.cssText="font-size:19px;font-weight:900";h.appendChild(pill("sub",RANK_JP[r.rank]+" → "+(RANK_JP[r.target]||"–")));box.appendChild(h);
+ var tg=TH[r.target],ptOk=tg!=null&&r.totalPt>=tg;var dl=el("dl","kv");
+ [["対象月",r.month],["当月pt",fmt(r.pt)+"pt（契約"+r.contracts+"・完工"+r.completions+"）"],["累計pt",fmt(r.totalPt)+"pt"+(tg!=null?"（"+RANK_JP[r.target]+"は"+tg+"pt："+(ptOk?"到達":"あと"+fmt(tg-r.totalPt)+"pt")+"）":"")],["出勤アポ率",(r.rate||"–")+"（アポ"+r.appointments+"／出勤"+r.workdays+"日）"],["提出日時",r.at]].forEach(function(p){dl.appendChild(el("dt",null,p[0]));dl.appendChild(el("dd",null,p[1]))});box.appendChild(dl);
+ box.appendChild(el("div","sec","支部長の採点（"+RANK_JP[r.rank]+"の評価項目）"));box.appendChild(el("div","hint","各項目を1〜5で採点してください。本人の自己評価と差が表示されます。"));
+ var wrap=el("div");its.forEach(function(it,k){var div=el("div","item"),head=el("div","it-head"),b2=el("div");head.appendChild(el("span","it-no",String(k+1).padStart(2,"0")));
+  b2.appendChild(el("div","it-t",it.t));var dd=el("div","it-d","本人の自己評価：");var s=el("b","self",String(self[k]||"–"));if(self[k]>=4)s.style.color="var(--accent)";if(self[k]&&self[k]<=2)s.style.color="var(--warn)";dd.appendChild(s);
+  var gp=el("span","gap");gp.id="gap-"+k;dd.appendChild(gp);b2.appendChild(dd);head.appendChild(b2);div.appendChild(head);div.appendChild(dotsFor("mg-"+k,it.t+"（支部長）",mg[k],recalc));wrap.appendChild(div)});box.appendChild(wrap);
+ box.appendChild(el("div","sec","本人と支部長の比較"));var tb=document.createElement("table");tb.className="cmp";
+ var js=judge(self);function avg(a){return a.length&&a.every(function(x){return x>0})?(a.reduce(function(x,y){return x+y},0)/a.length).toFixed(1):"–"}
+ var heads=["","本人","支部長"];var tr=document.createElement("tr");heads.forEach(function(t){tr.appendChild(el("th",null,t))});tb.appendChild(tr);
+ function addRow(label,a,id){var r2=document.createElement("tr");r2.appendChild(el("td",null,label));var c1=el("td");if(a&&a.nodeType)c1.appendChild(a);else c1.textContent=a;r2.appendChild(c1);var c2=el("td",null,"–");c2.id=id;r2.appendChild(c2);tb.appendChild(r2)}
+ addRow("4点以上（"+need(js.n)+"以上で合格）",js.hi+" / "+js.n,"m-high");addRow("2点以下（0で合格）",String(js.lo),"m-low");addRow("平均点",avg(self),"m-avg");
+ addRow("評価面談",js.done?(js.ok?pill("ok","クリア"):pill("ng","未達")):pill("draft","未採点あり"),"m-pass");box.appendChild(tb);
+ var ptLine=el("div","hint","累計pt："+fmt(r.totalPt)+"pt"+(tg!=null?(ptOk?"（"+tg+"pt到達）":"（あと"+fmt(tg-r.totalPt)+"pt）"):""));box.appendChild(ptLine);
+ var gapsBox=el("div");box.appendChild(gapsBox);
+ box.appendChild(el("div","hint","昇格の条件は「累計ptが基準に到達」と「評価面談の合格」の両方です。両者を見比べて総合判定を選んでください。"));
+ [["本人：今月の強み",r.strength],["本人：来月の課題",r.challenge]].forEach(function(p){var f=el("div","field");f.appendChild(el("span","l",p[0]));f.lastChild.style.cssText="font-size:13px;font-weight:700";f.appendChild(el("div","quote",p[1]||"（記入なし）"));box.appendChild(f)});
+ box.appendChild(el("div","sec","面談結果"));var ch=el("div","choice");["昇格推薦","現ランク維持"].forEach(function(v){var lab=el("label");var inp=document.createElement("input");inp.type="radio";inp.name="dec";inp.value=v;if(r.mgr&&r.mgr.decision===v)inp.checked=true;lab.appendChild(inp);lab.appendChild(el("span",null,v));ch.appendChild(lab)});box.appendChild(ch);
+ var cf=el("div","field");var cl=el("label","l","支部長からのコメント");cl.setAttribute("for","a-comment");cf.appendChild(cl);var ta=document.createElement("textarea");ta.id="a-comment";ta.maxLength=1500;ta.value=(r.mgr&&r.mgr.comment)||"";cf.appendChild(ta);box.appendChild(cf);
+ var am=el("div","msg");am.hidden=true;box.appendChild(am);var sv=el("button","btn pri","採点と面談結果を保存");sv.type="button";box.appendChild(sv);
+ function cur(){return its.map(function(_,k){return picked("mg-"+k)})}
+ function recalc(){var v=cur(),jm=judge(v),any=v.some(function(x){return x>0});$("m-high").textContent=any?jm.hi+" / "+jm.n:"–";$("m-low").textContent=any?String(jm.lo):"–";$("m-avg").textContent=avg(v);
+  var mp=$("m-pass");clear(mp);mp.appendChild(!jm.done?pill("draft","採点中"):jm.ok?pill("ok","クリア"):pill("ng","未達"));
+  var gaps=[];its.forEach(function(it,k){var a=self[k]||0,b=v[k]||0,g=$("gap-"+k);if(a&&b){var df=b-a;g.textContent=df===0?"　一致":"　支部長 "+b+"（"+(df>0?"+":"")+df+"）";g.className="gap"+(Math.abs(df)>=2?" big":"");if(Math.abs(df)>=2)gaps.push(it.t+"（本人"+a+"／支部長"+b+"）")}else{g.textContent="";g.className="gap"}});
+  clear(gapsBox);if(gaps.length){var mm=el("div","msg info");mm.appendChild(el("b",null,"認識のずれが大きい項目（2点以上の差）"));gaps.forEach(function(t){mm.appendChild(document.createElement("br"));mm.appendChild(document.createTextNode(t))});mm.appendChild(document.createElement("br"));mm.appendChild(document.createTextNode("面談でこの項目を重点的にすり合わせましょう。"));gapsBox.appendChild(mm)}
+  return jm}
+ recalc();
+ sv.onclick=function(){var jm=recalc(),dec=document.querySelector("input[name=dec]:checked");am.hidden=false;
+  if(!jm.done){am.className="msg ng";am.textContent="支部長の採点を"+jm.n+"項目すべて入れてください。";return}
+  if(!dec){am.className="msg ng";am.textContent="総合判定を選んでください。";return}
+  sv.disabled=true;am.className="msg info";am.textContent="保存中…";
+  google.script.run.withSuccessHandler(function(){sv.disabled=false;am.className="msg ok";am.textContent="保存しました。スプレッドシートの「支部長採点」タブにも記録されています。";r.mgr={scores:cur(),decision:dec.value,comment:ta.value}})
+  .withFailureHandler(function(err){sv.disabled=false;am.className="msg ng";am.textContent="保存できませんでした："+(err&&err.message?err.message:"もう一度お試しください。")})
+  .adminSave(PASS,{name:r.name,month:r.month,rank:r.rank,scores:cur(),selfScores:self,decision:dec.value,comment:ta.value.slice(0,1500)})}}
+$("a-month").value=thisMonth();$("a-month").addEventListener("change",load);
+$("a-login").addEventListener("click",function(){PASS=$("a-pass").value;loginMsg("");if(!PASS){loginMsg("合言葉を入力してください。");return}load()});
+$("a-pass").addEventListener("keydown",function(e){if(e.key==="Enter")$("a-login").click()})})();
+</script>
+</body></html>

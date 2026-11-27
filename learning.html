@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>東京支店 ラーニング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* VOICE everyday learning, calm and encouraging, like the branch's own training kit
+   IDEA the Craft Energy evaluation sheet turned into a course book you tick through
+   PICTURE a learning map: one row per module, one cell per lesson, cells fill blue as you finish
+   COLOUR white ground, sheet blue #2f5fe0 leads, deep navy ink, solar orange accent for "next"
+   TYPE Noto Sans JP 900 for titles, 400/500 for text
+   LAYOUT top bar; home = title + map + continue card, then module cards; phone stacks */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0b1226);--ink:light-dark(#0f1b3d,#e6ecfa);--sub:light-dark(#5a6684,#9aa8c8);--line:light-dark(#e3e8f4,#22304f);--soft:light-dark(#eef3ff,#14203f);--blue:light-dark(#2f5fe0,#6f95ff);--blue-ink:light-dark(#ffffff,#0b1226);--sun:light-dark(#f08a00,#ffb547);--ok:light-dark(#1f8a4c,#5fd38f);--ng:light-dark(#d23b3b,#ff7b7b)}
+:root[data-theme=light]{color-scheme:light}
+:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.75 "Noto Sans JP",system-ui,sans-serif;overflow-x:clip}
+a{color:var(--blue)}
+button{font:inherit;cursor:pointer}
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;padding:10px max(4vw,16px);background:var(--blue);color:#fff}
+.brand{display:flex;flex-direction:column;line-height:1.2;text-decoration:none;color:#fff}
+.brand b{font-weight:900;letter-spacing:.04em;font-size:15px}
+.brand span{font-size:12px;opacity:.85}
+.top .bar{flex:1;max-width:260px;margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
+.top .bar i{flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,.3);overflow:hidden}
+.top .bar i b{display:block;height:100%;background:#fff;border-radius:4px}
+main{max-width:1000px;margin:0 auto;padding:24px max(4vw,16px) 96px}
+h1{font-weight:900;font-size:clamp(26px,4.4vw,40px);line-height:1.15;letter-spacing:-.01em;margin:4px 0 8px;text-wrap:balance}
+h2{font-weight:700;font-size:20px;line-height:1.35;margin:28px 0 8px}
+h3{font-weight:700;font-size:17px;margin:20px 0 6px}
+.lead{color:var(--sub);margin:0 0 18px}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:24px;align-items:stretch;margin-top:8px}
+.score{display:flex;flex-direction:column;justify-content:space-between;gap:16px;padding:22px;border-radius:16px;background:var(--soft)}
+.big{font-weight:900;font-size:clamp(48px,9vw,76px);line-height:1;color:var(--blue)}
+.big small{font-size:.35em;color:var(--ink);font-weight:700;margin-left:6px}
+.sync{font-size:13px;color:var(--sub)}
+.go{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;background:var(--sun);color:#fff;text-decoration:none;font-weight:700;min-height:56px}
+.go span{min-width:0}
+.go small{display:block;font-weight:500;font-size:13px;opacity:.95;margin-top:2px}
+h1,.mod b,.lessons a,.go small,.crumb{word-break:keep-all;overflow-wrap:anywhere}
+.go::after{content:"→";margin-left:auto;font-size:20px}
+.map{padding:18px;border-radius:16px;border:1px solid var(--line);display:grid;gap:9px;align-content:center}
+.map .row{display:grid;grid-template-columns:7.5em minmax(0,1fr);align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-size:13px}
+.map .row span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cells{display:flex;gap:4px}
+.cells i{flex:1;height:18px;border-radius:4px;background:var(--line);transition:background .4s}
+.cells i.on{background:var(--blue)}
+.cells i.t{border-radius:9px}
+.mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:10px}
+.mod{display:flex;flex-direction:column;gap:6px;padding:18px;border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);background:var(--bg)}
+.mod:hover,.mod:focus-visible{border-color:var(--blue)}
+.mod .no{font-size:13px;color:var(--blue);font-weight:700}
+.mod b{font-size:17px;line-height:1.4}
+.mod p{margin:0;font-size:14px;color:var(--sub)}
+.meter{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--sub);margin-top:auto;padding-top:8px;white-space:nowrap}
+.meter i{flex:1;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.meter i b{display:block;height:100%;background:var(--blue)}
+.crumb{font-size:14px;margin:0 0 6px}
+.crumb a{text-decoration:none}
+.lessons{list-style:none;margin:16px 0 0;padding:0;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.lessons li+li{border-top:1px solid var(--line)}
+.lessons a{display:flex;align-items:center;gap:14px;padding:14px 16px;text-decoration:none;color:var(--ink);min-height:56px}
+.lessons a:hover{background:var(--soft)}
+.dot{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:14px;color:var(--blue-ink)}
+.dot.on{background:var(--blue);border-color:var(--blue)}
+.dot.on::after{content:"✓";font-weight:700}
+.lessons .k{font-size:12px;color:var(--sub);margin-left:6px}
+.lessons .min{margin-left:auto;font-size:13px;color:var(--sub);white-space:nowrap}
+.body{max-width:720px}
+.body p{margin:0 0 12px}
+.body ul,.body ol{padding-left:1.4em;margin:0 0 14px}
+.body li{margin:4px 0}
+.body blockquote{margin:0 0 14px;padding:12px 16px;background:var(--soft);border-radius:10px}
+.flag{font-weight:900;font-size:22px;color:var(--blue);margin:0 0 10px}
+.scroll{overflow-x:auto;margin:0 0 16px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:9px 10px;border-bottom:1px solid var(--line)}
+th{background:var(--soft);font-weight:700;white-space:nowrap}
+.items{list-style:none;padding:0;margin:0 0 16px}
+.items li{display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:4px 8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.items .n{color:var(--blue);font-weight:900}
+.items b{display:block}
+.items span{font-size:14px;color:var(--sub)}
+.tag{display:inline-block;font-size:13px;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--blue);color:var(--blue-ink)}
+.note{font-size:14px;color:var(--sub)}
+.foot{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;gap:10px;align-items:center;padding:10px max(4vw,16px);background:var(--bg);border-top:1px solid var(--line)}
+.foot .sp{flex:1}
+.foot[hidden]{display:none}
+.who{position:fixed;inset:0;z-index:20;background:rgba(15,23,42,.45);display:grid;place-items:center;padding:16px}.who[hidden]{display:none}
+.whobox{background:var(--bg);border-radius:16px;padding:22px;max-width:420px;width:100%}.whobox h2{margin:0 0 8px}.whobox p{color:var(--sub);font-size:14px;margin:0 0 14px}
+.whobox input{width:100%;font:inherit;font-size:16px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:12px;box-sizing:border-box}
+.whobox .btn{width:100%;justify-content:center}
+.sync a{color:var(--blue)}
+.btn{min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn.main{background:var(--blue);border-color:var(--blue);color:var(--blue-ink);font-weight:700}
+.btn.done{background:var(--soft);border-color:var(--blue);color:var(--blue);font-weight:700}
+.btn:focus-visible,.go:focus-visible,a:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.quiz{display:grid;gap:16px;margin:8px 0 16px}
+.q{padding:16px;border:1px solid var(--line);border-radius:12px}
+.q p{font-weight:700;margin:0 0 8px}
+.q label{display:flex;gap:10px;align-items:flex-start;padding:8px 6px;border-radius:8px;cursor:pointer}
+.q label:hover{background:var(--soft)}
+.q input{margin-top:6px;width:18px;height:18px;flex:none;accent-color:var(--blue)}
+.q .why{font-size:14px;margin:8px 0 0;padding:8px 10px;border-radius:8px;background:var(--soft)}
+.q.ok{border-color:var(--ok)}.q.ng{border-color:var(--ng)}
+.res{font-weight:700;margin:0 0 8px}
+@media(max-width:760px){.hero{grid-template-columns:minmax(0,1fr)}.map{order:-1}.map .row{grid-template-columns:11.5em minmax(0,1fr);gap:8px}.map .row span:first-child{white-space:normal;overflow:visible;word-break:keep-all;overflow-wrap:anywhere;line-height:1.35}}
+@media(max-width:600px){.top .bar{max-width:120px}.top .bar em{display:none}.foot .btn{padding:8px 12px}.foot .lbl{display:none}}
+@media(prefers-reduced-motion:reduce){.cells i{transition:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#home"><b>CRAFT ENERGY</b><span>東京支店 ラーニング</span></a>
+  <div class="bar" id="topbar" aria-label="全体の進み具合"><i><b style="width:0"></b></i><span>0%</span></div>
+</header>
+<main id="view"></main>
+<nav class="foot" id="foot" hidden></nav>
+<div class="who" id="who" hidden><form class="whobox" id="whoForm">
+<h2>名前を入れてください</h2>
+<p>進み具合を、名前ごとに保存します。毎回同じ名前（フルネーム）で入れてください。</p>
+<input id="whoName" list="whoList" autocomplete="name" placeholder="例：森野菜々美" required>
+<datalist id="whoList"></datalist>
+<button class="btn main" type="submit">はじめる</button>
+</form></div>
+<script>
+{
+const T=(h,rows)=>`<div class="scroll"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+const UL=a=>`<ul>${a.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+const OL=a=>`<ol>${a.map(x=>`<li>${x}</li>`).join('')}</ol>`;
+
+const RANKS=[
+ {id:'beginner',name:'ビギナー',target:'ブロンズ（2pt）',clear:'12項目中10項目以上が4点以上、2点以下は0',groups:[
+  ['自分ごと｜個人の力',[['自責思考・素直さ','失敗を隠さず報告し、指摘を素直に受け止める'],['行動量の確保','出勤率90%以上、決められた行動量をこなす'],['時間厳守・メモ習慣','5〜10分前行動、学んだことをメモに残す'],['基本トークの習得','基本トークを一通り話せる'],['挨拶','自分から明るく、はっきり挨拶する'],['礼儀・ノンバーバル','言葉遣い・礼儀、表情や姿勢が及第点']]],
+  ['組織ごと｜チームへの貢献',[['報連相の徹底','報告・連絡・相談を漏れなく早めに'],['即レス','上司や仲間からの連絡にすぐ返信する'],['ルール・規範の遵守','支部のルールや規範を守る']]],
+  ['カルチャー｜組織を大きくする姿勢',[['前向きな言動','ネガティブな発言で場を下げない'],['素直に即実行','教わったことをその日のうちに試す'],['当たり前の徹底','期限・提出物など小さな約束を守り続ける']]]]},
+ {id:'bronze',name:'ブロンズ',target:'シルバー（6pt）',clear:'11項目中9項目以上が4点以上、2点以下は0',groups:[
+  ['自分ごと｜個人の力',[['言い訳しない','結果の理由を外に求めず、行動で変える'],['レジリエンス','断りを引きずらず、次へ切り替える'],['行動量の安定','毎月、波なく行動量を保つ'],['ロープレ・訪問前ルーティン','週1回以上のロープレと訪問前の型'],['商材理解','ZEH・蓄電池を説明できる水準で理解'],['営業概念の実践','SPIN話法など、違和感のないトーク']]],
+  ['組織ごと｜チームへの貢献',[['新人のフォローアップ','新人のつまずきを早めにフォロー'],['MTG・講習会への参加','参加率90%以上、積極的に関わる']]],
+  ['カルチャー｜組織を大きくする姿勢',[['自ら手を挙げる','新しい役割・目標に指名を待たず挑戦'],['愚直な継続','成果が出ない時期も決めた行動を続ける'],['一体感をつくる','仲間の成果を一緒に喜び、声をかけ合う']]]]},
+ {id:'silver',name:'シルバー',target:'ゴールド（14pt）',clear:'12項目中10項目以上が4点以上、2点以下は0',groups:[
+  ['自分ごと｜個人の力',[['数字に愚直','目標数字から逃げず行動を積み上げる'],['成長意欲・自己課題の把握','自分の課題を明確に言える'],['失敗の言語化と改善','原因を言語化し改善サイクルを回す'],['中長期の計画・自発的な相談','計画を立て、行き詰まる前に相談'],['トーク練度・切り返し','反論への切り返しがスムーズ'],['確率で営業をコントロール','訪問数・アポ率・契約率から逆算']]],
+  ['組織ごと｜チームへの貢献',[['周囲への好影響','前向きな言動で士気を高める'],['新人への指導・FB','トークや所作に具体的なFB'],['支部の模範となる行動','行動・姿勢そのものが手本']]],
+  ['カルチャー｜組織を大きくする姿勢',[['オーナーシップ','支部の課題を自分ごととして動く'],['若手の挑戦を後押し','任せて挑戦させ、失敗を責めない'],['変化を楽しむ','新しいやり方をまず試す']]]]},
+ {id:'gold',name:'ゴールド',target:'後進の育成',clear:'11項目中9項目以上が4点以上、2点以下は0',groups:[
+  ['自分ごと｜個人の力',[['組織視点','支店全体の成果最大化を考えて動く'],['圧倒的な当事者意識','支店の課題に先回りして手を打つ'],['ノウハウの体系化・共有','誰でも使える形で共有する'],['営業論の確立','高い言語化と再現性で説明できる'],['反論処理','あらゆる反論にスムーズに対応']]],
+  ['組織ごと｜チームへの貢献',[['ロープレ指導・教育の主導','ロープレや勉強会を企画・主導'],['育成と目標達成の牽引','メンバーを育て目標達成を牽引'],['戦略展開・改善提案','支部全体へ戦略展開・改善提案']]],
+  ['カルチャー｜組織を大きくする姿勢',[['仲間集めへの貢献','紹介・採用面談への同席など'],['次のリーダーの育成','役割を任せられる候補を育てる'],['カルチャーの体現と発信','ミッション・クレドを言葉で伝える']]]]}
+];
+const rankBody=r=>{let n=0;return `<p><span class="tag">${r.name}</span>　次の目標：<b>${r.target}</b></p>
+<p>毎月の評価面談で、下の項目を1〜5点でつけます。4・5点が合格ライン、1・2点は要改善です。</p>
+<p>クリアの条件：<b>${r.clear}</b></p>`+r.groups.map(([g,its])=>`<h3>${g}</h3><ul class="items">${its.map(([a,b])=>`<li><span class="n">${String(++n).padStart(2,'0')}</span><div><b>${a}</b><span>${b}</span></div></li>`).join('')}</ul>`).join('')+`<p class="note">自分のランクの項目で、今の自分が何点かを考えてから面談に来てください。</p>`;};
+
+const M=[
+{id:'start',title:'東京支店へようこそ',desc:'私がこの支店でやりたいこと、支店のビジョンと行動5か条',L:[
+ {id:'start-1',title:'私がこの支店で|やりたいこと',min:5,body:`
+<p>この支店で一番伝えたいことを、最初に書いておきます。</p>
+<p>私は学生のとき、営業のインターンをしていました。そこで成功体験を積んで、自分自身を変えることができたんです。</p>
+<p>自信がついて、人と話すときも緊張しなくなって、お金も稼げるようになりました。見える世界が変わって、選べる道が増えて、目標まで変わりました。</p>
+<p>地元には、働きたくないのにいやいや働いて、なんとなく時間を過ごしている人がたくさんいます。でも東京には、仕事を生き生きやって、ちゃんと稼いで、毎日が充実している人がいます。</p>
+<p>だから、私がインターンでした経験を、みんなにもしてほしいです。そして、自分の生き方を自分で選べるようになってほしい。それが、私がこの支店でやりたいことです。</p>
+<h2>東京支店のビジョン</h2>
+<p class="flag">自分らしく挑戦できる人を増やす</p>
+<p>みんながここにいるのは、このビジョンに向かって一緒に進むためだと思っています。</p>`},
+ {id:'start-2',title:'支店の行動5か条と、3年後の姿',min:5,body:`
+<h2>支店の行動5か条</h2>
+<p>迷ったときは、この5つに戻ってきてください。</p>
+${OL(['凡事徹底','即実行','振り返り','感謝と尊重','成長の継続'])}
+<h2>3年後にこうなっていたい</h2>
+<p>まずは、関東で販売実績No.1の支店になること。</p>
+<p>東京支店は、会社に2つしかない直営支店のひとつです。だから数字でも熱量でも圧倒的に、全支店のモデルになる支店を目指します。</p>
+<p>それと同じくらい大事にしたいのが、入ってきた人がちゃんと結果を出せて、そこから次のリーダーが育っていることです。挑戦した人がほめられて、学んだことをみんなで共有するのが当たり前になっていてほしい。</p>
+<p>外から「あの支店に行けば成長できるよ」って言ってもらえる支店にしたいです。</p>`},
+ {id:'start-3',title:'なんで太陽光と蓄電池なのか、なんで今なのか',min:5,body:`
+<h2>なんで太陽光と蓄電池なのか</h2>
+<p>電気代は上がり続けていて、停電の心配もあります。売電の買取単価も下がっていて、作った電気は安く売るより貯めて使ったほうが得になってきています。</p>
+<p>太陽光と蓄電池があれば、そういう不安に自分で備えられます。会社のミッション「人々の生活を豊かにする」を、一軒ずつ形にできる仕事だと思っています。</p>
+<h2>なんで今なのか</h2>
+<p>来季の目標は年間5億円。東京支店にとって、今までより一段大きい挑戦です。しかも毎月2人ずつ仲間が増えていきます。</p>
+<p>今のうちに「こうやれば売れる」をみんなで共有できていれば、新しく入る人も早く結果を出せます。逆に今やらないと、人が増えるほど「売れる人」と「売れない人」の差が開いてしまう。だから今やります。</p>
+<h2>会社のミッション</h2>
+<p class="flag">人々の生活を豊かにする</p>
+<blockquote>株式会社Craft energyは、お客様一人ひとりのニーズに応えることを使命とし、高品質なサービスを提供しています。「脱炭素コンサルティング事業」「ZEH住宅設備販売事業」「外構エクステリア事業」「点検メンテナンス事業」「産業用太陽光事業」を通じて、人々の生活を豊かにすることを目指しています。</blockquote>`}
+]},
+{id:'onb',title:'入社してからの流れ',desc:'Day0にやること、3か月の流れ、初出勤までに毎日やること、参考動画',L:[
+ {id:'onb-1',title:'Day0（入社初日）に|やること',min:5,body:`
+<p>入社した日から「今日は何をすればいいか」がわかるようにしてあります。目安は、2か月目で独り立ち、3か月目で自分のミッション達成です。わからないことがあったら、ブラザーでも私でも、いつでも聞いてください。</p>
+<h2>Day0にやること</h2>
+${UL(['このラーニングの「東京支店へようこそ」から「事業と強み」までを見る','支店長と面談し、「なぜやるのか」を直接聞く','配属チームのリーダーと、自分のブラザーに挨拶する','メンバー表に自分の行を書く（名前・チーム・3か月後のミッション・ひとこと紹介）'])}`},
+ {id:'onb-2',title:'入社から3か月の流れ',min:10,body:`
+${T(['期間','やること','次に進む条件','担当'],[
+ ['入社前','目標設定面談（どういう状態になりたいか・いつまでに・なぜ）','目標設定シートを書き終える','支店長'],
+ ['初日','初回研修：取り組み方・マインド → 営業職の理解 → 蓄電池と太陽光の話 → 支払いと商談の3点 → ノンバーバル実践','初回研修を受け終える','支店長・ブラザー'],
+ ['1週目〜','アポトーク研修（段階ごとにロールプレイ動画を提出）','アポチェックシートで80%以上','ブラザー'],
+ ['1か月目','アポインターとして現場デビュー。最初は蓄電池のアポだけを取る。ノンバーバルを徹底して、毎週振り返り（KPT）を書く','自分のアポが初めて契約になる','ブラザー'],
+ ['2か月目','守破離で応用へ。ZEH（パネル＋蓄電池）のアポも取れるようになる','独り立ち','ブラザー・チームリーダー'],
+ ['3か月目','ソーラーカーポート＋蓄電池のアポへ','3か月ミッションの達成判定','支店長']])}
+<p class="note">表が切れて見えるときは、横にスクロールできます。</p>`},
+ {id:'onb-3',title:'初出勤までに|毎日やること',min:5,body:`
+<h2>初出勤までに毎日やること</h2>
+${UL(['スクリプトの暗記','フェーズごとにロープレ動画を毎日提出'])}
+<h2>初出勤までの流れ</h2>
+${UL(['週1回ロープレ','採用から3週間以内にテスト合格','採用から3〜4週間で初出勤'])}`},
+ {id:'onb-4',title:'参考動画',min:5,body:`
+<p>勉強用の参考動画をまとめています。空いた時間に見てください。</p>
+<p><a href="https://linktr.ee/craftdouga?utm_source=linktree_profile_share&amp;ltsid=2a90c326-2e82-42c8-8540-2ffd2b087349" target="_blank" rel="noopener">参考動画のリンク集（Linktree）</a></p>`}
+]},
+{id:'manner',title:'ビジネスマナー基礎',desc:'社内、営業の現場、お礼のマナー',L:[
+ {id:'manner-1',title:'社内でのマナー',min:10,body:`
+<p>マナーは、相手に「この人と一緒に仕事したい」と思ってもらうための最低限の準備です。ビギナーの評価項目にも、挨拶・時間厳守・報連相・即レスが入っています。</p>
+<h2>挨拶</h2>
+${UL(['出社・退社・すれ違ったときは、自分から挨拶する','相手の目を見て、明るく、はっきり','退社するときは「お先に失礼します」'])}
+<h2>時間を守る</h2>
+${UL(['集合や朝会は5〜10分前に着いておく','遅れそうなときは、わかった時点ですぐ電話で連絡し、何時に着くかを伝える。LINEだけで済ませない'])}
+<h2>報連相</h2>
+${UL(['悪い報告ほど早く','「結論 → 理由 → 次にやること」の順で伝える','迷ったら、相談したほうがいい'])}
+<h2>即レス</h2>
+<p>上司や仲間からの連絡には、すぐ返します。すぐ答えられないときも「確認して○時までに返します」と一言返してください。</p>
+<h2>身だしなみ</h2>
+<p>清潔感が基本です。髪、爪、シャツのしわ、靴の汚れは、毎朝チェックしてください。</p>
+<h2>社外の人に、社内の人の話をするとき</h2>
+<p>社内の人は呼び捨てにします。たとえば「森野は本日おりません」「支店長の森野からご連絡します」です。</p>`},
+ {id:'manner-2',title:'営業のときのマナー',min:10,body:`
+<h2>訪問する前</h2>
+${UL(['身だしなみを整える','名刺・資料・ボードをすぐ出せるように準備する'])}
+<h2>名刺の渡し方</h2>
+${UL(['両手で、相手から文字が読める向きで渡す','相手より少し低い位置で差し出す','名刺の裏に、商談の日時を書いて見せる（約束を忘れさせないため）'])}
+<h2>帰るとき</h2>
+<p>最後に感謝と「よろしくお願いします」を伝えて、相手がドアを閉めるまでお辞儀をします。</p>`},
+ {id:'manner-3',title:'お礼のマナー',min:5,body:`
+<p>支店の行動5か条の「感謝と尊重」は、お礼の仕方に一番出ます。</p>
+<h2>お礼はその日のうちに</h2>
+<p>お礼は早いほど伝わります。次の日に回さないでください。</p>
+<h2>具体的に伝える</h2>
+<p>「ありがとうございました」だけでなく、何がどう助かったかまで伝えます。</p>
+<blockquote>例：「昨日ロープレで切り返しを見てもらったおかげで、今日初めて費用ネックを返せました。ありがとうございます」</blockquote>
+<h2>結果まで報告する</h2>
+<p>教えてもらったこと、紹介してもらったことは、結果が出たら報告します。教えた側は、それが一番うれしいです。</p>
+<h2>お客さんへのお礼</h2>
+<p>アポが取れても取れなくても、時間をもらったことにお礼を伝えます。たとえば「ご主人様が優しく接してくれて嬉しかったです」のように、その方とのやりとりに触れると気持ちが伝わります。</p>`},
+ {id:'manner-t',title:'ビジネスマナー|テスト',min:5,test:true,quiz:[
+  {q:'集合時間に遅れそうなとき、どうしますか？',o:['着いてから謝る','わかった時点ですぐ電話して、何時に着くか伝える','LINEのスタンプで知らせる'],a:1,w:'わかった時点ですぐ電話です。到着予定まで伝えると、相手が段取りを組めます。'},
+  {q:'名刺の渡し方として正しいのはどれですか？',o:['片手で、自分から読める向きで','両手で、相手から文字が読める向きで、少し低い位置で','テーブルに置いて渡す'],a:1,w:'両手で、相手が読める向きにして、相手より少し低い位置で差し出します。'},
+  {q:'先輩にロープレを見てもらって助かったとき、お礼はどう伝えますか？',o:['次に会ったときに「ありがとうございました」','その日のうちに、何がどう助かったかまで伝える','特に伝えなくていい'],a:1,w:'その日のうちに、具体的に。結果が出たら、それも報告します。'}]}
+]},
+{id:'mind',title:'マインドセットと|コミュニケーション',desc:'会社に属するうえでの考え方、LINE、敬語',L:[
+ {id:'mind-1',title:'会社で働くうえでの|マインドセット',min:10,body:`
+<h2>結果を自分ごとにする</h2>
+<p>うまくいかなかったとき、理由を外に探さないでください。「今日は客層が悪かった」で終わらせず、「次は何を変えるか」を考えます。ブロンズの評価項目「言い訳しない」と同じです。</p>
+<h2>チームで勝つ</h2>
+<p>自分の数字だけを見るのではなく、効いたやり方や学びをみんなに共有してください。一人の気づきが、支店みんなの力になります。</p>
+<h2>迷ったら5か条に戻る</h2>
+${OL(['凡事徹底','即実行','振り返り','感謝と尊重','成長の継続'])}`},
+ {id:'mind-3',title:'LINEでの伝え方',min:5,body:`
+<p>支店の連絡は、すべてLINEで行います。読む人が一回でわかるように書いてください。</p>
+${UL(['結論から書く','読んだらすぐ返す。すぐ答えられないときは「確認して○時までに返します」','業務の連絡は、スタンプだけで終わらせない','夜遅くや早朝の連絡は、急ぎのときだけ'])}
+<h2>報告の例</h2>
+<blockquote>【報告】本日アポ2件です。<br>・○○様：明日14時〜、ご夫婦で着座OK、明細あり<br>・△△様：土曜11時〜、明細は当日用意<br>課題：フロントで止まることが多かったので、明日ブラザーとロープレします。</blockquote>`},
+ {id:'mind-4',title:'敬語の使い方',min:10,body:`
+<h2>敬語は3種類</h2>
+${UL(['<b>尊敬語</b>：相手を上げる。いらっしゃる、おっしゃる、ご覧になる','<b>謙譲語</b>：自分を下げる。伺う、申し上げる、拝見する','<b>丁寧語</b>：です・ます'])}
+<h2>よくある言い間違い</h2>
+${T(['✕','○'],[['了解しました','承知しました'],['ご苦労様です（目上の人に）','お疲れ様です'],['おっしゃられる','おっしゃる'],['拝見させていただきます','拝見します'],['よろしかったでしょうか','よろしいでしょうか'],['資料のほうお持ちしました','資料をお持ちしました']])}
+<h2>お客さんの前での言い方</h2>
+${UL(['会社のことは「弊社」','社内の人は呼び捨て（「森野からご連絡します」）','お客さんのご家族は「ご主人様」「奥様」'])}`},
+ {id:'mind-t',title:'マインドセットと|コミュニケーション|テスト',min:5,test:true,quiz:[
+  {q:'上司からの指示に返事をするとき、正しいのはどれですか？',o:['了解しました','承知しました','了解です'],a:1,w:'目上の人には「承知しました」を使います。'},
+  {q:'お客さんの前で支店長のことを話すとき、正しいのはどれですか？',o:['森野支店長がいらっしゃいます','支店長の森野からご連絡します','森野さんから連絡があります'],a:1,w:'社外の人の前では、社内の人は呼び捨てにします。'},
+  {q:'LINEで報告するとき、一番大事なことは？',o:['結論から書く','あいさつを長めに書く','スタンプで気持ちを伝える'],a:0,w:'結論から書きます。'},
+  {q:'二重敬語になっているのはどれですか？',o:['おっしゃる','おっしゃられる','申し上げる'],a:1,w:'「おっしゃる」だけで尊敬語です。「られる」を重ねると二重敬語です。'},
+  {q:'うまくいかなかった日の振り返りとして、支店の考え方に合っているのは？',o:['今日は客層が悪かった','次は何を変えるかを決める','運がなかったので気にしない'],a:1,w:'結果の理由を外に求めず、次の行動を決めます。'}]}
+]},
+{id:'biz',title:'事業と強み',desc:'どこで稼ぐか、競合がいる中でどう勝つか',L:[
+ {id:'biz-1',title:'事業の流れ|（どこで稼ぐか）',min:5,body:`
+${OL(['<b>アポ獲得（アポインター）</b>：訪問販売でアポを取る（インターホン → フロント → ヒアリング → ニーズトーク → 着座・明細・2人着座の3点確認）','<b>商談（クローザー）</b>：既設太陽光の有無、電力の使い方、屋根・設置場所、お客様の希望を聞いて提案する','<b>契約</b>：補助金・経済効果は確認済みの根拠だけで説明する（未確認のことは確認してから案内）','<b>着工</b>：工事への引き継ぎ漏れをつくらない','<b>入金</b>：入金までを営業の責任範囲とする'])}`},
+ {id:'biz-2',title:'競合に勝てる理由',min:5,body:`
+<h2>競合に勝てる理由</h2>
+<p>商談でよくぶつかるのは Growith、Green Energy Partners などです。それでもうちが選ばれる理由は、この6つです。</p>
+${OL(['<b>圧倒的な営業力</b>：提案の質で選ばれる','<b>アフターサポートの充実</b>：永年対応','<b>自社施工体制</b>：販売から施工まで自社で責任を持つ','<b>中間マージンの排除</b>：その分、お客様の費用を抑えられる','<b>急成長している会社</b>：ベストベンチャー100に選定','<b>代表の想い</b>：若者が圧倒的に成長して活躍する環境を創りたい'])}`},
+ {id:'biz-3',title:'私たちの強み',min:5,body:`
+${T(['項目','内容'],[['実績','累計3,500件以上の施工実績、顧客満足度96.8%'],['取扱メーカー','提携メーカー20社以上（パナソニック、ファーウェイ、シャープ、DMM など）'],['保証','メーカー保証に準ずる（パネル20〜30年、蓄電池10〜15年）'],['アフターサポート','永年対応'],['施工','自社施工体制'],['事業の幅','脱炭素コンサルティング、ZEH住宅設備販売、外構エクステリア、点検メンテナンス、産業用太陽光'],['人の育て方','完工するアポの取り方を全員で共有している。入社初日から毎日やることが決まっている']])}`},
+]},
+{id:'base',title:'初回研修：営業の基本と|商品トーク',desc:'営業職の理解、人が動く原理、商品トーク、切り返し',L:[
+ {id:'apo-1',title:'営業職の理解：アポインターと|クローザー、アポのゴール',min:5,body:`
+<p>完工は再現できます。キャンセルにも否決にも、必ず理由があります。そして完工は、アポインターとクローザーの分担作業です。</p>
+${T(['役割','やること'],[['アポインター','お客さんと最初に会って、商談のアポを取る。入社したら、みんなまずここからスタートします'],['クローザー','アポインターが取ったアポで商談をして、契約と完工までつなげる。商談はクローザーだけがやります']])}
+<p>いいアポがあるから、クローザーは完工まで持っていけます。アポは「取れたらOK」ではなく、完工までつながるかどうかで見ます。</p>
+<h2>アポのゴール</h2>
+<p class="flag">お客さんの感情を動かして、行動してもらうこと</p>
+${UL(['左脳（論理）：説得のゴールは「納得」。でも、納得しただけでは人は動きません','右脳（感情）：事実とイメージを伝える。こっちが行動につながります'])}
+<p>営業は右脳へのアプローチです。たとえば化粧水なら、「こんな成分が入っていて…」と説明しても買ってもらえません。「これを使うと、女優さんみたいな肌になれますよ」と伝えるから、欲しくなるんです。</p>`},
+ {id:'apo-4',title:'人が動く原理：メラビアンの法則と|プロスペクト理論',min:10,body:`
+<p>商品知識より先に、人が動く仕組みを身につけてください。</p>
+<h2>メラビアンの法則</h2>
+<p>印象の67%は見た目で決まります。話す内容より、見た目と声。間・抑揚・緩急を意識してください。最初の1か月は、見た目・立ち位置・声のノンバーバルが一番大事です。</p>
+<h2>プロスペクト理論</h2>
+<p>人は、0から+1にするためよりも、マイナスから0に戻すためのほうがずっと大きなエネルギーを使います。</p>
+<p>だから、メリットトークは刺さりません。今どんな損をしているかをイメージしてもらって、それが解決するイメージを伝えます。問題を示すのは、お医者さんと同じです。勇気づけやメリットだけでは人は動きません。</p>
+<p>そして、お客さんのネックを安心に変えて、話したことが記憶に残っている状態で商談につなぐ。ここまでできて、完工するアポになります。</p>
+<h2>当然意識・大衆心理</h2>
+<p>お願いスタンスは通りません。個人に売り込まず「皆さん」で話すと、決断のハードルが下がります。インターホン、アポの取り付け、日程調整のどれでも使います。</p>
+${T(['✕ お願いスタンス','○ 皆さんスタンス'],[['お伺いさせてください','皆さんにお伺いしています'],['お時間あればお願いします','不安でしたらお断りいただいています'],['ご主人のお家は絶対付けたほうが…','向いているご家庭なので、皆さんと一緒にご提案しています']])}`},
+ {id:'talk-2',title:'商品トーク①：FITトーク|（下げてから上げる）',min:10,body:`
+<p>蓄電池が売れるのは、お客さんの感情が一度下がってから上がるからです。</p>
+<blockquote>「パネル入れてよかった！」→「売れなくなるの？」→「もったいない」→「どうすればいいの？」→「蓄電池がある！」→「有効活用できる！」</blockquote>
+<p>アポでやるのは、現状 → 問題 → 理想までです。解決まではしないで、ニーズを保存したまま商談につなぎます。</p>
+${OL(['現状：対象確認で聞く','問題：損している、もったいない。「なんとかしないと」でYesをもらう','理想：理想として蓄電池を伝える'])}
+<h2>問いかけの順番</h2>
+${OL(['パネルだけの家は、余った電気をどうしていると思いますか？ → 売電','売る制度が固定価格買取制度（FIT）。10年は決まった単価で売れる','問題①：10年後は7円前後になる','問題②：最近は4年しか高く売れず、単価も12〜25円','買う電気は約40円。安く売るなら、家の電気代を安くしたい'])}`},
+ {id:'talk-3',title:'商品トーク②：使ったら|どうなるかを伝える',min:10,body:`
+<p>営業が詳しくなるべきなのは、商品の性能ではなく「使ったらどうなるか」です。性能は聞かれたら答えられるくらいでOK。太陽光と蓄電池が付いた家がどんな暮らしになるかに詳しくなってください。</p>
+${UL(['<b>作る・使う・貯める</b>：パネルで10作って、家で2使って、8余る。余った電気は貯めましょう。貯めた電気で、夜の電気代2万円がほとんど0になります','<b>FITの2つの問題</b>：2010年に付けた家は10年間48円/kWhで売れて月約2.5万円。でも11年目からは7円/kWhで、500kWh売っても月約3,500円です。買う電気は40円なので、安く売るより貯めて使うほうがお得です','<b>電気代はずっと払うもの</b>：月2万円なら1年で24万円、10年で240万円、20年で480万円。太陽光＋蓄電池は340〜550万円です','<b>浮いた電気代で払う</b>：電気代2万円が付けた後は1,500円に。浮いた18,000円の中で、月々の15,000円を払えます'])}
+${T(['蓄電池の容量','家族構成の目安'],[['5kWh','2〜3人'],['10kWh','3〜4人'],['15kWh','5〜7人']])}
+<p>蓄電池は寿命30〜40年で、付けたら付けっぱなしです。停電してもスマホの充電、Wi-Fi、テレビが使えます。</p>`},
+ {id:'talk-4',title:'切り返し',min:10,body:`
+<p>ネックは、話を聞かない理由、前に進めない理由になっているものです。</p>
+<h2>基本はYES AND</h2>
+<p>「でも…」でつなぐと空気が硬くなります。相手の言葉をまず受けて、「だったら」「なら」と順接でつなげます。</p>
+<h2>費用ネック：「高いからやめている」と言われたとき</h2>
+<p>感情のYes受け → 論点ずらし → 切り返しの順で返します。</p>
+${OL(['<b>感情のYes受け</b>：「そうなんですよ、費用で諦めている方が多かったので、この仕組みを作ってご案内しています。」','<b>論点ずらし</b>：「ただ、全てのお家が対象ではないので、今は対象かどうかの確認だけ終わらせていました。」','<b>切り返し</b>：「ご主人様のお家はばっちり対象だったので、費用はご安心ください。詳細はこの後、順番に説明担当がお話ししています。もちろん強制の工事ではないので、ご不安な点が残ればお断りください。」'])}
+<h2>時期ネック</h2>
+<p>トークを丸暗記して対処します。</p>
+<h2>「実質費用がかからないってどういうこと？」と聞かれたとき</h2>
+${OL(['「ありがとうございます！蓄電池を導入すると、今後払っていく予定の電気代が大幅に削減されるんですよね。」','「さすがに基本料金があるので全部ではないんですけどね（笑）」','「その削減された電気代の中で蓄電池の費用をまかなえれば、費用の問題なく導入していける仕組みになっています。」','「なので、基準を満たしているご家庭であれば、費用に関しては安心いただいています。」','「ただ今回は事前の確認だけでしたので、基準を満たしているご家庭かどうかの確認だけしていました！」'])}`},
+ {id:'base-t',title:'初回研修テスト|（商材知識・切り返し）',min:10,test:true,quiz:[
+  {q:'営業は、どちらへのアプローチですか？',o:['左脳（論理）：納得してもらう','右脳（感情）：事実とイメージで動いてもらう'],a:1,w:'納得しただけでは人は動きません。感情を動かして、行動してもらいます。'},
+  {q:'メラビアンの法則では、印象の何%が見た目で決まりますか？',o:['約7%','約38%','約67%'],a:2,w:'話す内容より、見た目と声。だから最初の1か月はノンバーバルが一番大事です。'},
+  {q:'プロスペクト理論から、ニーズトークで伝えるべきことは？',o:['商品のメリットをたくさん伝える','今どんな損をしているかをイメージしてもらう','値引きの話をする'],a:1,w:'人はマイナスを0に戻すほうに大きなエネルギーを使います。'},
+  {q:'FITで売電単価が高いのは、何年目までですか？（パネルだけの家）',o:['10年','20年','ずっと'],a:0,w:'10年は決まった単価で売れて、その後は7円前後になります。最近は高く売れるのが4年だけです。'},
+  {q:'買う電気の単価はおよそいくらですか？',o:['約7円','約20円','約40円'],a:2,w:'買う電気は約40円。安く売るより、貯めて使うほうがお得です。'},
+  {q:'電気代が月2万円の家は、20年でいくら払いますか？',o:['240万円','480万円','600万円'],a:1,w:'1年で24万円、10年で240万円、20年で480万円。太陽光＋蓄電池は340〜550万円です。'},
+  {q:'3〜4人家族の蓄電池の容量の目安は？',o:['5kWh','10kWh','15kWh'],a:1,w:'2〜3人は5kWh、3〜4人は10kWh、5〜7人は15kWhが目安です。'},
+  {q:'切り返しでのつなぎ方として正しいのは？',o:['「でも…」で反論する','「だったら」「なら」と順接でつなぐ','話題を変えてごまかす'],a:1,w:'YES ANDです。相手の言葉を受けて、順接でつなげます。'},
+  {q:'費用ネックを返す順番として正しいのは？',o:['切り返し → 論点ずらし → 感情のYes受け','感情のYes受け → 論点ずらし → 切り返し','論点ずらし → 切り返し → 感情のYes受け'],a:1,w:'まず気持ちを受けてから、論点をずらして、切り返します。'}]}
+]},
+{id:'apo',title:'完工するアポ：基本',desc:'3ステップ、問いの立て方、8フェーズと商談の3点',L:[
+ {id:'apo-2',title:'完工するアポの|3ステップ',min:5,body:`
+${T(['ステップ','場面','ゴール','必要なこと'],[['1. 好感形成','フロント、ヒアリング','「この人なら話してもいい」と思ってもらう','練度、印象、リアクションと会話（黙る・喋るのルール）、人柄へのペーシング'],['2. 信頼形成','ニーズトーク','問題点を打ち明けてもらう','練度、QA、中立、一文一義'],['3. 潜在ニーズの顕在化','ニーズトーク、ヒアリング','お客さん自身に「必要だ」と気づいてもらう','訴求、大衆・当然意識、AIDMAの法則（認知 → 興味 → 欲求 → 動機づけ → 商談）']])}`},
+ {id:'apo-3',title:'問いの立て方',min:5,body:`
+<p>偶然はありません。どんな結果にも理由がある、という前提で振り返ります。</p>
+${UL(['✕「今日は丸いお客さんに当たった」で終わらせる','○「なんでこのお客さんは自分に好感を持ってくれたんだろう」「なんでプロとして信頼して、問題点を打ち明けてくれたんだろう」と考える'])}
+<p>これを繰り返すことが、再現性をつくるということです。</p>`},
+ {id:'apo-5',title:'アポトークの8フェーズと、商談の3点',min:10,body:`
+<p>インターホンから3点確認まで、フェーズごとにゴールがあります。そのフェーズのゴールを取ってから次に進みます。</p>
+${T(['フェーズ','ゴール','ポイント'],[['1. インターホン','出てきてもらう','業務感・宅配便っぽさ。当然意識で話し、お願いスタンスは✕。語尾は尻上がりで印象をキープ。カメラには体の半分だけ映る'],['2. フロント','感情を±0にする','出てくれたことへの感謝。距離感、ボードの持ち方。「、」で余裕感、「。」でテキパキ感。正面ではなくL字（斜め前）に立つ'],['3. 売電褒め','ラポールを作る','雑談力、共感。売電額がわからない人への褒め方。第三者の褒め（ご主人様を褒める）'],['4. 電気代トーク','ラポールを強めて、相手の会話ターンを作る','オープンクエスチョン。電気代のイメージを湧かせる'],['5. FITトーク','損でニーズを作る','現状 → 問題 → 理想まで。解決はしないで、ニーズを保存したまま商談へ'],['6. 3点説明','説明の後に引く','引きトーク'],['7. 日程調整','2択で翌日アポ','押しすぎない。候補は11時〜・14時〜・17時〜'],['8. 3点確認','明細・場所と時間・即決','名刺に時間を書く。締めは「当日はよろしくお願いいたします。失礼いたします。」']])}
+<h2>商談の3点（アポで必ず取るもの）</h2>
+${OL(['<b>着座</b>：玄関先で話すのは商談ではありません。座って話せる場所を確保します','<b>明細</b>：電気代がわからないと、容量もシミュレーションも出せません。明細は絶対必要です','<b>2人着座</b>：「1人で決められる」と言われても必ず2人。300万円の買い物を1人で決めると、後でご家族の間で問題になりやすいからです'])}
+<p>これに「その場で決めてくださいね」をやんわり伝えます。</p>`}
+]},
+{id:'top',title:'売れている人の|アポのコツ',desc:'トップセールスのKPTから、マインド・客層・フェーズごとのコツ',L:[
+ {id:'top-1',title:'マインドと、客層のしぼり方',min:5,body:`
+<h2>マインド</h2>
+${UL(['<b>引き寄せの法則</b>：いつもポジティブで、叶うと信じる。叶わないと思う理由は、つぶす努力をし続ける','<b>目的意識</b>：何のためにやるのかをはっきりさせる。たとえば「楽しむため」「稼いで最高の1年にするため」','<b>負荷と危機意識</b>：自分に負荷をかける。今に満足しない。いつも上を見る'])}
+<h2>客層をしぼる</h2>
+<p>客層と、そうじゃない人を言葉で分けておきます。PDCAは客層に対してだけ回して、毎回の対応は客層を見つけるためにやります。</p>
+${UL(['最初から話を聞く姿勢がある人','反応がいい人','なんとなく、ふわっと断っている人','やりたい気持ちが少しでも残っている人'])}`},
+ {id:'top-2',title:'減点を作らない',min:5,body:`
+<p>ウザいと思われないことが先です。相手の非言語（声のトーン、言葉選び、話すスピード、テンション）にペーシングして、相手の状態にも合わせます。</p>
+${T(['相手の状態','対応'],[['内容を聞きたい','無駄を省いて、すぐ内容へ'],['おしゃべり','雑談のテンションのままニーズトーク'],['自分から検討している','ヒアリング中心で、ネックをつぶす'],['受け身で検討している','ニーズトークを端的に話して刺し、ネックをつぶす'],['検討していない','ニーズトークを丁寧に話して刺す。こまめに確認と質疑応答'],['重いネック','しっかりYes受けして、ヒアリングも挟んでやんわり返す'],['軽いネック','「実は〜」で返して安心させる'],['単純な質問','ホームランで打ち返す']])}`},
+ {id:'top-3',title:'フェーズごとの|ゴールとコツ',min:10,body:`
+${T(['フェーズ','ゴール','コツ'],[['インターホン','スッと出てきてもらう','業務感、無感情。言葉よりノンバーバルで「出なきゃいけない」雰囲気を出す。基本は画面に映らない。「はーい」には、知り合いが来た感じで「こんにちはー！」'],['フロント','話を聞く姿勢を作る','訪問の目的を端的に伝えて、フックをかける（売電が安い、売電がガクンと下がる、電気代が上がっている）'],['ヒアリング','警戒心を解く。「高い」を刷り込む','200kWhを超えているのはすごいことだと演出する。売電と電気代は必ず聞き出して、「これくらいかかっていますよね」と言い切る'],['ニーズトーク','問題意識を生む','ZEH：簡単な話、実はみんなやっている、を刷り込む。蓄電池：FITトークは必ず刺す。軽めのネックはポジティブに受ける'],['QA','質問をプラスに変える','「まさにそこが大事で」とポジティブに受け、相手がプラスになるように答えてから引きトーク'],['説明担当トーク','中立。相談会感','怪訝そうなら話を振る。マイナスになりそうならヒアリング'],['日程調整','忘れさせない','電話と日程は繰り返して刷り込む。名刺の裏にも書いて見せる'],['3点確認','すべてのYesをしっかり取る','目を見て、しっかり伝える。反応が微妙ならやり直す']])}`},
+ {id:'top-4',title:'約束感を残す',min:5,body:`
+${UL(['名刺の渡し方にも気を配る','最後に感謝と「よろしくお願いします」を伝える。たとえば「ご主人様が優しく接してくれて嬉しかったです」','相手がドアを閉めるまでお辞儀をする'])}
+<p>「この人との約束は守らないと」と思ってもらえると、キャンセルが減ります。</p>`}
+]},
+{id:'talk',title:'トークの実践',desc:'対象確認、日常で伸びる',L:[
+ {id:'talk-1',title:'対象確認：売電額を|聞いて褒める',min:5,body:`
+<p>売電が200kWh以上あるお家には、「おいくらですか？」と聞いて「高いですね！」と褒めます。金額で褒めても、内容で褒めてもOKです。</p>
+${T(['設置からの年数','パネル枚数の目安'],[['10年以上','8枚あればOK'],['10年未満','8枚以上でOK']])}
+${UL(['屋根で見ること：枚数、向き（南 → 東 → 西 → 北の順に有利、北は✕）、日当たり','よく見るメーカー：パナソニック、カナディアンソーラー、京セラ、シャープ'])}`},
+ {id:'talk-5',title:'日常で伸びる',min:5,body:`
+<h2>日常で伸びる</h2>
+<p>土日はテストで、伸びるのは平日です。平日にどれだけ営業のことを考えたかで、数字が変わります。</p>
+<p>コツは、日常と営業を結びつけること。たとえば友達と話すときにリアクションを大きくしたら、たくさん話してくれた。それはなぜかを考えます。こういう気づきを営業に生かしてください。</p>
+<p>最初の1か月は、ノンバーバルが一番大事です。見た目、立ち位置、声を徹底してください。</p>`},
+ {id:'talk-t',title:'完工するアポ|テスト',min:5,test:true,quiz:[
+  {q:'アポで必ず取る「商談の3点」はどれですか？',o:['着座・明細・2人着座','名刺・資料・ボード','売電・電気代・屋根'],a:0,w:'着座・明細・2人着座の3点です。'},
+  {q:'FITトークで、アポでやるのはどこまでですか？',o:['現状だけ','現状 → 問題 → 理想まで（解決はしない）','解決策と見積もりまで'],a:1,w:'解決まではしないで、ニーズを保存したまま商談につなぎます。'},
+  {q:'5億円に一番効く数字はどれですか？',o:['訪問件数','商談アポ率（アポのうち商談になった割合）','名刺を渡した数'],a:1,w:'取ったアポを商談につなげられるかで、必要なアポの数が大きく変わります。'},
+  {q:'フロントのゴールはどれですか？',o:['すぐに商品を説明する','感情を±0にする（マイナスがない状態）','日程を決める'],a:1,w:'出てくれたことへの感謝から入って、マイナスがない状態をつくります。'},
+  {q:'日程調整のやり方として正しいのは？',o:['2択で翌日のアポを取る','お客さんの都合のいい日をいつでも待つ','その場で今すぐ商談する'],a:0,w:'押しすぎず、2択で。候補は11時〜・14時〜・17時〜です。'}]}
+]},
+{id:'rank',title:'評価制度とランク',desc:'ポイントの仕組みと、ランクごとの定性項目',L:[
+ {id:'rank-1',title:'ランクと|ポイントの仕組み',min:5,body:`
+<p>東京支店では、毎月の評価面談で「定量（数字）」と「定性（行動・姿勢）」の両方を見ます。</p>
+<h2>4つのランク</h2>
+${T(['ランク','次のランクに必要なポイント'],[['ビギナー','ブロンズへ：2pt'],['ブロンズ','シルバーへ：6pt'],['シルバー','ゴールドへ：14pt'],['ゴールド','次は後進の育成']])}
+<h2>ポイントの数え方</h2>
+<blockquote>当月pt ＝ 契約件数 × 0.5 ＋ 完工件数 × 1.0</blockquote>
+<p>毎月のポイントを積み上げた「累計pt」で、次のランクまであと何ptかを見ます。</p>
+<h2>あわせて見る数字</h2>
+<blockquote>出勤アポ率 ＝ アポ件数 ÷ 出勤日数</blockquote>
+<h2>定性評価</h2>
+<p>ランクごとに11〜12の項目があり、「自分ごと（個人の力）」「組織ごと（チームへの貢献）」「カルチャー（組織を大きくする姿勢）」の3つに分かれています。項目は次のレッスンから、ランクごとに見られます。</p>`},
+ {id:'rank-2',title:'ビギナーの定性項目',min:5,body:rankBody(RANKS[0])},
+ {id:'rank-3',title:'ブロンズの定性項目',min:5,body:rankBody(RANKS[1])},
+ {id:'rank-4',title:'シルバーの定性項目',min:5,body:rankBody(RANKS[2])},
+ {id:'rank-5',title:'ゴールドの定性項目',min:5,body:rankBody(RANKS[3])},
+ {id:'rank-6',title:'毎月の|評価面談の流れ',min:5,body:`
+${OL(['自分のランクの「月次評価面談チェックシート」を使う（スマホの評価面談フォームと同じ項目です）','当月pt・累計pt・出勤アポ率を書く','定性項目を1つずつ1〜5点でつける','4点以上の項目数と、2点以下の項目数を数える','総合判定：クリアしていれば「昇格推薦」で幹部陣へ提出、まだなら「現ランク維持」で育成を続ける','面談フィードバック：発揮した強み・主役として輝いていた点と、来月さらに飛躍するための課題を書く'])}`}
+]},
+{id:'team',title:'支店の動き方',desc:'組織と役割、来季の戦略',L:[
+ {id:'team-1',title:'組織と役割',min:5,body:`
+<p>東京支店は沼口チームと山﨑チームの2チーム体制です。毎月2名の新メンバーは、原則として各チームに1名ずつ配属します。新人には、ブラザーが1人ずつつきます。</p>
+<p>今後はリーダーとメンバーを増やしていく予定です。今のメンバーが次のリーダーや教育担当になる前提で、役割を任せていきます。</p>
+${T(['役割','担当','主な責任','見る成果'],[['支店長','森野','支店の目標、方針、配置、例外の判断','支店の売上と運営課題の解消'],['チームリーダー','沼口、山﨑','チームの進捗管理','チームの成果'],['ブラザー','新人1人に1人','新人の毎日の振り返り、ロールプレイ、同行','新人の行動の変化と独り立ち'],['クローザー','―','アポインターが取ったアポで商談し、契約と完工までつなげる','商談完工率、完工数'],['アポインター','入社したメンバーはまずここから','お客さんに好感と信頼を持ってもらい、完工につながるアポを取る','アポ数、商談アポ率、完工につながったアポの数']])}`},
+ {id:'team-2',title:'来季の戦略：5億円を|どう達成するか',min:10,body:`
+<p>今期いちばん大事にするのは、まず足元の売上です。売れているメンバーのやり方をみんなに広げて、今いるメンバーの売上を上げることを一番にします。</p>
+<h2>クォーターごとにやること</h2>
+${T(['クォーター','完工目標','テーマ','みんなでやること'],[['Q1（12〜2月）','44（12月16・1月14・2月14）','足元の売上と型づくり','完工するアポの型を全員で読み合わせる。8フェーズのロールプレイを週1回'],['Q2（3〜5月）','42','型を全員に定着させる','3点確認を徹底して、商談アポ率を20%へ'],['Q3（6〜8月）','42','チームを増やす','キャンセルと否決の理由を集めて、型に反映する'],['Q4（9〜11月）','42','仕上げと来期の準備','1年分の気づきで型を更新する']])}
+<h2>5億円までの逆算</h2>
+${OL(['5億円 ÷ 平均単価300万円 ＝ 年約167完工、月平均約14完工','商談完工率は11月が50%、目標は40%以上。40%で計算すると、月14完工には月約35件の商談が必要','商談アポ率は11月が16.5%、目標は25%','支店のアポ目標は週に45件（土曜25件・日曜20件）','12月は山﨑チーム・沼口チーム8完工ずつ。1チームで週にアポ約23件、商談約4件が目安'])}
+<p>一番効くのは<b>商談アポ率</b>です。25%まで上がれば、同じ完工数に必要なアポは週に32件まで減ります。着座・明細・2人着座の3点確認を全員が徹底することが、足元の売上に直結します。</p>`}
+]}
+];
+
+const W=t=>t.replace(/\|/g,'<wbr>').replace(/([、：])(?!<wbr>)/g,'$1<wbr>').replace(/(.)（/g,'$1<wbr>（');
+const PT=t=>t.replace(/<wbr>/g,'');
+M.forEach(m=>{m.title=W(m.title);m.L.forEach(l=>l.title=W(l.title))});
+const ALL=M.flatMap(m=>m.L.map(l=>({...l,mod:m})));
+const BY=Object.fromEntries(ALL.map(l=>[l.id,l]));
+const KEY='ce-tokyo-learn-v1';
+let st={done:{},last:null},LK=null;
+const NK='ce-tokyo-learn-name';
+let NAME='';try{NAME=localStorage.getItem(NK)||''}catch(e){}
+const API='https://script.google.com/macros/s/AKfycbz4Ub1xPzNznodPMkUQYNdMHOAFtBnXuNpz7997TJtJgGn2I9vl4RvOhResfLxe0xMsYA/exec';
+const apiGet=q=>fetch(API+'?'+new URLSearchParams(q)).then(r=>r.json());
+const mkRun=()=>{let ok=()=>{},ng=()=>{};const done=p=>p.then(r=>r&&r.ok?ok(r.data):ng(r)).catch(ng);const o={
+ withSuccessHandler(f){ok=f;return o},withFailureHandler(f){ng=f;return o},
+ getMembers(){done(apiGet({action:'members'}))},
+ getProgress(n){done(apiGet({action:'get',name:n}))},
+ saveProgress(n,b,m){done(fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'save',name:n,state:b,lessons:m})}).then(r=>r.json()))}};return o};
+const GS=/^https:\/\/script\.google\.com\//.test(API)?{withSuccessHandler:f=>mkRun().withSuccessHandler(f),withFailureHandler:f=>mkRun().withFailureHandler(f)}:null;
+const readLocal=k=>{try{const s=JSON.parse(localStorage.getItem(k)||'null');if(s&&s.done)return s}catch(e){}return null};
+let syncMsg='',saveT=null;
+const view=document.getElementById('view'),foot=document.getElementById('foot');
+const doneN=()=>ALL.filter(l=>st.done[l.id]).length;
+const pct=()=>Math.round(doneN()/ALL.length*100);
+const modN=m=>m.L.filter(l=>st.done[l.id]).length;
+const META=()=>ALL.map(l=>({id:l.id,t:(M.indexOf(l.mod)+1)+'-'+(l.mod.L.findIndex(x=>x.id===l.id)+1)+' '+PT(l.title)}));
+const save=()=>{if(LK){try{localStorage.setItem(LK,JSON.stringify(st))}catch(e){}}
+ if(GS&&NAME){clearTimeout(saveT);saveT=setTimeout(()=>{const body={done:{...st.done},last:st.last||null};
+  GS.withSuccessHandler(()=>{}).withFailureHandler(()=>{syncMsg='保存できませんでした。電波のいいところで開き直してください';const e=document.getElementById('sync');if(e)e.textContent=syncMsg;}).saveProgress(NAME,body,META());},600);}};
+const next=()=>ALL.find(l=>!st.done[l.id]);
+const topbar=()=>{const p=pct();document.querySelector('#topbar b').style.width=p+'%';document.querySelector('#topbar span').textContent=p+'%';};
+
+const home=()=>{
+ const n=next(),last=st.last&&BY[st.last]&&!st.done[st.last]?BY[st.last]:n;
+ foot.hidden=true;
+ view.innerHTML=`<h1>東京支店ラーニング</h1>
+<p class="lead">レッスンを見終わったら「完了にする」を押してください。どこまで見たかが、ここに残ります。</p>
+<div class="hero">
+ <div class="score">
+  <div><div class="big">${pct()}<small>%</small></div><div>${ALL.length}レッスン中 <b>${doneN()}</b> 完了</div><div class="sync" id="sync">${syncMsg}</div></div>
+  ${last?`<a class="go" href="#${last.id}"><span>${st.last===last.id?'続きから':'次はここから'}<small>${last.mod.title}｜${last.title}</small></span></a>`:`<div class="go" style="background:var(--ok)"><span>全部のレッスンが完了しました<small>おつかれさまでした</small></span></div>`}
+ </div>
+ <div class="map" aria-label="学習マップ">${M.map((m,i)=>`<a class="row" href="#${m.id}"><span>${i+1}.&nbsp;${m.title}</span><span class="cells">${m.L.map(l=>`<i class="${st.done[l.id]?'on':''} ${l.test?'t':''}" title="${PT(l.title)}"></i>`).join('')}</span></a>`).join('')}</div>
+</div>
+<h2>コース</h2>
+<div class="mods">${M.map((m,i)=>{const d=modN(m);return `<a class="mod" href="#${m.id}"><span class="no">モジュール ${i+1}</span><b>${m.title}</b><p>${m.desc}</p><span class="meter"><i><b style="width:${d/m.L.length*100}%"></b></i>${d}/${m.L.length}</span></a>`}).join('')}</div>`;
+};
+const mod=m=>{
+ const i=M.indexOf(m);foot.hidden=true;
+ view.innerHTML=`<p class="crumb"><a href="#home">ホーム</a> ／ モジュール ${i+1}</p><h1>${m.title}</h1><p class="lead">${m.desc}。${modN(m)}/${m.L.length} 完了</p>
+<ul class="lessons">${m.L.map(l=>`<li><a href="#${l.id}"><span class="dot ${st.done[l.id]?'on':''}"></span><span>${l.title}<span class="k">${l.test?'テスト':'テキスト'}</span></span><span class="min">${l.min}分</span></a></li>`).join('')}</ul>`;
+};
+const quizHtml=l=>`<div class="quiz" id="quiz">${l.quiz.map((q,qi)=>`<fieldset class="q" id="q${qi}" style="margin:0"><p>Q${qi+1}. ${q.q}</p>${q.o.map((o,oi)=>`<label><input type="radio" name="q${qi}" value="${oi}" id="q${qi}o${oi}">${o}</label>`).join('')}<div class="why" hidden></div></fieldset>`).join('')}</div><p class="res" id="res" aria-live="polite"></p><button class="btn main" id="check" type="button">答え合わせ</button>`;
+const lesson=l=>{
+ const i=ALL.indexOf(l),pv=ALL[i-1],nx=ALL[i+1],mi=M.indexOf(l.mod);
+ st.last=l.id;save();
+ view.innerHTML=`<p class="crumb"><a href="#home">ホーム</a> ／ <a href="#${l.mod.id}">${mi+1}. ${l.mod.title}</a></p><h1>${l.title}</h1><p class="lead">${l.test?'テスト':'テキスト'}・${l.min}分${st.done[l.id]?'・完了済み':''}</p><div class="body">${l.test?`<p>全問正解で完了になります。何回でもやり直せます。</p>`+quizHtml(l):l.body}</div>`;
+ foot.hidden=false;
+ foot.innerHTML=`${pv?`<a class="btn" href="#${pv.id}">← <span class="lbl">前へ</span></a>`:''}<span class="sp"></span>${l.test?'':`<button class="btn ${st.done[l.id]?'done':'main'}" id="mark" type="button">${st.done[l.id]?'✓ 完了':'完了にする'}</button>`}${nx?`<a class="btn" href="#${nx.id}"><span class="lbl">次へ</span> →</a>`:`<a class="btn" href="#home">ホームへ</a>`}`;
+ const mk=document.getElementById('mark');
+ if(mk)mk.onclick=()=>{if(st.done[l.id])delete st.done[l.id];else st.done[l.id]=Date.now();save();topbar();mk.className='btn '+(st.done[l.id]?'done':'main');mk.textContent=st.done[l.id]?'✓ 完了':'完了にする';};
+ const ck=document.getElementById('check');
+ if(ck)ck.onclick=()=>{let ok=0,ans=0;l.quiz.forEach((q,qi)=>{const f=document.getElementById('q'+qi),sel=f.querySelector('input:checked'),w=f.querySelector('.why');if(!sel){f.className='q';w.hidden=true;return}ans++;const r=+sel.value===q.a;if(r)ok++;f.className='q '+(r?'ok':'ng');w.hidden=false;w.textContent=(r?'正解。':'もう一度。正解は「'+q.o[q.a]+'」。')+q.w;});
+  const res=document.getElementById('res');
+  if(ans<l.quiz.length){res.textContent='まだ答えていない問題があります。';return}
+  if(ok===l.quiz.length){st.done[l.id]=Date.now();save();topbar();res.textContent=`全問正解です。このテストを完了にしました。`;}
+  else res.textContent=`${l.quiz.length}問中${ok}問正解。解説を読んで、もう一度チャレンジしてください。`;};
+ window.scrollTo(0,0);
+};
+const route=()=>{const h=location.hash.slice(1);const m=M.find(x=>x.id===h);if(BY[h])lesson(BY[h]);else if(m){mod(m);window.scrollTo(0,0)}else home();topbar();};
+window.addEventListener('hashchange',route);
+route();
+
+const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const askName=()=>{
+ const box=document.getElementById('who');box.hidden=false;
+ const inp=document.getElementById('whoName');inp.value=NAME;setTimeout(()=>inp.focus(),50);
+ if(GS)GS.withSuccessHandler(list=>{document.getElementById('whoList').innerHTML=(list||[]).map(n=>`<option value="${esc(n)}">`).join('')}).getMembers();
+};
+document.getElementById('whoForm').addEventListener('submit',e=>{e.preventDefault();
+ const v=document.getElementById('whoName').value.replace(/[\s　]/g,'');if(!v)return;
+ NAME=v;try{localStorage.setItem(NK,NAME)}catch(e){}
+ document.getElementById('who').hidden=true;start();});
+document.addEventListener('click',e=>{if(e.target.closest('[data-who]')){e.preventDefault();askName();}});
+const start=()=>{
+ LK=KEY+':'+NAME;
+ const local=readLocal(LK);st=local?{done:{...local.done},last:local.last||null}:{done:{},last:null};
+ if(!GS){syncMsg=`${esc(NAME)} の進み具合（この端末に保存）`;route();return;}
+ syncMsg=`${esc(NAME)} の進み具合を読み込んでいます…`;route();
+ GS.withSuccessHandler(remote=>{
+  const merged={...(remote&&remote.done||{}),...st.done};
+  const changed=!remote||Object.keys(merged).length!==Object.keys(remote.done||{}).length;
+  st={done:merged,last:st.last||(remote&&remote.last)||null};
+  syncMsg=`${esc(NAME)} の進み具合として保存しています ／ <a href="#" data-who>名前を変える</a>`;
+  if(changed)save();else{try{localStorage.setItem(LK,JSON.stringify(st))}catch(e){}}
+  route();
+ }).withFailureHandler(()=>{syncMsg=`${esc(NAME)} の進み具合（読み込みに失敗。この端末に保存しています）`;route();}).getProgress(NAME);
+};
+if(NAME)start();else{route();askName();}
+}
+</script>
+</body>
+</html>

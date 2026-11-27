@@ -911,12 +911,14 @@ const DEFAULT_TARGETS = MEMBERS.reduce((a, m) => ({ ...a, [m.name]: { ...m.targe
 
 /* 「設定 → メンバー管理」で足した人を、この画面の名簿にも入れます。
    台本（Code.gs の USERS）に書いた人は上の MEMBERS が元になります。 */
-const BASE_MEMBERS = MEMBERS.length;
-function syncMembers(users) {
-  MEMBERS.length = BASE_MEMBERS;
+const BASE_MEMBERS = MEMBERS.slice();
+function syncMembers(users, removed) {
+  const gone = new Set((removed || []).map((u) => String((u && u.name) || "").trim()).filter(Boolean));
+  MEMBERS.length = 0;
+  BASE_MEMBERS.forEach((m) => { if (!gone.has(m.name)) MEMBERS.push(m); });
   (users || []).forEach((u) => {
     const name = String(u.name || "").trim();
-    if (!name || MEMBERS.some((m) => m.name === name)) return;
+    if (!name || gone.has(name) || MEMBERS.some((m) => m.name === name)) return;
     MEMBERS.push({
       name,
       branch: u.branch || "東京",
@@ -2482,7 +2484,7 @@ function RankCard({ name, role, rosterMeta, deals, rankPoints, addUp }) {
       </div>
 
       {/* ── 数字 ── */}
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl bg-slate-50 p-4">
           <p className="text-xs text-slate-500">いまのポイント</p>
           <p className="mt-1 text-2xl font-bold text-slate-900">
@@ -2503,16 +2505,9 @@ function RankCard({ name, role, rosterMeta, deals, rankPoints, addUp }) {
                 {need <= 0 ? "ポイントは達成しています" : `完工 ${kankoLeft}件、または契約 ${keiyakuLeft}件`}
               </p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-xs text-slate-500">基準期間</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">
-                {nxt.months >= 12 ? "1年" : nxt.months}<span className="ml-1 text-sm font-semibold text-slate-500">{nxt.months >= 12 ? "以上" : "か月"}</span>
-              </p>
-              <p className="mt-1 text-[11px] text-slate-400">ポイントと合わせて見ます</p>
-            </div>
           </>
         ) : (
-          <div className="rounded-xl p-4 sm:col-span-2" style={{ backgroundColor: cur.soft }}>
+          <div className="rounded-xl p-4" style={{ backgroundColor: cur.soft }}>
             <p className="text-sm font-bold" style={{ color: cur.color }}>最高ランクです</p>
             <p className="mt-1 text-[11px]" style={{ color: cur.color }}>この調子でチームを引き上げてください</p>
           </div>
@@ -6081,7 +6076,7 @@ function Ranking({ stats, currentUser, month, setMonth, branch, setBranch, logs,
    ══════════════════════════════════════════ */
 const NO_TEAM = "（未所属）";
 
-function MemberAdmin({ locked, rosterMeta, users, rankPoints, pointAddUp, onSaveRosterMeta, onSaveSettings, onSaveUser, onRemoveUser }) {
+function MemberAdmin({ locked, rosterMeta, users, roster, removedUsers, currentUser, rankPoints, pointAddUp, onSaveRosterMeta, onSaveSettings, onSaveUser, onRemoveUser, onRestoreUser }) {
   const [meta, setMeta] = useState(rosterMeta || {});
   const [pts, setPts] = useState(rankPoints || {});
   const [teams, setTeams] = useState([]);
@@ -6102,9 +6097,10 @@ function MemberAdmin({ locked, rosterMeta, users, rankPoints, pointAddUp, onSave
   }, [rosterMeta, rankPoints]);
 
   const teamChoices = [...new Set([...teamNamesOf(meta), ...teams])];
-  /* 画面から足した人だけ消せます */
-  const addedEmails = new Set((users || []).map((u) => String(u.email || "").toLowerCase()));
-  const emailOf = (name) => ((users || []).find((u) => u.name === name) || {}).email || "";
+  /* サーバーの名簿で、氏名からメールアドレスを引きます */
+  const emailOf = (name) =>
+    ((roster || []).find((u) => u.name === name) || (users || []).find((u) => u.name === name) || {}).email || "";
+  const gone = removedUsers || [];
 
   const setMetaOf = (name, key, value) =>
     setMeta((prev) => ({ ...prev, [name]: { ...metaOf(name, prev), [key]: value } }));
@@ -6150,14 +6146,31 @@ function MemberAdmin({ locked, rosterMeta, users, rankPoints, pointAddUp, onSave
 
   const doRemove = async (name) => {
     const email = emailOf(name);
-    if (!email) return;
-    if (!window.confirm(name + " さんを名簿から外します。\n入力済みの日報は残ります。よろしいですか？")) return;
+    if (!email) return flash(name + " さんのメールアドレスが分かりません");
+    if (name === currentUser) return flash("自分は外せません");
+    if (!window.confirm(
+      name + " さんを名簿から外します。\n\n" +
+      "・ログインできなくなります\n" +
+      "・入力済みの日報は残ります（集計には出なくなります）\n" +
+      "・あとで「外したメンバー」から戻せます\n\nよろしいですか？"
+    )) return;
     setBusy(true);
     try {
       await onRemoveUser(email);
       flash(name + " さんを外しました");
     } catch (e) {
       flash(e.message || "外せませんでした");
+    }
+    setBusy(false);
+  };
+
+  const doRestore = async (u) => {
+    setBusy(true);
+    try {
+      await onRestoreUser(u.email);
+      flash((u.name || "") + " さんを名簿に戻しました");
+    } catch (e) {
+      flash(e.message || "戻せませんでした");
     }
     setBusy(false);
   };
@@ -6171,7 +6184,7 @@ function MemberAdmin({ locked, rosterMeta, users, rankPoints, pointAddUp, onSave
     rank: rankKeyOf(m.name, meta),
     base: (pts[m.name] || {}).base,
     asOf: (pts[m.name] || {}).asOf || "",
-    removable: addedEmails.has(String(emailOf(m.name)).toLowerCase()),
+    removable: !!emailOf(m.name) && m.name !== currentUser,
   }));
 
   return (
@@ -6269,6 +6282,35 @@ function MemberAdmin({ locked, rosterMeta, users, rankPoints, pointAddUp, onSave
       <p className="mt-3 text-xs text-slate-400">
         ポイント基準は「今月末までの累計」を入れてください。来月からは、契約・完工にあわせて自動で増えます。
       </p>
+
+      {gone.length > 0 && (
+        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-bold text-slate-700">外したメンバー（{gone.length}名）</p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            日報は残っています。「戻す」を押すと、名簿にも集計にも戻ります。
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {gone.map((u) => (
+              <span
+                key={u.email}
+                className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs ring-1 ring-slate-200"
+              >
+                <span className="font-semibold text-slate-700">{u.name}</span>
+                {u.at && <span className="text-[10px] text-slate-400">{u.at}</span>}
+                {!locked && (
+                  <button
+                    onClick={() => doRestore(u)}
+                    disabled={busy}
+                    className="font-semibold text-blue-600 transition hover:underline disabled:opacity-40"
+                  >
+                    戻す
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!locked && (
         <>
@@ -6387,11 +6429,14 @@ function SettingsPage({
   dealCount,
   rosterMeta,
   users,
+  roster,
+  removedUsers,
   rankPoints,
   pointAddUp,
   onSaveRosterMeta,
   onSaveUser,
   onRemoveUser,
+  onRestoreUser,
 }) {
   const [confirmReset, setConfirmReset] = useState(false);
   const [draftGoal, setDraftGoal] = useState(goal);
@@ -6645,12 +6690,16 @@ function SettingsPage({
           locked={locked}
           rosterMeta={rosterMeta}
           users={users}
+          roster={roster}
+          removedUsers={removedUsers}
+          currentUser={currentUser}
           rankPoints={rankPoints}
           pointAddUp={pointAddUp}
           onSaveRosterMeta={onSaveRosterMeta}
           onSaveSettings={onSaveSettings}
           onSaveUser={onSaveUser}
           onRemoveUser={onRemoveUser}
+          onRestoreUser={onRestoreUser}
         />
 
         {/* 個人目標 */}
@@ -6859,6 +6908,9 @@ const DEFAULT_SHARED = {
   rankPoints: {},
   /* true にすると、契約0.5と完工1を足して数えます */
   pointAddUp: false,
+  /* 名簿（サーバーが作ります）と、外したメンバー */
+  roster: [],
+  removedUsers: [],
   updatedAt: 0,
   updatedBy: "",
 };
@@ -6868,7 +6920,7 @@ const DEFAULT_SHARED = {
 function mergeShared(data) {
   const d = { ...DEFAULT_SHARED, ...(data || {}) };
   /* 名簿を先に合わせます。目標値などがこのあと名簿を見るためです */
-  syncMembers(d.users);
+  syncMembers(d.users, d.removedUsers);
   d.rankPoints = { ...DEFAULT_RANK_POINTS, ...(d.rankPoints || {}) };
   d.navi = d.navi || {};
   d.goal = { ...DEFAULT_GOAL, ...(d.goal || {}) };
@@ -7970,6 +8022,7 @@ function App() {
   const onSaveRosterMeta = (map) => run("saveRosterMeta", map, token);
   const onSaveUser = (user) => run("saveUser", user, token);
   const onRemoveUser = (email) => run("removeUser", email, token);
+  const onRestoreUser = (email) => run("restoreUser", email, token);
   const resetData = () => run("resetData", DEFAULT_SHARED, token);
 
   const submitLog = (name, iso, rawValues, items = []) => {
@@ -8079,7 +8132,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v94</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v95</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">
@@ -8372,11 +8425,14 @@ function App() {
               dealCount={deals.length}
               rosterMeta={rosterMeta}
               users={shared.users || []}
+              roster={shared.roster || []}
+              removedUsers={shared.removedUsers || []}
               rankPoints={shared.rankPoints || {}}
               pointAddUp={!!shared.pointAddUp}
               onSaveRosterMeta={onSaveRosterMeta}
               onSaveUser={onSaveUser}
               onRemoveUser={onRemoveUser}
+              onRestoreUser={onRestoreUser}
             />
           )}
         </div>

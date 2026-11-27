@@ -426,6 +426,34 @@ const teamsOf = (rosterMeta) =>
     members: MEMBERS.filter((m) => teamOf(m.name, rosterMeta) === t).map((m) => m.name),
   }));
 
+/* ───────── 月ごとの目標 ─────────
+   ①メンバーの初期値 → ②設定の個人目標 → ③営業目標ナビ → ④本人が決めた今月の目標
+   の順に上書きします。 */
+const TARGET_FIELDS = [
+  ["shukkin", "出勤数", "日"],
+  ["taio", "対応数", "件"],
+  ["apo", "アポ数", "件"],
+  ["shodan", "商談数", "件"],
+  ["kanko", "完工数", "件"],
+  ["rate", "商談アポ率", "%"],
+];
+const ymOfMonth = (m) => `${PERIOD.year}-${String(m).padStart(2, "0")}`;
+const myTargetOf = (shared, name, month) =>
+  (((shared || {}).monthTargets || {})[ymOfMonth(month)] || {})[name] || null;
+
+function targetsFor(shared, month) {
+  const mine = ((shared || {}).monthTargets || {})[ymOfMonth(month)] || {};
+  const base = (shared || {}).targets || {};
+  const out = {};
+  MEMBERS.forEach((m) => {
+    const own = mine[m.name] || {};
+    const pick = {};
+    TARGET_FIELDS.forEach(([k]) => { if (own[k] != null) pick[k] = own[k]; });
+    out[m.name] = { ...m.target, ...(base[m.name] || {}), ...pick };
+  });
+  return out;
+}
+
 const KAN_NUM = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
 const genLabel = (g) => (g ? `第${KAN_NUM[g] || g}世代` : "世代未設定");
 
@@ -481,9 +509,44 @@ function phaseTotals(rows) {
 const BRANCHES = ["東京", "静岡", "その他"];
 /* 拠点名の表示。日本語の拠点だけ「◯◯支店」と呼びます */
 const branchLabel = (b) => (/[ぁ-んァ-ヶ一-龠]/.test(b) ? `${b}支店` : b);
-const branchOf = (name) => (MEMBERS.find((m) => m.name === name) || {}).branch || "";
-/* 名簿から外れた人（退職者など）かどうか */
+/* ───────── 卒業メンバー ─────────
+   名簿から外れても、これまでの完工やアポは全社の数字に残します。
+   日報入力のプルダウンには出ません。 */
+const ALUMNI_SEED = [
+  { name: "大川", branch: "東京", role: "クローザー" },
+  { name: "伊藤", branch: "東京", role: "クローザー" },
+  { name: "保坂", branch: "静岡", role: "アポインター" },
+];
+const ALUMNI = ALUMNI_SEED.slice();
+
+/* 外した人＋日報にしか名前がない人を、卒業メンバーとしてまとめます */
+function syncAlumni(removed, logs) {
+  ALUMNI.length = 0;
+  const add = (x) => {
+    const name = String((x && x.name) || "").trim();
+    if (!name || MEMBERS.some((m) => m.name === name) || ALUMNI.some((a) => a.name === name)) return;
+    ALUMNI.push({
+      name,
+      branch: x.branch || "",
+      role: x.role === "closer" ? "クローザー" : x.role === "appointer" ? "アポインター" : (x.role || ""),
+      at: x.at || "",
+    });
+  };
+  ALUMNI_SEED.forEach(add);
+  (removed || []).forEach(add);
+  (logs || []).forEach((l) => add({ name: l.name }));
+  (logs || []).forEach((l) => itemsOf(l).forEach((it) => {
+    add({ name: it.appointer });
+    add({ name: it.closer });
+  }));
+}
+
+const branchOf = (name) =>
+  (MEMBERS.find((m) => m.name === name) || ALUMNI.find((a) => a.name === name) || {}).branch || "";
+/* 名簿から外れた人（卒業者など）かどうか */
 const isFormer = (name) => !MEMBERS.some((m) => m.name === name);
+const alumniIn = (branch) =>
+  branch === "all" ? ALUMNI : ALUMNI.filter((a) => a.branch === branch);
 const membersIn = (branch) => (branch === "all" ? MEMBERS : MEMBERS.filter((m) => m.branch === branch));
 
 /* クローザー（商談完工率で評価する人） */
@@ -2413,6 +2476,154 @@ function pointsFor(name, deals, rankPoints, addUp) {
   return { base, asOf, earned: round1(earned), total: round1(base + earned), hasBase: rec.base != null };
 }
 
+/* ══════════════════════════════════════════
+   今月の目標（本人が決めます）
+   ══════════════════════════════════════════ */
+function MyTargetCard({ name, month, shared, targets, stats, onSave, canEdit }) {
+  const saved = myTargetOf(shared, name, month);
+  const resolved = targets[name] || {};
+  const [draft, setDraft] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const open = draft !== null;
+  const isThisMonth = month === PERIOD.month;
+  const dayNow = Number(String(TODAY.iso).slice(8, 10));
+  const earlyMonth = isThisMonth && dayNow <= 10;
+  const notSet = !saved;
+
+  const start = () => setDraft(TARGET_FIELDS.reduce((a, [k]) => ({ ...a, [k]: resolved[k] ?? 0 }), {}));
+  const set = (k, v) => setDraft((prev) => ({ ...prev, [k]: v === "" ? "" : Number(v) }));
+
+  const save = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const clean = TARGET_FIELDS.reduce((a, [k]) => ({ ...a, [k]: Number(draft[k] || 0) }), {});
+      await onSave(ymOfMonth(month), clean);
+      setDraft(null);
+      setMsg("保存しました");
+      setTimeout(() => setMsg(""), 3000);
+    } catch (e) {
+      setMsg(e.message || "保存できませんでした");
+      setTimeout(() => setMsg(""), 4000);
+    }
+    setBusy(false);
+  };
+
+  const done = stats.members[name] || {};
+  const days = Number(resolved.shukkin || 0);
+  const perDay = (k) => (days > 0 ? Math.ceil(Number(resolved[k] || 0) / days) : null);
+
+  return (
+    <section
+      className={`rounded-2xl border bg-white p-6 shadow-sm ${
+        notSet && earlyMonth ? "border-amber-300 ring-2 ring-amber-100" : "border-slate-200"
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.2em] text-slate-400">MY TARGET</p>
+          <h3 className="mt-1 text-lg font-bold text-slate-900">{month}月の目標</h3>
+        </div>
+        {canEdit && !open && (
+          <button
+            onClick={start}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+            style={{ backgroundColor: notSet && earlyMonth ? "#D97706" : NAVY }}
+          >
+            {notSet ? "目標を決める" : "目標を見直す"}
+          </button>
+        )}
+      </div>
+
+      {msg && <p className="mt-3 rounded-lg bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700">{msg}</p>}
+
+      {notSet && earlyMonth && canEdit && !open && (
+        <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          月初です。{month}月の目標をまだ決めていません。自分で決めてから走り出しましょう
+        </p>
+      )}
+
+      {!open ? (
+        <>
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {TARGET_FIELDS.map(([k, label, unit]) => {
+              const goalV = Number(resolved[k] || 0);
+              const nowV = k === "rate" ? null : Number(done[k] || 0);
+              const pct = goalV > 0 && nowV != null ? Math.round((nowV / goalV) * 100) : null;
+              return (
+                <div key={k} className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-[11px] text-slate-500">{label}</p>
+                  <p className="mt-0.5 text-xl font-bold text-slate-900">
+                    {goalV}<span className="ml-0.5 text-[11px] font-medium text-slate-400">{unit}</span>
+                  </p>
+                  {pct != null && (
+                    <>
+                      <div className="mt-1.5"><Bar value={pct} /></div>
+                      <p className="mt-1 text-[10px] text-slate-400">いま {nowV}（{pct}%）</p>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {days > 0 && (
+            <p className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              1日あたりの目安　対応 <b className="text-slate-900">{perDay("taio")}</b>件 ／
+              アポ <b className="text-slate-900">{perDay("apo")}</b>件 ／
+              商談 <b className="text-slate-900">{perDay("shodan")}</b>件
+            </p>
+          )}
+
+          <p className="mt-3 text-[11px] text-slate-400">
+            {saved
+              ? `${saved.setAt || ""} に${saved.setBy && saved.setBy !== name ? `${saved.setBy}さんが` : "自分で"}決めた目標です`
+              : "まだ自分では決めていません。支店の初期値を表示しています"}
+          </p>
+        </>
+      ) : (
+        <>
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {TARGET_FIELDS.map(([k, label, unit]) => (
+              <label key={k} className="block">
+                <span className="text-[11px] text-slate-500">{label}</span>
+                <span className="mt-1 flex items-center gap-1">
+                  <input
+                    type="number"
+                    min="0"
+                    value={draft[k]}
+                    onChange={(e) => set(k, e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                  <span className="text-[11px] text-slate-400">{unit}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <button
+              onClick={() => setDraft(null)}
+              className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+            >
+              やめる
+            </button>
+            <button
+              onClick={save}
+              disabled={busy}
+              className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-40"
+              style={{ backgroundColor: NAVY }}
+            >
+              {month}月の目標として保存する
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function RankCard({ name, role, rosterMeta, deals, rankPoints, addUp }) {
   if (role === "クローザー") return null;
   const cur = rankOf(rankKeyOf(name, rosterMeta));
@@ -2558,7 +2769,7 @@ function RankCard({ name, role, rosterMeta, deals, rankPoints, addUp }) {
   );
 }
 
-function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onGoInput, logs, deals, rosterMeta, rankPoints, pointAddUp }) {
+function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onGoInput, logs, deals, rosterMeta, rankPoints, pointAddUp, shared, onSaveMyTarget }) {
   const myBranch = branchOf(currentUser) || "all";
   const peers = membersIn(myBranch);
   const valuesOf = (name) => {
@@ -2678,6 +2889,19 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
 
       <div className="mb-6">
         <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+      </div>
+
+      {/* 今月の目標（本人が決めます） */}
+      <div className="mb-8">
+        <MyTargetCard
+          name={currentUser}
+          month={month}
+          shared={shared}
+          targets={targets}
+          stats={stats}
+          onSave={onSaveMyTarget}
+          canEdit={!!currentUser}
+        />
       </div>
 
       {/* アポインターランク制度 */}
@@ -3206,6 +3430,77 @@ function TeamSummary({ stats, targets, rosterMeta, month, onPickMember }) {
   );
 }
 
+/* ══════════════════════════════════════════
+   卒業メンバーの実績
+   名簿から外れた人の数字も、全社の記録として残します。
+   ══════════════════════════════════════════ */
+function AlumniSummary({ stats, branch, month }) {
+  const rows = alumniIn(branch)
+    .map((a) => ({ ...a, s: stats.members[a.name] || emptyStat(), c: stats.closers[a.name] || emptyStat() }))
+    .map((r) => {
+      /* 同じ人がアポも商談もしていると二重になるので、役割のほうだけ数えます */
+      const d = r.role === "クローザー" ? r.c : r.s;
+      return {
+        ...r,
+        kanko: d.kanko,
+        apo: r.s.apo,
+        shodan: d.shodan,
+        taio: r.s.taio,
+        sales: d.sales,
+      };
+    })
+    .filter((r) => r.kanko || r.apo || r.shodan || r.taio)
+    .sort((a, b) => b.kanko - a.kanko || b.apo - a.apo);
+  if (!rows.length) return null;
+
+  const sum = (k) => rows.reduce((a, r) => a + r[k], 0);
+
+  return (
+    <section className="mb-12">
+      <SectionTitle note="名簿から外れた人の数字も、全社の実績には入っています">
+        卒業メンバーの実績（{month}月）
+      </SectionTitle>
+      <Card className="p-5 sm:p-6">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+                {["氏名", "支店", "対応", "アポ", "商談", "完工", "売上"].map((h, i) => (
+                  <th key={h} className={`px-3 py-2.5 font-medium ${i < 2 ? "text-left" : "text-right"}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.name} className="border-b border-slate-50 last:border-0">
+                  <td className="px-3 py-2.5 font-semibold text-slate-800">
+                    {r.name}
+                    <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">卒業</span>
+                  </td>
+                  <td className="px-3 py-2.5 text-slate-500">{r.branch || "—"}</td>
+                  <td className="px-3 py-2.5 text-right text-slate-600">{r.taio}</td>
+                  <td className="px-3 py-2.5 text-right text-slate-600">{r.apo}</td>
+                  <td className="px-3 py-2.5 text-right text-slate-600">{r.shodan}</td>
+                  <td className="px-3 py-2.5 text-right font-bold text-slate-900">{r.kanko}</td>
+                  <td className="px-3 py-2.5 text-right text-slate-600">{yen(r.sales)}</td>
+                </tr>
+              ))}
+              <tr className="bg-slate-50">
+                <td className="px-3 py-2.5 text-xs font-bold text-slate-700" colSpan={2}>合計</td>
+                {["taio", "apo", "shodan"].map((k) => (
+                  <td key={k} className="px-3 py-2.5 text-right text-xs font-bold text-slate-700">{sum(k)}</td>
+                ))}
+                <td className="px-3 py-2.5 text-right text-sm font-bold text-slate-900">{sum("kanko")}</td>
+                <td className="px-3 py-2.5 text-right text-xs font-bold text-slate-700">{yen(sum("sales"))}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </section>
+  );
+}
+
 function Dashboard({ excl, setExcl, showBanner, onOpenModal, onGoMishodan, stats, deals, month, setMonth, goal, teamTarget, branch, setBranch, targets, currentUser, isAdmin, onPickMember, rosterMeta }) {
   const isCurrent = month === PERIOD.month;
   const md = stats.monthly.find((x) => x.m === month);
@@ -3319,6 +3614,8 @@ function Dashboard({ excl, setExcl, showBanner, onOpenModal, onGoMishodan, stats
               ))}
             </div>
           </section>
+
+          <AlumniSummary stats={stats} branch={branch} month={month} />
 
           <TeamSummary
             stats={stats}
@@ -6489,15 +6786,6 @@ function SettingsPage({
   const cellInput =
     "w-16 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-right text-sm text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:w-20";
 
-  const TARGET_FIELDS = [
-    ["shukkin", "出勤数", ""],
-    ["taio", "対応数", ""],
-    ["apo", "アポ数", ""],
-    ["shodan", "商談数", ""],
-    ["kanko", "完工数", ""],
-    ["rate", "商談アポ率", "%"],
-  ];
-
   return (
     <>
       <header className="mb-6">
@@ -6911,6 +7199,8 @@ const DEFAULT_SHARED = {
   /* 名簿（サーバーが作ります）と、外したメンバー */
   roster: [],
   removedUsers: [],
+  /* 本人が毎月決める目標。{ "2026-12": { 氏名: {...} } } */
+  monthTargets: {},
   updatedAt: 0,
   updatedBy: "",
 };
@@ -6921,6 +7211,7 @@ function mergeShared(data) {
   const d = { ...DEFAULT_SHARED, ...(data || {}) };
   /* 名簿を先に合わせます。目標値などがこのあと名簿を見るためです */
   syncMembers(d.users, d.removedUsers);
+  syncAlumni(d.removedUsers, d.logs);
   d.rankPoints = { ...DEFAULT_RANK_POINTS, ...(d.rankPoints || {}) };
   d.navi = d.navi || {};
   d.goal = { ...DEFAULT_GOAL, ...(d.goal || {}) };
@@ -7869,7 +8160,9 @@ function App() {
   const queue = useRef(Promise.resolve());
   const busy = useRef(false);
 
-  const { logs, goal, targets, editPolicy } = shared;
+  const { logs, goal, editPolicy } = shared;
+  /* 目標は、選んだ月の分を組み立てます（本人が決めた今月の目標が最優先） */
+  const targets = useMemo(() => targetsFor(shared, month), [shared, month]);
   /* 世代・ランクは営業目標ナビのメンバー設定を共用します */
   const rosterMeta = shared.rosterMeta || {};
   const deals = useMemo(() => buildDeals(logs), [logs]);
@@ -8023,6 +8316,7 @@ function App() {
   const onSaveUser = (user) => run("saveUser", user, token);
   const onRemoveUser = (email) => run("removeUser", email, token);
   const onRestoreUser = (email) => run("restoreUser", email, token);
+  const onSaveMyTarget = (ym, target, name) => run("saveMyTarget", ym, target, token, name);
   const resetData = () => run("resetData", DEFAULT_SHARED, token);
 
   const submitLog = (name, iso, rawValues, items = []) => {
@@ -8132,7 +8426,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v95</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v96</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">
@@ -8247,6 +8541,8 @@ function App() {
 
           {page === "my" && (
             <MyPerformance
+              shared={shared}
+              onSaveMyTarget={onSaveMyTarget}
               rosterMeta={rosterMeta}
               rankPoints={shared.rankPoints || {}}
               pointAddUp={!!shared.pointAddUp}

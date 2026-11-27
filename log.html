@@ -332,12 +332,12 @@ const MEMBERS = [
   { name: "渡邉", branch: "静岡", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
   { name: "熊澤", branch: "静岡", role: "クローザー", target: { shukkin: 10, taio: 400, apo: 15, shodan: 8, kanko: 2, rate: 30 } },
 
-  /* ── Bizlabo ── */
-  { name: "塚原", branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
-  { name: "新井田", branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
-  { name: "樋熊", branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
-  { name: "島",   branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
-  { name: "棗",   branch: "Bizlabo", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
+  /* ── 旧Bizlabo（東京支店に統合） ── */
+  { name: "塚原", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
+  { name: "新井田", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 2, rate: 25 } },
+  { name: "樋熊", branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
+  { name: "島",   branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
+  { name: "棗",   branch: "東京", role: "アポインター", target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 } },
 ];
 
 /* ───────── 戦闘力 ─────────
@@ -364,11 +364,68 @@ const DEFAULT_ROSTER_META = (() => {
   put(["藤代", "鄭"], "rank", "bronze");
   put(["佐伯", "三瀬"], "rank", "silver");
   put(["山﨑", "沼口", "森野"], "rank", "gold");
+  put(["沼口", "三瀬", "石", "藤代", "塚原", "樋熊"], "team", "沼口チーム");
+  put(["山﨑", "佐伯", "島", "新井田", "鄭"], "team", "山﨑チーム");
+  put(["扇田", "山田", "渡邉"], "team", "静岡チーム");
   put(["佐伯", "山﨑"], "gen", 1);
   put(["石", "藤代", "沼口", "鄭", "三瀬"], "gen", 2);
   put(["扇田", "塚原", "新井田", "樋熊", "島", "棗", "山上", "山田", "渡邉"], "gen", 3);
   return m;
 })();
+/* ───────── アポインターランク制度 ─────────
+   ポイントは「契約0.5ポイント／完工1ポイント」。
+   同じ案件は、契約だけのうちは0.5、完工になったら1として数えます
+   （設定の「契約と完工を足す」を入れると 0.5＋1＝1.5 で数えます）。 */
+const RANKS = [
+  { key: "beginner", label: "ビギナー", sub: "", need: 0, months: 0, color: "#2F8F43", soft: "#E9F6E9",
+    quality: [] },
+  { key: "bronze", label: "ブロンズ", sub: "主任", need: 2, months: 3, color: "#A9661F", soft: "#FBF0E6",
+    quality: [["人間性", "自責思考"], ["行動", "行動量の安定／ロープレ習慣化"], ["スキル", "ノンバーバルも含め違和感なくトークができる"]] },
+  { key: "silver", label: "シルバー", sub: "ユニットリーダー", need: 6, months: 9, color: "#5B6672", soft: "#F1F4F7",
+    quality: [["人間性", "数字に愚直／成長意欲／自己課題理解"], ["行動", "失敗を言語化／周囲へ好影響な言動"], ["スキル", "トークの練度高い／商材理解が深い"]] },
+  { key: "gold", label: "ゴールド", sub: "チームリーダー", need: 14, months: 12, color: "#B08400", soft: "#FDF6DF",
+    quality: [["人間性", "組織視点"], ["行動", "ロープレ指導／ノウハウ共有"], ["スキル", "すべての切り返しがスムーズ、高い再現性"], ["そのほか", "クロ昇格基準に達していること"]] },
+];
+/* 以前の呼び方（研修生）も受け付けます */
+const normRank = (k) => (k === "trainee" ? "beginner" : (RANKS.find((r) => r.key === k) ? k : "beginner"));
+const rankOf = (key) => RANKS.find((r) => r.key === normRank(key)) || RANKS[0];
+const nextRank = (key) => RANKS[RANKS.findIndex((r) => r.key === normRank(key)) + 1] || null;
+/* ポイントだけで見たとき、今どのランクに届いているか */
+const rankByPoints = (pt) => RANKS.slice().reverse().find((r) => pt >= r.need) || RANKS[0];
+const POINT_RULE = { keiyaku: 0.5, kanko: 1 };
+/* いまのポイント（当月まで込みの累計）。設定 → メンバー管理 で変えられます */
+const DEFAULT_RANK_POINTS = {
+  "沼口": { base: 15.5, asOf: "2026-11" },
+};
+const round1 = (n) => Math.round(Number(n || 0) * 10) / 10;
+
+/* その月に稼いだポイント。deals はアポインター基準で積まれています */
+function pointsOfDeals(deals, name, addUp) {
+  return deals.reduce((a, d) => {
+    if (d.name !== name || d.cancelled || !d.keiyaku) return a;
+    if (addUp) return a + POINT_RULE.keiyaku + (d.kanko ? POINT_RULE.kanko : 0);
+    return a + (d.kanko ? POINT_RULE.kanko : POINT_RULE.keiyaku);
+  }, 0);
+}
+
+/* ───────── チーム ─────────
+   所属は「設定 → メンバー管理」で変えられます。 */
+const metaOf = (name, rosterMeta) => ({ ...(DEFAULT_ROSTER_META[name] || {}), ...((rosterMeta || {})[name] || {}) });
+const teamOf = (name, rosterMeta) => metaOf(name, rosterMeta).team || "";
+const rankKeyOf = (name, rosterMeta) => normRank(metaOf(name, rosterMeta).rank);
+const teamNamesOf = (rosterMeta) => {
+  const out = [];
+  const add = (t) => { if (t && out.indexOf(t) < 0) out.push(t); };
+  MEMBERS.forEach((m) => add(teamOf(m.name, rosterMeta)));
+  Object.keys(rosterMeta || {}).forEach((n) => add((rosterMeta[n] || {}).team));
+  return out;
+};
+const teamsOf = (rosterMeta) =>
+  teamNamesOf(rosterMeta).map((t) => ({
+    name: t,
+    members: MEMBERS.filter((m) => teamOf(m.name, rosterMeta) === t).map((m) => m.name),
+  }));
+
 const KAN_NUM = { 1: "一", 2: "二", 3: "三", 4: "四", 5: "五" };
 const genLabel = (g) => (g ? `第${KAN_NUM[g] || g}世代` : "世代未設定");
 
@@ -421,7 +478,7 @@ function phaseTotals(rows) {
 }
 
 /* 支店 */
-const BRANCHES = ["東京", "静岡", "Bizlabo", "その他"];
+const BRANCHES = ["東京", "静岡", "その他"];
 /* 拠点名の表示。日本語の拠点だけ「◯◯支店」と呼びます */
 const branchLabel = (b) => (/[ぁ-んァ-ヶ一-龠]/.test(b) ? `${b}支店` : b);
 const branchOf = (name) => (MEMBERS.find((m) => m.name === name) || {}).branch || "";
@@ -851,6 +908,23 @@ function behindRows(stats, targets, month) {
 
 /* メンバー個人目標の初期値（設定画面で変更可） */
 const DEFAULT_TARGETS = MEMBERS.reduce((a, m) => ({ ...a, [m.name]: { ...m.target } }), {});
+
+/* 「設定 → メンバー管理」で足した人を、この画面の名簿にも入れます。
+   台本（Code.gs の USERS）に書いた人は上の MEMBERS が元になります。 */
+const BASE_MEMBERS = MEMBERS.length;
+function syncMembers(users) {
+  MEMBERS.length = BASE_MEMBERS;
+  (users || []).forEach((u) => {
+    const name = String(u.name || "").trim();
+    if (!name || MEMBERS.some((m) => m.name === name)) return;
+    MEMBERS.push({
+      name,
+      branch: u.branch || "東京",
+      role: u.role === "closer" ? "クローザー" : "アポインター",
+      target: { shukkin: 10, taio: 500, apo: 20, shodan: 5, kanko: 1, rate: 25 },
+    });
+  });
+}
 
 const sumTargets = (targets) =>
   Object.values(targets).reduce(
@@ -2311,7 +2385,185 @@ function TrendSection({ logs, deals, name, month, setMonth, title, goal, chart =
 /* ══════════════════════════════════════════
    0. マイ成績
    ══════════════════════════════════════════ */
-function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onGoInput, logs, deals }) {
+/* ══════════════════════════════════════════
+   アポインターランク制度のカード
+   いまのランクと、次のランクまでの距離を出します。
+   ══════════════════════════════════════════ */
+function ymKey(y, m) { return `${y}-${String(m).padStart(2, "0")}`; }
+
+/* 基準値（設定で入れた数）＋ その翌月以降に稼いだぶん */
+function pointsFor(name, deals, rankPoints, addUp) {
+  const rec = (rankPoints || {})[name] || {};
+  const base = Number(rec.base || 0);
+  const asOf = rec.asOf || ymKey(PERIOD.year, PERIOD.month);
+  let earned = 0;
+  const since = [];
+  deals.forEach((d) => {
+    if (d.name !== name || d.cancelled || !d.keiyaku) return;
+    const ym = ymKey(PERIOD.year, monthOf(d.date));
+    if (ym <= asOf) return;
+    const pt = addUp
+      ? POINT_RULE.keiyaku + (d.kanko ? POINT_RULE.kanko : 0)
+      : (d.kanko ? POINT_RULE.kanko : POINT_RULE.keiyaku);
+    earned += pt;
+    since.push({ ym, pt });
+  });
+  return { base, asOf, earned: round1(earned), total: round1(base + earned), hasBase: rec.base != null };
+}
+
+function RankCard({ name, role, rosterMeta, deals, rankPoints, addUp }) {
+  if (role === "クローザー") return null;
+  const cur = rankOf(rankKeyOf(name, rosterMeta));
+  const nxt = nextRank(cur.key);
+  const pts = pointsFor(name, deals, rankPoints, addUp);
+  const reached = rankByPoints(pts.total);
+
+  const need = nxt ? Math.max(0, round1(nxt.need - pts.total)) : 0;
+  /* ランクより手前のポイントでも、バーが動くようにします */
+  const from = Math.min(cur.need, reached.need);
+  const span = nxt ? Math.max(1, nxt.need - from) : 1;
+  const pct = nxt ? Math.max(0, Math.min(100, Math.round(((pts.total - from) / span) * 100))) : 100;
+  /* あと何件か、分かりやすい言い方にします */
+  const kankoLeft = Math.ceil(need / POINT_RULE.kanko);
+  const keiyakuLeft = Math.ceil(need / POINT_RULE.keiyaku);
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.2em] text-slate-400">APPOINTER RANK</p>
+          <h3 className="mt-1 text-lg font-bold text-slate-900">いまのランクと、次までの距離</h3>
+        </div>
+        <span
+          className="rounded-full px-4 py-1.5 text-sm font-bold"
+          style={{ backgroundColor: cur.soft, color: cur.color, border: `1px solid ${cur.color}44` }}
+        >
+          {"★".repeat(RANKS.findIndex((r) => r.key === cur.key))}
+          {cur.label}{cur.sub ? `（${cur.sub}）` : ""}
+        </span>
+      </div>
+
+      {/* ── すごろく ── */}
+      <div className="mt-6 flex items-center">
+        {RANKS.map((r, i) => {
+          const done = pts.total >= r.need;
+          const isCur = r.key === cur.key;
+          return (
+            <React.Fragment key={r.key}>
+              {i > 0 && (
+                <div className="mx-1 h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${pts.total >= r.need ? 100 : Math.max(0, Math.min(100, ((pts.total - RANKS[i - 1].need) / (r.need - RANKS[i - 1].need)) * 100))}%`,
+                      backgroundColor: r.color,
+                    }}
+                  />
+                </div>
+              )}
+              <div className="flex w-16 shrink-0 flex-col items-center gap-1">
+                <div
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold transition"
+                  style={{
+                    backgroundColor: done ? r.color : "#F1F5F9",
+                    color: done ? "#fff" : "#94A3B8",
+                    boxShadow: isCur ? `0 0 0 3px ${r.color}33` : "none",
+                  }}
+                >
+                  {done ? "✓" : r.need}
+                </div>
+                <span className="text-[10px] font-semibold" style={{ color: done ? r.color : "#94A3B8" }}>
+                  {r.label}
+                </span>
+              </div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {/* ── 数字 ── */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl bg-slate-50 p-4">
+          <p className="text-xs text-slate-500">いまのポイント</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900">
+            {pts.total}<span className="ml-1 text-sm font-semibold text-slate-500">pt</span>
+          </p>
+          <p className="mt-1 text-[11px] text-slate-400">
+            {pts.hasBase ? `${Number(pts.asOf.slice(5))}月末 ${pts.base}pt ＋ その後 ${pts.earned}pt` : "基準値が未設定です"}
+          </p>
+        </div>
+        {nxt ? (
+          <>
+            <div className="rounded-xl p-4" style={{ backgroundColor: nxt.soft }}>
+              <p className="text-xs" style={{ color: nxt.color }}>{nxt.label}まで</p>
+              <p className="mt-1 text-2xl font-bold" style={{ color: nxt.color }}>
+                あと {need}<span className="ml-1 text-sm font-semibold">pt</span>
+              </p>
+              <p className="mt-1 text-[11px]" style={{ color: nxt.color }}>
+                {need <= 0 ? "ポイントは達成しています" : `完工 ${kankoLeft}件、または契約 ${keiyakuLeft}件`}
+              </p>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-4">
+              <p className="text-xs text-slate-500">基準期間</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">
+                {nxt.months >= 12 ? "1年" : nxt.months}<span className="ml-1 text-sm font-semibold text-slate-500">{nxt.months >= 12 ? "以上" : "か月"}</span>
+              </p>
+              <p className="mt-1 text-[11px] text-slate-400">ポイントと合わせて見ます</p>
+            </div>
+          </>
+        ) : (
+          <div className="rounded-xl p-4 sm:col-span-2" style={{ backgroundColor: cur.soft }}>
+            <p className="text-sm font-bold" style={{ color: cur.color }}>最高ランクです</p>
+            <p className="mt-1 text-[11px]" style={{ color: cur.color }}>この調子でチームを引き上げてください</p>
+          </div>
+        )}
+      </div>
+
+      {nxt && (
+        <>
+          <div className="mt-5">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>{rankByPoints(from).label}（{from}pt）</span>
+              <span className="font-semibold" style={{ color: nxt.color }}>{pct}%</span>
+              <span>{nxt.label}（{nxt.need}pt）</span>
+            </div>
+            <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${cur.color}, ${nxt.color})` }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-slate-200 p-4">
+            <p className="text-xs font-bold text-slate-700">{nxt.label}に上がるための定性評価</p>
+            <dl className="mt-2 space-y-1.5">
+              {nxt.quality.map(([k, v]) => (
+                <div key={k} className="flex gap-3 text-xs">
+                  <dt className="w-14 shrink-0 font-semibold text-slate-500">{k}</dt>
+                  <dd className="text-slate-700">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </>
+      )}
+
+      {reached.key !== cur.key && RANKS.indexOf(reached) > RANKS.indexOf(cur) && (
+        <p className="mt-4 rounded-lg bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-700">
+          🎉 {reached.label}のポイント基準に届いています。定性評価と基準期間を満たせば昇格です
+        </p>
+      )}
+      <p className="mt-3 text-[11px] text-slate-400">
+        ポイントは「契約 {POINT_RULE.keiyaku}pt／完工 {POINT_RULE.kanko}pt」
+        {addUp ? "で、契約と完工を足して数えます。" : "。同じ案件は、契約のうちは0.5pt、完工になったら1ptとして数えます。"}
+        ランクは毎月末に発表します。
+      </p>
+    </section>
+  );
+}
+
+function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onGoInput, logs, deals, rosterMeta, rankPoints, pointAddUp }) {
   const myBranch = branchOf(currentUser) || "all";
   const peers = membersIn(myBranch);
   const valuesOf = (name) => {
@@ -2431,6 +2683,18 @@ function MyPerformance({ stats, goal, targets, currentUser, month, setMonth, onG
 
       <div className="mb-6">
         <MonthSelect month={month} setMonth={setMonth} months={stats.monthly} />
+      </div>
+
+      {/* アポインターランク制度 */}
+      <div className="mb-8">
+        <RankCard
+          name={currentUser}
+          role={(MEMBERS.find((m) => m.name === currentUser) || {}).role}
+          rosterMeta={rosterMeta}
+          deals={deals}
+          rankPoints={rankPoints}
+          addUp={pointAddUp}
+        />
       </div>
 
       {/* いま一番の課題 */}
@@ -2871,7 +3135,83 @@ function FollowUpAlert({ stats, targets, month, onPick }) {
   );
 }
 
-function Dashboard({ excl, setExcl, showBanner, onOpenModal, onGoMishodan, stats, deals, month, setMonth, goal, teamTarget, branch, setBranch, targets, currentUser, isAdmin, onPickMember }) {
+/* ══════════════════════════════════════════
+   チーム別の実績（完工数・アポ数など）
+   ══════════════════════════════════════════ */
+function TeamSummary({ stats, targets, rosterMeta, month, onPickMember }) {
+  const teams = teamsOf(rosterMeta).filter((t) => t.members.length);
+  if (!teams.length) return null;
+
+  const COLS = [
+    { key: "kanko", label: "完工", tgt: "kanko", strong: true },
+    { key: "apo", label: "アポ", tgt: "apo", strong: true },
+    { key: "shodan", label: "商談", tgt: "shodan" },
+    { key: "taio", label: "対応", tgt: "taio" },
+    { key: "apu", label: "アプ" },
+    { key: "shukkin", label: "出勤", tgt: "shukkin" },
+  ];
+  const rows = teams.map((t) => {
+    const sum = (k) => t.members.reduce((a, n) => a + Number((stats.members[n] || {})[k] || 0), 0);
+    const tgt = (k) => t.members.reduce((a, n) => a + Number((targets[n] || {})[k] || 0), 0);
+    return {
+      name: t.name,
+      members: t.members,
+      sales: sum("sales"),
+      values: COLS.reduce((a, c) => ({ ...a, [c.key]: { now: sum(c.key), goal: c.tgt ? tgt(c.tgt) : 0 } }), {}),
+    };
+  });
+
+  return (
+    <section className="mb-12">
+      <SectionTitle note="所属は「設定 → メンバー管理」で変えられます">チーム別の実績（{month}月）</SectionTitle>
+      <div className="grid gap-5 lg:grid-cols-2">
+        {rows.map((r) => (
+          <Card key={r.name} className="p-5 sm:p-6">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-base font-bold text-slate-900">{r.name}</h3>
+              <span className="text-xs text-slate-400">{r.members.length}名／売上 {yen(r.sales)}</span>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {COLS.map((c) => {
+                const v = r.values[c.key];
+                const rate = v.goal > 0 ? ratio(v.now, v.goal) : null;
+                return (
+                  <div key={c.key} className={`rounded-xl p-3 ${c.strong ? "bg-slate-100" : "bg-slate-50"}`}>
+                    <p className="text-[11px] text-slate-500">{c.label}</p>
+                    <p className={`mt-0.5 font-bold text-slate-900 ${c.strong ? "text-xl" : "text-base"}`}>
+                      {v.now}
+                      {v.goal > 0 && <span className="ml-1 text-[11px] font-medium text-slate-400">/ {v.goal}</span>}
+                    </p>
+                    {rate != null && (
+                      <div className="mt-1.5">
+                        <Bar value={rate} />
+                        <p className="mt-1 text-[10px] text-slate-400">{rate.toFixed(0)}%</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {r.members.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => onPickMember && onPickMember(n)}
+                  className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50"
+                >
+                  {n}
+                  <span className="ml-1 text-slate-400">{(stats.members[n] || {}).kanko || 0}完工</span>
+                </button>
+              ))}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Dashboard({ excl, setExcl, showBanner, onOpenModal, onGoMishodan, stats, deals, month, setMonth, goal, teamTarget, branch, setBranch, targets, currentUser, isAdmin, onPickMember, rosterMeta }) {
   const isCurrent = month === PERIOD.month;
   const md = stats.monthly.find((x) => x.m === month);
   const mishodan = stats.total;
@@ -2984,6 +3324,14 @@ function Dashboard({ excl, setExcl, showBanner, onOpenModal, onGoMishodan, stats
               ))}
             </div>
           </section>
+
+          <TeamSummary
+            stats={stats}
+            targets={targets}
+            rosterMeta={rosterMeta}
+            month={month}
+            onPickMember={onPickMember}
+          />
 
           <section className="mb-12">
             <SectionTitle note={excl ? "未商談を除いた実質の数字" : "未商談を含んだ数字"}>
@@ -5727,6 +6075,303 @@ function Ranking({ stats, currentUser, month, setMonth, branch, setBranch, logs,
 /* ══════════════════════════════════════════
    7. 設定
    ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   メンバー管理（管理者のみ）
+   チーム・ランク・ポイントの割り当てと、メンバーの追加・削除。
+   ══════════════════════════════════════════ */
+const NO_TEAM = "（未所属）";
+
+function MemberAdmin({ locked, rosterMeta, users, rankPoints, pointAddUp, onSaveRosterMeta, onSaveSettings, onSaveUser, onRemoveUser }) {
+  const [meta, setMeta] = useState(rosterMeta || {});
+  const [pts, setPts] = useState(rankPoints || {});
+  const [teams, setTeams] = useState([]);
+  const [newTeam, setNewTeam] = useState("");
+  const [add, setAdd] = useState({ name: "", email: "", branch: "東京", role: "appointer", team: "" });
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const dirty =
+    JSON.stringify(meta) !== JSON.stringify(rosterMeta || {}) ||
+    JSON.stringify(pts) !== JSON.stringify(rankPoints || {});
+  const editing = useRef(false);
+  editing.current = dirty;
+  useEffect(() => {
+    if (editing.current) return;
+    setMeta(rosterMeta || {});
+    setPts(rankPoints || {});
+  }, [rosterMeta, rankPoints]);
+
+  const teamChoices = [...new Set([...teamNamesOf(meta), ...teams])];
+  /* 画面から足した人だけ消せます */
+  const addedEmails = new Set((users || []).map((u) => String(u.email || "").toLowerCase()));
+  const emailOf = (name) => ((users || []).find((u) => u.name === name) || {}).email || "";
+
+  const setMetaOf = (name, key, value) =>
+    setMeta((prev) => ({ ...prev, [name]: { ...metaOf(name, prev), [key]: value } }));
+  const setBase = (name, value) =>
+    setPts((prev) => ({
+      ...prev,
+      [name]: {
+        base: value === "" ? 0 : Number(value),
+        asOf: (prev[name] || {}).asOf || ymKey(PERIOD.year, PERIOD.month),
+      },
+    }));
+
+  const flash = (t) => { setMsg(t); setTimeout(() => setMsg(""), 3200); };
+
+  const save = async () => {
+    if (locked || busy) return;
+    setBusy(true);
+    try {
+      await onSaveRosterMeta(meta);
+      await onSaveSettings({ rankPoints: pts });
+      flash("保存しました");
+    } catch (e) {
+      flash(e.message || "保存できませんでした");
+    }
+    setBusy(false);
+  };
+
+  const doAdd = async () => {
+    if (locked || busy) return;
+    if (!add.name.trim()) return flash("氏名を入れてください");
+    if (add.email.indexOf("@") < 0) return flash("メールアドレスを入れてください");
+    setBusy(true);
+    try {
+      await onSaveUser({ ...add, name: add.name.trim(), email: add.email.trim() });
+      if (add.team) await onSaveRosterMeta({ ...meta, [add.name.trim()]: { ...metaOf(add.name.trim(), meta), team: add.team, rank: "beginner" } });
+      setAdd({ name: "", email: "", branch: "東京", role: "appointer", team: "" });
+      flash(add.name.trim() + " さんを追加しました");
+    } catch (e) {
+      flash(e.message || "追加できませんでした");
+    }
+    setBusy(false);
+  };
+
+  const doRemove = async (name) => {
+    const email = emailOf(name);
+    if (!email) return;
+    if (!window.confirm(name + " さんを名簿から外します。\n入力済みの日報は残ります。よろしいですか？")) return;
+    setBusy(true);
+    try {
+      await onRemoveUser(email);
+      flash(name + " さんを外しました");
+    } catch (e) {
+      flash(e.message || "外せませんでした");
+    }
+    setBusy(false);
+  };
+
+  const sel = "rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-400";
+  const txt = "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100";
+
+  const rows = MEMBERS.map((m) => ({
+    ...m,
+    team: teamOf(m.name, meta) || "",
+    rank: rankKeyOf(m.name, meta),
+    base: (pts[m.name] || {}).base,
+    asOf: (pts[m.name] || {}).asOf || "",
+    removable: addedEmails.has(String(emailOf(m.name)).toLowerCase()),
+  }));
+
+  return (
+    <Card className="p-5 sm:p-6 lg:col-span-2">
+      <SectionTitle note={locked ? "閲覧のみ（管理者が変更できます）" : "チーム・ランク・ポイントをここで決めます"}>
+        メンバー管理
+      </SectionTitle>
+
+      {msg && (
+        <p className="mb-4 rounded-lg bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700">{msg}</p>
+      )}
+
+      {/* ── 一覧 ── */}
+      <div className="w-full overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
+              {["氏名", "役割", "支店", "チーム", "ランク", "ポイント基準", ""].map((h) => (
+                <th key={h} className="px-3 py-2.5 text-left font-medium">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.name} className="border-b border-slate-50 last:border-0">
+                <td className="px-3 py-2.5">
+                  <span className="font-semibold text-slate-800">{r.name}</span>
+                  {emailOf(r.name) && (
+                    <span className="ml-2 text-[10px] text-slate-400">{emailOf(r.name)}</span>
+                  )}
+                </td>
+                <td className="px-3 py-2.5"><RoleTag role={r.role} /></td>
+                <td className="px-3 py-2.5 text-slate-600">{r.branch}</td>
+                <td className="px-3 py-2.5">
+                  <select
+                    value={r.team}
+                    disabled={locked}
+                    onChange={(e) => setMetaOf(r.name, "team", e.target.value)}
+                    className={sel}
+                  >
+                    <option value="">{NO_TEAM}</option>
+                    {teamChoices.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </td>
+                <td className="px-3 py-2.5">
+                  {r.role === "クローザー" ? (
+                    <span className="text-xs text-slate-400">—</span>
+                  ) : (
+                    <select
+                      value={r.rank}
+                      disabled={locked}
+                      onChange={(e) => setMetaOf(r.name, "rank", e.target.value)}
+                      className={sel}
+                    >
+                      {RANKS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+                    </select>
+                  )}
+                </td>
+                <td className="px-3 py-2.5">
+                  {r.role === "クローザー" ? (
+                    <span className="text-xs text-slate-400">—</span>
+                  ) : (
+                    <span className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={r.base ?? ""}
+                        placeholder="—"
+                        disabled={locked}
+                        onChange={(e) => setBase(r.name, e.target.value)}
+                        className="w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-right text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                      />
+                      <span className="text-[10px] text-slate-400">
+                        pt{r.asOf ? `（${Number(r.asOf.slice(5))}月末）` : ""}
+                      </span>
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2.5 text-right">
+                  {r.removable && !locked && (
+                    <button
+                      onClick={() => doRemove(r.name)}
+                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                    >
+                      外す
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="mt-3 text-xs text-slate-400">
+        ポイント基準は「今月末までの累計」を入れてください。来月からは、契約・完工にあわせて自動で増えます。
+      </p>
+
+      {!locked && (
+        <>
+          {/* ── チームを増やす ── */}
+          <div className="mt-6 rounded-xl border border-slate-200 p-4">
+            <p className="text-xs font-bold text-slate-700">チームを増やす</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={newTeam}
+                placeholder="例：橋本チーム"
+                onChange={(e) => setNewTeam(e.target.value)}
+                className={txt}
+              />
+              <button
+                onClick={() => {
+                  const t = newTeam.trim();
+                  if (!t || teamChoices.indexOf(t) >= 0) return;
+                  setTeams((prev) => [...prev, t]);
+                  setNewTeam("");
+                }}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                追加
+              </button>
+              <span className="text-xs text-slate-400">
+                今のチーム：{teamChoices.length ? teamChoices.join("／") : "なし"}
+              </span>
+            </div>
+          </div>
+
+          {/* ── メンバーを増やす ── */}
+          <div className="mt-4 rounded-xl border border-slate-200 p-4">
+            <p className="text-xs font-bold text-slate-700">メンバーを増やす</p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              追加するとすぐにログインできます（合言葉は craft2026）。新人は、ブラザーと同じチームを選んでください。
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              <input type="text" value={add.name} placeholder="氏名" onChange={(e) => setAdd({ ...add, name: e.target.value })} className={txt} />
+              <input type="email" value={add.email} placeholder="メールアドレス" onChange={(e) => setAdd({ ...add, email: e.target.value })} className={txt} />
+              <select value={add.branch} onChange={(e) => setAdd({ ...add, branch: e.target.value })} className={txt}>
+                {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+              <select value={add.role} onChange={(e) => setAdd({ ...add, role: e.target.value })} className={txt}>
+                <option value="appointer">アポインター</option>
+                <option value="closer">クローザー</option>
+              </select>
+              <select value={add.team} onChange={(e) => setAdd({ ...add, team: e.target.value })} className={txt}>
+                <option value="">{NO_TEAM}</option>
+                {teamChoices.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <button
+              onClick={doAdd}
+              disabled={busy}
+              className="mt-3 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-40"
+              style={{ backgroundColor: NAVY }}
+            >
+              この内容で追加する
+            </button>
+          </div>
+
+          {/* ── ポイントの数え方 ── */}
+          <div className="mt-4 rounded-xl border border-slate-200 p-4">
+            <p className="text-xs font-bold text-slate-700">ポイントの数え方</p>
+            <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={!!pointAddUp}
+                onChange={(e) => onSaveSettings({ pointAddUp: e.target.checked })}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              契約0.5ptと完工1ptを足して数える（合計1.5pt）
+            </label>
+            <p className="mt-1.5 text-[11px] text-slate-500">
+              チェックを外すと、同じ案件は契約のうち0.5pt、完工になったら1ptとして数えます。
+            </p>
+          </div>
+
+          <div className="mt-5 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
+            {dirty && <span className="text-center text-xs text-amber-600">未保存の変更があります</span>}
+            <button
+              onClick={() => { setMeta(rosterMeta || {}); setPts(rankPoints || {}); }}
+              disabled={!dirty}
+              className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
+            >
+              変更を取り消す
+            </button>
+            <button
+              onClick={save}
+              disabled={!dirty || busy}
+              className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ backgroundColor: NAVY }}
+            >
+              チーム・ランクを保存する
+            </button>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
 function SettingsPage({
   excl,
   setExcl,
@@ -5740,6 +6385,13 @@ function SettingsPage({
   onResetData,
   sharedInfo,
   dealCount,
+  rosterMeta,
+  users,
+  rankPoints,
+  pointAddUp,
+  onSaveRosterMeta,
+  onSaveUser,
+  onRemoveUser,
 }) {
   const [confirmReset, setConfirmReset] = useState(false);
   const [draftGoal, setDraftGoal] = useState(goal);
@@ -5784,7 +6436,7 @@ function SettingsPage({
   };
 
   const setT = (name, key, value) =>
-    setDraftTargets((prev) => ({ ...prev, [name]: { ...prev[name], [key]: num(value) } }));
+    setDraftTargets((prev) => ({ ...prev, [name]: { ...(prev[name] || {}), [key]: num(value) } }));
 
   const draftTeam = sumTargets(draftTargets);
   const inputBase =
@@ -5989,6 +6641,18 @@ function SettingsPage({
           </div>
         </Card>
 
+        <MemberAdmin
+          locked={locked}
+          rosterMeta={rosterMeta}
+          users={users}
+          rankPoints={rankPoints}
+          pointAddUp={pointAddUp}
+          onSaveRosterMeta={onSaveRosterMeta}
+          onSaveSettings={onSaveSettings}
+          onSaveUser={onSaveUser}
+          onRemoveUser={onRemoveUser}
+        />
+
         {/* 個人目標 */}
         <Card className="p-5 sm:p-6 lg:col-span-2">
           <SectionTitle note={locked ? "閲覧のみ" : "数値を直接編集できます"}>メンバーと個人目標</SectionTitle>
@@ -6008,7 +6672,7 @@ function SettingsPage({
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
-                          value={draftTargets[m.name][key]}
+                          value={(draftTargets[m.name] || {})[key] ?? 0}
                           disabled={locked}
                           onChange={(e) => setT(m.name, key, e.target.value)}
                           className={cellInput}
@@ -6051,7 +6715,7 @@ function SettingsPage({
                         <div className="flex items-center gap-1">
                           <input
                             type="number"
-                            value={draftTargets[m.name][key]}
+                            value={(draftTargets[m.name] || {})[key] ?? 0}
                             disabled={locked}
                             onChange={(e) => setT(m.name, key, e.target.value)}
                             className={cellInput}
@@ -6191,6 +6855,10 @@ const DEFAULT_SHARED = {
   goal: DEFAULT_GOAL,
   targets: DEFAULT_TARGETS,
   editPolicy: "all",
+  /* ランク制度のポイント。{ 氏名: { base: 15.5, asOf: "2026-11" } } */
+  rankPoints: {},
+  /* true にすると、契約0.5と完工1を足して数えます */
+  pointAddUp: false,
   updatedAt: 0,
   updatedBy: "",
 };
@@ -6199,6 +6867,9 @@ const DEFAULT_SHARED = {
    メンバーを追加した直後でも、目標値が空にならないようにするための処理です。 */
 function mergeShared(data) {
   const d = { ...DEFAULT_SHARED, ...(data || {}) };
+  /* 名簿を先に合わせます。目標値などがこのあと名簿を見るためです */
+  syncMembers(d.users);
+  d.rankPoints = { ...DEFAULT_RANK_POINTS, ...(d.rankPoints || {}) };
   d.navi = d.navi || {};
   d.goal = { ...DEFAULT_GOAL, ...(d.goal || {}) };
   d.targets = MEMBERS.reduce(
@@ -6251,13 +6922,8 @@ function SyncBadge({ sync, onRefresh, dark = false, intervalMs }) {
 
 /* ══════════════════════════════════════════
    週次報告（支店長が毎週そのまま貼れる文面を作ります）
-   チーム分けはここで変えてください。
+   チーム分けは「設定 → メンバー管理」で変えてください。
    ══════════════════════════════════════════ */
-const TEAMS = [
-  { name: "山﨑チーム", members: ["山﨑", "沼口", "新井田", "藤代", "島", "棗"] },
-  { name: "森野チーム", members: ["森野", "佐伯", "鄭", "石", "三瀬", "樋熊", "塚原", "山上"] },
-  { name: "橋本チーム", members: ["橋本", "熊澤", "扇田", "山田", "渡邉"] }
-];
 /* 週次報告の「個人進捗」に出さない人（支店の合計やランキングには入ります） */
 const REPORT_SKIP = ["斉藤"];
 
@@ -6458,7 +7124,7 @@ function LogCheck({ logs, branch, setBranch }) {
   );
 }
 
-function WeeklyReport({ stats, targets, goal, month, setMonth, branch, setBranch }) {
+function WeeklyReport({ stats, targets, goal, month, setMonth, branch, setBranch, rosterMeta }) {
   const weeks = weekDefsOf(month);
   const thisWeek = weekStartOf(TODAY.date);
   const [week, setWeek] = React.useState(
@@ -6517,10 +7183,11 @@ function WeeklyReport({ stats, targets, goal, month, setMonth, branch, setBranch
     };
 
     /* チームごとの個人進捗。チーム表に無い人は「その他」にまとめます */
-    const listed = new Set([].concat(...TEAMS.map((t) => t.members)));
+    const TEAM_LIST = teamsOf(rosterMeta).filter((t) => t.members.length);
+    const listed = new Set([].concat(...TEAM_LIST.map((t) => t.members)));
     /* チーム表に名前が無い人も必ず出します（報告から誰も漏れないように） */
     const rest = names.filter((n) => !listed.has(n) && REPORT_SKIP.indexOf(n) < 0);
-    const blocks = TEAMS.concat(rest.length ? [{ name: "その他", members: rest }] : [])
+    const blocks = TEAM_LIST.concat(rest.length ? [{ name: "その他", members: rest }] : [])
       .map((t) => {
         const rows = t.members
           .filter((n) => names.indexOf(n) >= 0 && REPORT_SKIP.indexOf(n) < 0)
@@ -6550,7 +7217,7 @@ function WeeklyReport({ stats, targets, goal, month, setMonth, branch, setBranch
       `【個人進捗】`,
       blocks.join("\n\n")
     ].join("\n");
-  }, [stats, targets, goal, month, week, branch, manual, kankoKey]);
+  }, [stats, targets, goal, month, week, branch, manual, kankoKey, rosterMeta]);
 
   const copy = async () => {
     try {
@@ -6634,7 +7301,7 @@ function WeeklyReport({ stats, targets, goal, month, setMonth, branch, setBranch
         </div>
         <p className="mt-3 text-xs leading-relaxed text-slate-500">
           完工数は契約ベースです（キャンセル登録されたものは除かれます）。支店の完工目標の既定は15件で、上の欄で変えられます。目標はメンバーごとの月間目標の合計で、
-          週間アポの目標は月間アポ目標を週数で割った数です。チーム分けを変えるときは log.html の TEAMS を直してください。
+          週間アポの目標は月間アポ目標を週数で割った数です。チーム分けは「設定 → メンバー管理」で変えられます。
         </p>
       </div>
     </>
@@ -7300,6 +7967,9 @@ function App() {
   const onDeleteLog = (id) => run("deleteLog", id, token);
   const onPatchDeal = (id, patch) => run("patchDeal", id, patch, token);
   const onSaveSettings = (patch) => run("saveSettings", patch, token);
+  const onSaveRosterMeta = (map) => run("saveRosterMeta", map, token);
+  const onSaveUser = (user) => run("saveUser", user, token);
+  const onRemoveUser = (email) => run("removeUser", email, token);
   const resetData = () => run("resetData", DEFAULT_SHARED, token);
 
   const submitLog = (name, iso, rawValues, items = []) => {
@@ -7409,7 +8079,7 @@ function App() {
         <div className="px-7 py-8">
           <span className="text-xl font-bold tracking-wide text-white">Craft energy</span>
           <p className="mt-1 text-xs tracking-widest text-blue-200/70">SALES PLATFORM</p>
-          <p className="mt-1 text-[10px] text-blue-200/50">画面 v93</p>
+          <p className="mt-1 text-[10px] text-blue-200/50">画面 v94</p>
         </div>
 
         <nav className="mt-2 flex-1 space-y-1 pr-4">
@@ -7524,6 +8194,9 @@ function App() {
 
           {page === "my" && (
             <MyPerformance
+              rosterMeta={rosterMeta}
+              rankPoints={shared.rankPoints || {}}
+              pointAddUp={!!shared.pointAddUp}
               stats={stats}
               goal={goal}
               targets={targets}
@@ -7537,6 +8210,7 @@ function App() {
           )}
           {page === "dashboard" && (
             <Dashboard
+              rosterMeta={rosterMeta}
               excl={excl}
               setExcl={setExcl}
               showBanner={showBanner}
@@ -7620,6 +8294,7 @@ function App() {
               setBranch={setBranch}
             />}
           {page === "report" && REPORT_VIEWERS.indexOf(me?.name) >= 0 && <WeeklyReport
+              rosterMeta={rosterMeta}
               stats={stats}
               targets={targets}
               goal={goal}
@@ -7695,6 +8370,13 @@ function App() {
               onResetData={resetData}
               sharedInfo={shared}
               dealCount={deals.length}
+              rosterMeta={rosterMeta}
+              users={shared.users || []}
+              rankPoints={shared.rankPoints || {}}
+              pointAddUp={!!shared.pointAddUp}
+              onSaveRosterMeta={onSaveRosterMeta}
+              onSaveUser={onSaveUser}
+              onRemoveUser={onRemoveUser}
             />
           )}
         </div>
